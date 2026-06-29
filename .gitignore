@@ -1,0 +1,31 @@
+# Local environment
+.env
+.env.*
+!.env.example
+deploy/env/*.env
+!deploy/env/*.env.example
+
+# Go
+.cache/
+bin/
+*.test
+coverage.out
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+frontend/package-lock.json
+frontend/tsconfig.tsbuildinfo
+package-lock.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
