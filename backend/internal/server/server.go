@@ -14,6 +14,7 @@ import (
 	"online-colab-document/backend/internal/document"
 	"online-colab-document/backend/internal/health"
 	"online-colab-document/backend/internal/middleware"
+	"online-colab-document/backend/internal/onlyoffice"
 	"online-colab-document/backend/internal/permission"
 	"online-colab-document/backend/internal/storage"
 )
@@ -84,6 +85,20 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			documentRepo := document.NewPostgresRepository(db)
 			documentService := document.NewService(documentRepo, objectStorage, permissionService, cfg.DocumentMaxUploadBytes)
 			documentHandler := document.NewHandler(documentService, logger)
+			onlyOfficeService := onlyoffice.NewService(
+				onlyoffice.Config{
+					Enabled:          cfg.OnlyOfficeEnabled,
+					PublicURL:        cfg.OnlyOfficePublicURL,
+					JWTSecret:        cfg.OnlyOfficeJWTSecret,
+					PublicAPIURL:     cfg.PublicAPIURL,
+					CallbackBaseURL:  cfg.BackendInternalURL,
+					MaxDownloadBytes: cfg.DocumentMaxUploadBytes,
+				},
+				documentRepo,
+				permissionService,
+				objectStorage,
+			)
+			onlyOfficeHandler := onlyoffice.NewHandler(onlyOfficeService, logger)
 			requireAuth := func(next http.HandlerFunc) http.Handler {
 				return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
 			}
@@ -96,6 +111,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /api/documents/{id}/permissions", requireAuth(permissionHandler.List))
 			mux.Handle("POST /api/documents/{id}/permissions", requireAuth(permissionHandler.Grant))
 			mux.Handle("DELETE /api/documents/{id}/permissions/{permissionId}", requireAuth(permissionHandler.Delete))
+			mux.Handle("GET /api/documents/{id}/onlyoffice/config", requireAuth(onlyOfficeHandler.Config))
+			mux.HandleFunc("POST /api/onlyoffice/callback/{documentId}", onlyOfficeHandler.Callback)
 		}
 	}
 

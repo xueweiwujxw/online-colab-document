@@ -286,6 +286,33 @@ h1 {
   grid-template-columns: minmax(180px, 1fr) 120px 120px auto;
 }
 
+.editor-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: #f6f7f9;
+}
+
+.editor-topbar {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #d9dee7;
+  background: #ffffff;
+  padding: 10px 18px;
+}
+
+.editor-topbar .back-link {
+  margin-bottom: 0;
+}
+
+.onlyoffice-frame {
+  min-height: calc(100vh - 58px);
+  background: #ffffff;
+}
+
 .version-list {
   margin-top: 28px;
 }

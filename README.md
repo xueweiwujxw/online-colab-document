@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M4 文档权限系统。尚未实现 ONLYOFFICE、Markdown 协同。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M5 ONLYOFFICE 集成。尚未实现 Markdown 协同。
 
 ## 技术栈
 
@@ -32,6 +32,7 @@ make dev
 - Redis: localhost:6379
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
+- ONLYOFFICE Document Server: http://localhost:8081
 
 ## 环境变量
 
@@ -59,6 +60,13 @@ OIDC_REDIRECT_URL=http://localhost:8080/api/auth/oidc/callback
 OIDC_SCOPES=openid,email,profile
 OIDC_AUTO_MERGE_BY_EMAIL=false
 DOCUMENT_MAX_UPLOAD_BYTES=52428800
+ONLYOFFICE_ENABLED=true
+ONLYOFFICE_PUBLIC_URL=http://localhost:8081
+ONLYOFFICE_INTERNAL_URL=http://onlyoffice
+ONLYOFFICE_JWT_SECRET=change-me
+PUBLIC_APP_URL=http://localhost:3000
+PUBLIC_API_URL=http://localhost:8080
+BACKEND_INTERNAL_URL=http://backend:8080
 ```
 
 前端：
@@ -82,7 +90,7 @@ make lint
 
 ## 当前里程碑
 
-M4 文档权限系统：
+M5 ONLYOFFICE 集成：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -97,7 +105,11 @@ M4 文档权限系统：
 - owner / editor / viewer 权限矩阵
 - 文档接口统一接入 PermissionService
 - 前端 `/documents/:id/permissions` 权限管理页面
+- ONLYOFFICE Document Server compose 服务
+- doc/docx/xls/xlsx 编辑器 config 生成
+- viewer 只读、editor/owner 可编辑
+- ONLYOFFICE 保存回调生成新版本
 
 ## 下一步开发计划
 
-M5 将集成 ONLYOFFICE。
+M6 将实现 Markdown 普通在线编辑。

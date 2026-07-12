@@ -348,6 +348,27 @@ func (r *memoryRepo) ListVersions(_ context.Context, documentID string) ([]Versi
 	return append([]Version(nil), r.versions[documentID]...), nil
 }
 
+func (r *memoryRepo) HasOnlyOfficeSave(context.Context, string, string) (bool, error) {
+	return false, nil
+}
+
+func (r *memoryRepo) AddVersion(_ context.Context, documentID string, version Version, _ string, updatedAt time.Time) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	doc, ok := r.documents[documentID]
+	if !ok || doc.DeletedAt != nil {
+		return false, ErrNotFound
+	}
+	version.VersionNo = int64(len(r.versions[documentID]) + 1)
+	r.versions[documentID] = append(r.versions[documentID], version)
+	doc.CurrentVersionID = &version.ID
+	doc.StorageKey = version.StorageKey
+	doc.SizeBytes = version.SizeBytes
+	doc.UpdatedAt = updatedAt
+	r.documents[documentID] = doc
+	return true, nil
+}
+
 func (r *memoryRepo) documentCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

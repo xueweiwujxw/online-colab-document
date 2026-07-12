@@ -98,6 +98,11 @@ export function DocumentDetailPage({ id }: { id: string }) {
               Permissions
             </a>
           ) : null}
+          {isOfficeDocument(state.document.fileExt) ? (
+            <a className="secondary-button" href={`/documents/${state.document.id}/edit`}>
+              Open editor
+            </a>
+          ) : null}
           <a className="primary-link" href={documentDownloadURL(state.document.id)}>
             Download
           </a>
@@ -136,4 +141,8 @@ function formatSize(value: number): string {
     return `${(value / 1024).toFixed(1)} KB`;
   }
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isOfficeDocument(fileExt: string): boolean {
+  return ['doc', 'docx', 'xls', 'xlsx'].includes(fileExt.toLowerCase());
 }

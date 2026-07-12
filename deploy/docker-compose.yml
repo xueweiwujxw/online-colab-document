@@ -23,12 +23,20 @@ services:
       OIDC_SCOPES: openid,email,profile
       OIDC_AUTO_MERGE_BY_EMAIL: "false"
       DOCUMENT_MAX_UPLOAD_BYTES: "52428800"
+      ONLYOFFICE_ENABLED: "true"
+      ONLYOFFICE_PUBLIC_URL: http://localhost:8081
+      ONLYOFFICE_INTERNAL_URL: http://onlyoffice
+      ONLYOFFICE_JWT_SECRET: change-me
+      PUBLIC_APP_URL: http://localhost:3000
+      PUBLIC_API_URL: http://localhost:8080
+      BACKEND_INTERNAL_URL: http://backend:8080
     ports:
       - "8080:8080"
     depends_on:
       - postgres
       - redis
       - minio
+      - onlyoffice
 
   frontend:
     build:
@@ -67,6 +75,13 @@ services:
       - "9001:9001"
     volumes:
       - minio-data:/data
+
+  onlyoffice:
+    image: docker.io/onlyoffice/documentserver:latest
+    environment:
+      JWT_SECRET: change-me
+    ports:
+      - "8081:80"
 
 volumes:
   postgres-data:
