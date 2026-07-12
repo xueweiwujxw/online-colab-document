@@ -15,14 +15,14 @@ body {
   margin: 0;
 }
 
-.shell {
+.auth-shell {
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 32px;
 }
 
-.status-panel {
+.login-panel {
   width: min(100%, 560px);
   border: 1px solid #d9dee7;
   border-radius: 8px;
@@ -44,47 +44,100 @@ h1 {
   font-weight: 700;
 }
 
-.health-row {
-  min-height: 48px;
+.field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: #354257;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cbd3df;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #172033;
+  font: inherit;
+  font-weight: 400;
+}
+
+.field input:focus {
+  border-color: #1e6fcb;
+  outline: 3px solid rgb(30 111 203 / 18%);
+}
+
+.form-error {
+  margin: 0 0 18px;
+  color: #9f2723;
+  font-size: 14px;
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 16px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.primary-button {
+  width: 100%;
+  background: #1e6fcb;
+  color: #ffffff;
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.secondary-button {
+  border: 1px solid #cbd3df;
+  background: #ffffff;
+  color: #172033;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-top: 1px solid #e7ebf0;
-  padding-top: 18px;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   color: #354257;
 }
 
-.badge {
-  max-width: 100%;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 14px;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
+.empty-state {
+  margin-top: 28px;
+  border: 1px dashed #cbd3df;
+  border-radius: 8px;
+  padding: 28px;
+  color: #536176;
+  background: #ffffff;
 }
 
-.badge-loading {
-  background: #eef2f7;
-  color: #4a5568;
-}
-
-.badge-ok {
-  background: #e8f7ef;
-  color: #11623a;
-}
-
-.badge-error {
-  background: #fdeceb;
-  color: #9f2723;
-}
-
-@media (max-width: 520px) {
-  .shell {
+@media (max-width: 620px) {
+  .auth-shell,
+  .app-shell {
     padding: 20px;
   }
 
-  .status-panel {
+  .login-panel {
     padding: 24px;
   }
 
@@ -92,7 +145,7 @@ h1 {
     font-size: 30px;
   }
 
-  .health-row {
+  .topbar {
     align-items: flex-start;
     flex-direction: column;
   }

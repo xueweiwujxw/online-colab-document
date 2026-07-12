@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"online-colab-document/backend/internal/auth/local"
 	"online-colab-document/backend/internal/config"
 	"online-colab-document/backend/internal/health"
 )
@@ -16,14 +18,28 @@ type Server struct {
 	logger     *slog.Logger
 }
 
-func New(cfg config.Config, logger *slog.Logger) *Server {
+func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 	mux := http.NewServeMux()
 	healthHandler := health.NewHandler(health.NewChecker(cfg))
 
 	mux.HandleFunc("GET /healthz", healthHandler.Healthz)
 	mux.HandleFunc("GET /readyz", healthHandler.Readyz)
+	if db != nil {
+		authRepo := local.NewPostgresRepository(db)
+		authService := local.NewService(
+			authRepo,
+			authRepo,
+			cfg.PasswordHashPepper,
+			time.Duration(cfg.SessionTTLHours)*time.Hour,
+		)
+		authHandler := local.NewHandler(authService, logger, cfg.SessionCookieName, cfg.AppEnv == "production")
+		mux.HandleFunc("POST /api/auth/local/register", authHandler.Register)
+		mux.HandleFunc("POST /api/auth/local/login", authHandler.Login)
+		mux.HandleFunc("POST /api/auth/logout", authHandler.Logout)
+		mux.HandleFunc("GET /api/auth/me", authHandler.Me)
+	}
 
-	handler := withLogging(logger, withCORS(mux))
+	handler := withLogging(logger, withCORS(cfg, mux))
 
 	return &Server{
 		logger: logger,
@@ -62,11 +78,15 @@ func withLogging(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-func withCORS(next http.Handler) http.Handler {
+func withCORS(cfg config.Config, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if cfg.FrontendOrigin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", cfg.FrontendOrigin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

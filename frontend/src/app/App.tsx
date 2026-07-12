@@ -1,61 +1,13 @@
-import { useEffect, useState } from 'react';
-
-import { getHealth, type HealthResponse } from '../api/health';
+import { AuthProvider } from '../auth/AuthContext';
+import { DocumentListPage } from '../pages/DocumentListPage/DocumentListPage';
+import { LoginPage } from '../pages/LoginPage/LoginPage';
 import './App.css';
 
-type HealthState =
-  | { state: 'loading' }
-  | { state: 'success'; data: HealthResponse }
-  | { state: 'error'; message: string };
-
 export function App() {
-  const [health, setHealth] = useState<HealthState>({ state: 'loading' });
-
-  useEffect(() => {
-    let mounted = true;
-
-    getHealth()
-      .then((data) => {
-        if (mounted) {
-          setHealth({ state: 'success', data });
-        }
-      })
-      .catch((error: unknown) => {
-        if (mounted) {
-          setHealth({
-            state: 'error',
-            message: error instanceof Error ? error.message : 'Unknown error',
-          });
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
+  const path = window.location.pathname;
   return (
-    <main className="shell">
-      <section className="status-panel">
-        <p className="eyebrow">Online document collaboration</p>
-        <h1>Docs Collab Service</h1>
-        <div className="health-row">
-          <span>Backend health</span>
-          <HealthBadge health={health} />
-        </div>
-      </section>
-    </main>
+    <AuthProvider>
+      {path === '/login' ? <LoginPage /> : <DocumentListPage />}
+    </AuthProvider>
   );
-}
-
-function HealthBadge({ health }: { health: HealthState }) {
-  if (health.state === 'loading') {
-    return <span className="badge badge-loading">Checking</span>;
-  }
-
-  if (health.state === 'error') {
-    return <span className="badge badge-error">{health.message}</span>;
-  }
-
-  return <span className="badge badge-ok">{health.data.status}</span>;
 }

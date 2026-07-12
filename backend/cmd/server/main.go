@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	"online-colab-document/backend/internal/config"
 	"online-colab-document/backend/internal/server"
@@ -18,7 +21,14 @@ func main() {
 		Level: cfg.LogLevel(),
 	}))
 
-	app := server.New(cfg, logger)
+	db, err := sql.Open("postgres", cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("database open failed", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	app := server.New(cfg, logger, db)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

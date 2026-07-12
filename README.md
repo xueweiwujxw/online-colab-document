@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前只完成 M0 项目骨架。尚未实现认证、文档上传下载、权限、ONLYOFFICE、Markdown 协同。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M1 本地用户认证。尚未实现 OIDC、文档上传下载、权限、ONLYOFFICE、Markdown 协同。
 
 ## 技术栈
 
@@ -47,6 +47,10 @@ S3_ACCESS_KEY=minioadmin
 S3_SECRET_KEY=minioadmin
 S3_BUCKET=docs
 S3_USE_SSL=false
+FRONTEND_ORIGIN=http://localhost:3000
+SESSION_COOKIE_NAME=docs_session
+SESSION_TTL_HOURS=168
+PASSWORD_HASH_PEPPER=
 ```
 
 前端：
@@ -70,14 +74,14 @@ make lint
 
 ## 当前里程碑
 
-M0 项目骨架：
+M1 本地用户认证：
 
-- Go backend 最小服务
-- React + TypeScript + Vite 最小应用
-- `/healthz` 和 `/readyz`
-- PostgreSQL、Redis、MinIO 的 Docker Compose 基础依赖
-- Makefile、README、基础架构文档
+- users / sessions 数据库 migration
+- 本地用户注册、登录、登出、当前用户接口
+- HttpOnly session cookie，服务端仅保存 token hash
+- 前端 `/login` 页面、auth context、受保护的文档列表占位页
+- 后端认证测试和前端构建验证
 
 ## 下一步开发计划
 
-M1 将实现本地用户认证，包括用户注册、登录、登出、当前用户接口、登录态中间件和前端登录页。
+M2 将实现 OIDC 登录，并保持已有本地登录流程不受影响。
