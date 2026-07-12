@@ -9,6 +9,7 @@ export type DocumentItem = {
   sizeBytes: number;
   updatedAt: string;
   createdAt: string;
+  canManage: boolean;
 };
 
 export type DocumentVersion = {

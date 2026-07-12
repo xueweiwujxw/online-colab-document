@@ -36,6 +36,7 @@ type PublicDocument struct {
 	SizeBytes        int64     `json:"sizeBytes"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 	CreatedAt        time.Time `json:"createdAt"`
+	CanManage        bool      `json:"canManage"`
 }
 
 type PublicVersion struct {
@@ -45,7 +46,7 @@ type PublicVersion struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func ToPublic(d Document) PublicDocument {
+func ToPublic(d Document, canManage bool) PublicDocument {
 	return PublicDocument{
 		ID:               d.ID,
 		Title:            d.Title,
@@ -55,6 +56,7 @@ func ToPublic(d Document) PublicDocument {
 		SizeBytes:        d.SizeBytes,
 		UpdatedAt:        d.UpdatedAt,
 		CreatedAt:        d.CreatedAt,
+		CanManage:        canManage,
 	}
 }
 

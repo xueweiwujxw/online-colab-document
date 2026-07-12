@@ -92,9 +92,16 @@ export function DocumentDetailPage({ id }: { id: string }) {
           <h1>{state.document.title}</h1>
           <p className="document-meta">{state.document.originalFilename}</p>
         </div>
-        <a className="primary-link" href={documentDownloadURL(state.document.id)}>
-          Download
-        </a>
+        <div className="detail-actions">
+          {state.document.canManage ? (
+            <a className="secondary-button" href={`/documents/${state.document.id}/permissions`}>
+              Permissions
+            </a>
+          ) : null}
+          <a className="primary-link" href={documentDownloadURL(state.document.id)}>
+            Download
+          </a>
+        </div>
       </header>
       <section className="version-list">
         <h2>Versions</h2>

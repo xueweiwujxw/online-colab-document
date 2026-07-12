@@ -34,7 +34,12 @@ func (h Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]PublicDocument, 0, len(docs))
 	for _, doc := range docs {
-		items = append(items, ToPublic(doc))
+		canManage, err := h.service.CanManage(r.Context(), currentUser.ID, doc.ID)
+		if err != nil {
+			h.writeError(w, "check document manage permission failed", err)
+			return
+		}
+		items = append(items, ToPublic(doc, canManage))
 	}
 	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -68,7 +73,7 @@ func (h Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "upload document failed", err)
 		return
 	}
-	api.WriteJSON(w, http.StatusCreated, ToPublic(doc))
+	api.WriteJSON(w, http.StatusCreated, ToPublic(doc, true))
 }
 
 func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +87,12 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "get document failed", err)
 		return
 	}
-	api.WriteJSON(w, http.StatusOK, ToPublic(doc))
+	canManage, err := h.service.CanManage(r.Context(), currentUser.ID, doc.ID)
+	if err != nil {
+		h.writeError(w, "check document manage permission failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, ToPublic(doc, canManage))
 }
 
 func (h Handler) Download(w http.ResponseWriter, r *http.Request) {

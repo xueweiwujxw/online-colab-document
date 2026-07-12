@@ -29,9 +29,16 @@ var (
 type Service struct {
 	repo           Repository
 	storage        storage.Storage
+	permissions    PermissionService
 	maxUploadBytes int64
 	now            func() time.Time
 	newID          func() (string, error)
+}
+
+type PermissionService interface {
+	CanView(ctx context.Context, userID string, documentID string) (bool, error)
+	CanManage(ctx context.Context, userID string, documentID string) (bool, error)
+	CanDelete(ctx context.Context, userID string, documentID string) (bool, error)
 }
 
 type UploadInput struct {
@@ -47,13 +54,14 @@ type Download struct {
 	Reader   io.ReadCloser
 }
 
-func NewService(repo Repository, objectStorage storage.Storage, maxUploadBytes int64) *Service {
+func NewService(repo Repository, objectStorage storage.Storage, permissions PermissionService, maxUploadBytes int64) *Service {
 	if maxUploadBytes <= 0 {
 		maxUploadBytes = defaultMaxUploadBytes
 	}
 	return &Service{
 		repo:           repo,
 		storage:        objectStorage,
+		permissions:    permissions,
 		maxUploadBytes: maxUploadBytes,
 		now:            time.Now,
 		newID:          newUUID,
@@ -128,18 +136,24 @@ func (s *Service) List(ctx context.Context, ownerID string) ([]Document, error) 
 	if ownerID == "" {
 		return nil, ErrForbidden
 	}
-	return s.repo.ListByOwner(ctx, ownerID)
+	if s.permissions == nil {
+		return s.repo.ListByOwner(ctx, ownerID)
+	}
+	return s.repo.ListAccessible(ctx, ownerID)
 }
 
-func (s *Service) Get(ctx context.Context, ownerID string, id string) (Document, error) {
-	if ownerID == "" || id == "" {
+func (s *Service) Get(ctx context.Context, userID string, id string) (Document, error) {
+	if userID == "" || id == "" {
 		return Document{}, ErrForbidden
 	}
-	return s.repo.FindByIDForOwner(ctx, id, ownerID)
+	if err := s.requireView(ctx, userID, id); err != nil {
+		return Document{}, err
+	}
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *Service) Download(ctx context.Context, ownerID string, id string) (Download, error) {
-	doc, err := s.Get(ctx, ownerID, id)
+func (s *Service) Download(ctx context.Context, userID string, id string) (Download, error) {
+	doc, err := s.Get(ctx, userID, id)
 	if err != nil {
 		return Download{}, err
 	}
@@ -150,18 +164,69 @@ func (s *Service) Download(ctx context.Context, ownerID string, id string) (Down
 	return Download{Document: doc, Reader: reader}, nil
 }
 
-func (s *Service) Delete(ctx context.Context, ownerID string, id string) error {
-	if ownerID == "" || id == "" {
+func (s *Service) Delete(ctx context.Context, userID string, id string) error {
+	if userID == "" || id == "" {
 		return ErrForbidden
 	}
-	return s.repo.SoftDeleteForOwner(ctx, id, ownerID, s.now().UTC())
+	if s.permissions != nil {
+		canDelete, err := s.permissions.CanDelete(ctx, userID, id)
+		if err != nil {
+			return err
+		}
+		if !canDelete {
+			return ErrForbidden
+		}
+	}
+	doc, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if s.permissions == nil && doc.OwnerID != userID {
+		return ErrForbidden
+	}
+	return s.repo.SoftDeleteForOwner(ctx, id, doc.OwnerID, s.now().UTC())
 }
 
-func (s *Service) Versions(ctx context.Context, ownerID string, id string) ([]Version, error) {
-	if ownerID == "" || id == "" {
+func (s *Service) Versions(ctx context.Context, userID string, id string) ([]Version, error) {
+	if userID == "" || id == "" {
 		return nil, ErrForbidden
 	}
-	return s.repo.ListVersionsForOwner(ctx, id, ownerID)
+	if err := s.requireView(ctx, userID, id); err != nil {
+		return nil, err
+	}
+	return s.repo.ListVersions(ctx, id)
+}
+
+func (s *Service) CanManage(ctx context.Context, userID string, id string) (bool, error) {
+	if s.permissions == nil {
+		doc, err := s.repo.FindByID(ctx, id)
+		if err != nil {
+			return false, err
+		}
+		return doc.OwnerID == userID, nil
+	}
+	return s.permissions.CanManage(ctx, userID, id)
+}
+
+func (s *Service) requireView(ctx context.Context, userID string, id string) error {
+	if s.permissions == nil {
+		doc, err := s.repo.FindByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if doc.OwnerID != userID {
+			return ErrForbidden
+		}
+		return nil
+	}
+	canView, err := s.permissions.CanView(ctx, userID, id)
+	if err != nil {
+		return err
+	}
+	if !canView {
+		return ErrForbidden
+	}
+	return nil
 }
 
 type fileMetadata struct {

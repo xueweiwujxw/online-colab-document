@@ -125,13 +125,15 @@ export function DocumentListPage() {
                 <a className="secondary-button" href={documentDownloadURL(document.id)}>
                   Download
                 </a>
-                <button
-                  className="secondary-button danger-button"
-                  onClick={() => void onDelete(document.id)}
-                  type="button"
-                >
-                  Delete
-                </button>
+                {document.canManage ? (
+                  <button
+                    className="secondary-button danger-button"
+                    onClick={() => void onDelete(document.id)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </div>
             </article>
           ))}

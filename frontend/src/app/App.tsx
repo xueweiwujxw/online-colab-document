@@ -2,17 +2,24 @@ import { AuthProvider } from '../auth/AuthContext';
 import { DocumentDetailPage } from '../pages/DocumentDetailPage/DocumentDetailPage';
 import { DocumentListPage } from '../pages/DocumentListPage/DocumentListPage';
 import { LoginPage } from '../pages/LoginPage/LoginPage';
+import { PermissionPage } from '../pages/PermissionPage/PermissionPage';
 import './App.css';
 
 export function App() {
   const path = window.location.pathname;
+  const permissionMatch = path.match(/^\/documents\/([^/]+)\/permissions$/);
   const documentDetailMatch = path.match(/^\/documents\/([^/]+)$/);
   return (
     <AuthProvider>
       {path === '/login' ? <LoginPage /> : null}
       {path === '/documents' || path === '/' ? <DocumentListPage /> : null}
-      {documentDetailMatch ? <DocumentDetailPage id={documentDetailMatch[1]} /> : null}
-      {path !== '/login' && path !== '/documents' && path !== '/' && !documentDetailMatch ? (
+      {permissionMatch ? <PermissionPage documentId={permissionMatch[1]} /> : null}
+      {documentDetailMatch && !permissionMatch ? <DocumentDetailPage id={documentDetailMatch[1]} /> : null}
+      {path !== '/login' &&
+      path !== '/documents' &&
+      path !== '/' &&
+      !documentDetailMatch &&
+      !permissionMatch ? (
         <DocumentListPage />
       ) : null}
     </AuthProvider>

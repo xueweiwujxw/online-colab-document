@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M3 文档上传下载。尚未实现权限、ONLYOFFICE、Markdown 协同。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M4 文档权限系统。尚未实现 ONLYOFFICE、Markdown 协同。
 
 ## 技术栈
 
@@ -82,7 +82,7 @@ make lint
 
 ## 当前里程碑
 
-M3 文档上传下载：
+M4 文档权限系统：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -93,7 +93,11 @@ M3 文档上传下载：
 - 文档上传、列表、详情、下载、软删除和版本列表
 - MinIO / S3 storage 抽象与对象存储实现
 - 前端 `/documents` 和 `/documents/:id` 页面
+- document_permissions 数据库 migration
+- owner / editor / viewer 权限矩阵
+- 文档接口统一接入 PermissionService
+- 前端 `/documents/:id/permissions` 权限管理页面
 
 ## 下一步开发计划
 
-M4 将实现文档权限系统。
+M5 将集成 ONLYOFFICE。

@@ -18,7 +18,7 @@ import (
 func TestUploadSuccessCreatesDocumentVersionAndObject(t *testing.T) {
 	repo := newMemoryRepo()
 	objectStorage := newMemoryStorage()
-	service := NewService(repo, objectStorage, 1024)
+	service := NewService(repo, objectStorage, nil, 1024)
 
 	doc, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
@@ -54,7 +54,7 @@ func TestUploadAcceptsRequiredFileTypes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			service := NewService(newMemoryRepo(), newMemoryStorage(), 1024)
+			service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024)
 			_, err := service.Upload(context.Background(), UploadInput{
 				OwnerID:          "owner-1",
 				OriginalFilename: tc.filename,
@@ -70,7 +70,7 @@ func TestUploadAcceptsRequiredFileTypes(t *testing.T) {
 }
 
 func TestUploadRequiresAuthenticatedUser(t *testing.T) {
-	handler := NewHandler(NewService(newMemoryRepo(), newMemoryStorage(), 1024), slog.Default())
+	handler := NewHandler(NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024), slog.Default())
 	body, contentType := multipartBody(t, "file", "example.md", "text/markdown", "hello")
 	req := httptest.NewRequest(http.MethodPost, "/api/documents/upload", body)
 	req.Header.Set("Content-Type", contentType)
@@ -84,7 +84,7 @@ func TestUploadRequiresAuthenticatedUser(t *testing.T) {
 }
 
 func TestUploadUnsupportedExtensionFails(t *testing.T) {
-	service := NewService(newMemoryRepo(), newMemoryStorage(), 1024)
+	service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024)
 
 	_, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
@@ -100,7 +100,7 @@ func TestUploadUnsupportedExtensionFails(t *testing.T) {
 }
 
 func TestUploadTooLargeFails(t *testing.T) {
-	service := NewService(newMemoryRepo(), newMemoryStorage(), 3)
+	service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 3)
 
 	_, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
@@ -118,7 +118,7 @@ func TestUploadTooLargeFails(t *testing.T) {
 func TestDownloadSuccess(t *testing.T) {
 	repo := newMemoryRepo()
 	objectStorage := newMemoryStorage()
-	service := NewService(repo, objectStorage, 1024)
+	service := NewService(repo, objectStorage, nil, 1024)
 	doc, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
 		OriginalFilename: "example.md",
@@ -146,7 +146,7 @@ func TestDownloadSuccess(t *testing.T) {
 }
 
 func TestNonOwnerDownloadFails(t *testing.T) {
-	service := NewService(newMemoryRepo(), newMemoryStorage(), 1024)
+	service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024)
 	doc, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
 		OriginalFilename: "example.md",
@@ -160,13 +160,81 @@ func TestNonOwnerDownloadFails(t *testing.T) {
 
 	_, err = service.Download(context.Background(), "owner-2", doc.ID)
 
-	if err != ErrNotFound {
-		t.Fatalf("expected ErrNotFound, got %v", err)
+	if err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+}
+
+func TestEditorCanDownloadThroughPermissionService(t *testing.T) {
+	repo := newMemoryRepo()
+	objectStorage := newMemoryStorage()
+	permissions := newFakePermissionService()
+	service := NewService(repo, objectStorage, permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("hello"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	permissions.view[doc.ID+":editor-1"] = true
+
+	download, err := service.Download(context.Background(), "editor-1", doc.ID)
+
+	if err != nil {
+		t.Fatalf("download as editor: %v", err)
+	}
+	_ = download.Reader.Close()
+}
+
+func TestViewerCannotDeleteThroughPermissionService(t *testing.T) {
+	repo := newMemoryRepo()
+	permissions := newFakePermissionService()
+	service := NewService(repo, newMemoryStorage(), permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("hello"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	permissions.view[doc.ID+":viewer-1"] = true
+
+	err = service.Delete(context.Background(), "viewer-1", doc.ID)
+
+	if err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+}
+
+func TestUserWithoutPermissionCannotViewDocument(t *testing.T) {
+	service := NewService(newMemoryRepo(), newMemoryStorage(), newFakePermissionService(), 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("hello"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+
+	_, err = service.Get(context.Background(), "other-1", doc.ID)
+
+	if err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %v", err)
 	}
 }
 
 func TestDeleteSuccessAndListHidesDeleted(t *testing.T) {
-	service := NewService(newMemoryRepo(), newMemoryStorage(), 1024)
+	service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024)
 	doc, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
 		OriginalFilename: "example.md",
@@ -243,11 +311,15 @@ func (r *memoryRepo) ListByOwner(_ context.Context, ownerID string) ([]Document,
 	return docs, nil
 }
 
-func (r *memoryRepo) FindByIDForOwner(_ context.Context, id string, ownerID string) (Document, error) {
+func (r *memoryRepo) ListAccessible(_ context.Context, userID string) ([]Document, error) {
+	return r.ListByOwner(context.Background(), userID)
+}
+
+func (r *memoryRepo) FindByID(_ context.Context, id string) (Document, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	doc, ok := r.documents[id]
-	if !ok || doc.OwnerID != ownerID || doc.DeletedAt != nil {
+	if !ok || doc.DeletedAt != nil {
 		return Document{}, ErrNotFound
 	}
 	return doc, nil
@@ -266,11 +338,11 @@ func (r *memoryRepo) SoftDeleteForOwner(_ context.Context, id string, ownerID st
 	return nil
 }
 
-func (r *memoryRepo) ListVersionsForOwner(_ context.Context, documentID string, ownerID string) ([]Version, error) {
+func (r *memoryRepo) ListVersions(_ context.Context, documentID string) ([]Version, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	doc, ok := r.documents[documentID]
-	if !ok || doc.OwnerID != ownerID || doc.DeletedAt != nil {
+	if !ok || doc.DeletedAt != nil {
 		return nil, ErrNotFound
 	}
 	return append([]Version(nil), r.versions[documentID]...), nil
@@ -324,4 +396,30 @@ func (s *memoryStorage) DeleteObject(_ context.Context, key string) error {
 
 func (s *memoryStorage) PresignedGetURL(context.Context, string, time.Duration) (string, error) {
 	return "", nil
+}
+
+type fakePermissionService struct {
+	view   map[string]bool
+	manage map[string]bool
+	delete map[string]bool
+}
+
+func newFakePermissionService() *fakePermissionService {
+	return &fakePermissionService{
+		view:   map[string]bool{},
+		manage: map[string]bool{},
+		delete: map[string]bool{},
+	}
+}
+
+func (s *fakePermissionService) CanView(_ context.Context, userID string, documentID string) (bool, error) {
+	return s.view[documentID+":"+userID], nil
+}
+
+func (s *fakePermissionService) CanManage(_ context.Context, userID string, documentID string) (bool, error) {
+	return s.manage[documentID+":"+userID], nil
+}
+
+func (s *fakePermissionService) CanDelete(_ context.Context, userID string, documentID string) (bool, error) {
+	return s.delete[documentID+":"+userID], nil
 }

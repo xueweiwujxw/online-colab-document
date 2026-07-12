@@ -64,6 +64,16 @@ h1 {
   font-weight: 400;
 }
 
+.field select {
+  min-height: 46px;
+  border: 1px solid #cbd3df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  padding: 10px 12px;
+}
+
 .field input:focus {
   border-color: #1e6fcb;
   outline: 3px solid rgb(30 111 203 / 18%);
@@ -254,6 +264,28 @@ h1 {
   text-decoration: none;
 }
 
+.detail-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.permission-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px 120px;
+  gap: 14px;
+  align-items: end;
+  margin-top: 28px;
+}
+
+.permission-submit {
+  margin-bottom: 18px;
+}
+
+.permission-row {
+  grid-template-columns: minmax(180px, 1fr) 120px 120px auto;
+}
+
 .version-list {
   margin-top: 28px;
 }
@@ -303,6 +335,13 @@ h1 {
   }
 
   .detail-header {
+    flex-direction: column;
+  }
+
+  .detail-actions,
+  .permission-form {
+    align-items: stretch;
+    grid-template-columns: 1fr;
     flex-direction: column;
   }
 }

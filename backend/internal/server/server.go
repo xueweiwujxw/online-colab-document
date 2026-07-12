@@ -14,6 +14,7 @@ import (
 	"online-colab-document/backend/internal/document"
 	"online-colab-document/backend/internal/health"
 	"online-colab-document/backend/internal/middleware"
+	"online-colab-document/backend/internal/permission"
 	"online-colab-document/backend/internal/storage"
 )
 
@@ -77,8 +78,11 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		if err != nil {
 			logger.Error("storage setup failed", "error", err)
 		} else {
+			permissionRepo := permission.NewPostgresRepository(db)
+			permissionService := permission.NewService(permissionRepo)
+			permissionHandler := permission.NewHandler(permissionService, logger)
 			documentRepo := document.NewPostgresRepository(db)
-			documentService := document.NewService(documentRepo, objectStorage, cfg.DocumentMaxUploadBytes)
+			documentService := document.NewService(documentRepo, objectStorage, permissionService, cfg.DocumentMaxUploadBytes)
 			documentHandler := document.NewHandler(documentService, logger)
 			requireAuth := func(next http.HandlerFunc) http.Handler {
 				return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
@@ -89,6 +93,9 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /api/documents/{id}/download", requireAuth(documentHandler.Download))
 			mux.Handle("DELETE /api/documents/{id}", requireAuth(documentHandler.Delete))
 			mux.Handle("GET /api/documents/{id}/versions", requireAuth(documentHandler.Versions))
+			mux.Handle("GET /api/documents/{id}/permissions", requireAuth(permissionHandler.List))
+			mux.Handle("POST /api/documents/{id}/permissions", requireAuth(permissionHandler.Grant))
+			mux.Handle("DELETE /api/documents/{id}/permissions/{permissionId}", requireAuth(permissionHandler.Delete))
 		}
 	}
 

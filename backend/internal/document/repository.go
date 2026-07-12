@@ -13,9 +13,10 @@ var ErrNotFound = errors.New("document not found")
 type Repository interface {
 	CreateWithVersion(ctx context.Context, doc Document, version Version) error
 	ListByOwner(ctx context.Context, ownerID string) ([]Document, error)
-	FindByIDForOwner(ctx context.Context, id string, ownerID string) (Document, error)
+	ListAccessible(ctx context.Context, userID string) ([]Document, error)
+	FindByID(ctx context.Context, id string) (Document, error)
 	SoftDeleteForOwner(ctx context.Context, id string, ownerID string, deletedAt time.Time) error
-	ListVersionsForOwner(ctx context.Context, documentID string, ownerID string) ([]Version, error)
+	ListVersions(ctx context.Context, documentID string) ([]Version, error)
 }
 
 type PostgresRepository struct {
@@ -108,15 +109,45 @@ func (r *PostgresRepository) ListByOwner(ctx context.Context, ownerID string) ([
 	return docs, nil
 }
 
-func (r *PostgresRepository) FindByIDForOwner(ctx context.Context, id string, ownerID string) (Document, error) {
+func (r *PostgresRepository) ListAccessible(ctx context.Context, userID string) ([]Document, error) {
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT DISTINCT d.id, d.owner_id, d.title, d.original_filename, d.file_ext, d.mime_type, d.storage_key,
+			d.current_version_id, d.size_bytes, d.deleted_at, d.created_at, d.updated_at
+		FROM documents d
+		LEFT JOIN document_permissions p
+			ON p.document_id = d.id AND p.subject_type = 'user' AND p.subject_id = $1
+		WHERE d.deleted_at IS NULL AND (d.owner_id = $1 OR p.permission IN ('viewer', 'editor'))
+		ORDER BY d.updated_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list accessible documents: %w", err)
+	}
+	defer rows.Close()
+
+	var docs []Document
+	for rows.Next() {
+		doc, err := scanDocument(rows)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate accessible documents: %w", err)
+	}
+	return docs, nil
+}
+
+func (r *PostgresRepository) FindByID(ctx context.Context, id string) (Document, error) {
 	row := r.db.QueryRowContext(
 		ctx,
 		`SELECT id, owner_id, title, original_filename, file_ext, mime_type, storage_key,
 			current_version_id, size_bytes, deleted_at, created_at, updated_at
 		FROM documents
-		WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
+		WHERE id = $1 AND deleted_at IS NULL`,
 		id,
-		ownerID,
 	)
 	return scanDocument(row)
 }
@@ -143,16 +174,15 @@ func (r *PostgresRepository) SoftDeleteForOwner(ctx context.Context, id string, 
 	return nil
 }
 
-func (r *PostgresRepository) ListVersionsForOwner(ctx context.Context, documentID string, ownerID string) ([]Version, error) {
+func (r *PostgresRepository) ListVersions(ctx context.Context, documentID string) ([]Version, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
 		`SELECT v.id, v.document_id, v.version_no, v.storage_key, v.size_bytes, v.created_by, v.created_at
 		FROM document_versions v
 		JOIN documents d ON d.id = v.document_id
-		WHERE d.id = $1 AND d.owner_id = $2 AND d.deleted_at IS NULL
+		WHERE d.id = $1 AND d.deleted_at IS NULL
 		ORDER BY v.version_no DESC`,
 		documentID,
-		ownerID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list document versions: %w", err)
