@@ -140,6 +140,49 @@ func TestMeAuthenticatedReturnsUser(t *testing.T) {
 	}
 }
 
+func TestMeAuthenticatedReturnsOIDCUser(t *testing.T) {
+	handler, repo := newTestHandler()
+	subject := "oidc-subject"
+	oidcUser := user.User{
+		ID:          "oidc-user-1",
+		Email:       "oidc@example.com",
+		DisplayName: "OIDC User",
+		AuthSource:  "oidc",
+		OIDCSubject: &subject,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	if err := repo.Create(context.Background(), oidcUser); err != nil {
+		t.Fatalf("create oidc user: %v", err)
+	}
+	token := "oidc-session-token"
+	if err := repo.CreateSession(context.Background(), session.Record{
+		ID:        "session-1",
+		UserID:    oidcUser.ID,
+		TokenHash: session.HashToken(token),
+		ExpiresAt: time.Now().Add(time.Hour),
+		CreatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("create oidc session: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.AddCookie(&http.Cookie{Name: "docs_session", Value: token})
+
+	handler.Me(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var body user.PublicUser
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Email != oidcUser.Email || body.AuthSource != "oidc" {
+		t.Fatalf("unexpected oidc user response: %#v", body)
+	}
+}
+
 func newTestHandler() (Handler, *memoryRepo) {
 	repo := newMemoryRepo()
 	service := NewService(repo, repo, "", time.Hour)
