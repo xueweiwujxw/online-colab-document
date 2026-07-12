@@ -22,6 +22,8 @@ type UserRepository interface {
 	Create(ctx context.Context, user user.User) error
 	FindByEmail(ctx context.Context, email string) (user.User, error)
 	FindByID(ctx context.Context, id string) (user.User, error)
+	FindByOIDCSubject(ctx context.Context, subject string) (user.User, error)
+	SetOIDCSubject(ctx context.Context, id string, subject string) (user.User, error)
 }
 
 type PostgresRepository struct {
@@ -67,6 +69,22 @@ func (r *PostgresRepository) FindByEmail(ctx context.Context, email string) (use
 func (r *PostgresRepository) FindByID(ctx context.Context, id string) (user.User, error) {
 	return r.scanUser(ctx, `SELECT id, email, display_name, password_hash, auth_source, oidc_subject,
 		is_admin, disabled, created_at, updated_at FROM users WHERE id = $1`, id)
+}
+
+func (r *PostgresRepository) FindByOIDCSubject(ctx context.Context, subject string) (user.User, error) {
+	return r.scanUser(ctx, `SELECT id, email, display_name, password_hash, auth_source, oidc_subject,
+		is_admin, disabled, created_at, updated_at FROM users WHERE oidc_subject = $1`, subject)
+}
+
+func (r *PostgresRepository) SetOIDCSubject(ctx context.Context, id string, subject string) (user.User, error) {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET oidc_subject = $1, updated_at = NOW() WHERE id = $2`, subject, id)
+	if isUniqueViolation(err) {
+		return user.User{}, ErrEmailAlreadyUsed
+	}
+	if err != nil {
+		return user.User{}, fmt.Errorf("set oidc subject: %w", err)
+	}
+	return r.FindByID(ctx, id)
 }
 
 func (r *PostgresRepository) scanUser(ctx context.Context, query string, args ...any) (user.User, error) {

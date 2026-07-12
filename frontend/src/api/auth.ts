@@ -1,4 +1,4 @@
-import { getJSON, sendJSON } from './client';
+import { apiBaseUrl, getJSON, sendJSON } from './client';
 
 export type CurrentUser = {
   id: string;
@@ -23,4 +23,8 @@ export function logout(): Promise<{ status: string }> {
 
 export function getCurrentUser(): Promise<CurrentUser> {
   return getJSON<CurrentUser>('/api/auth/me');
+}
+
+export function getOIDCLoginURL(): string {
+  return `${apiBaseUrl}/api/auth/oidc/login`;
 }

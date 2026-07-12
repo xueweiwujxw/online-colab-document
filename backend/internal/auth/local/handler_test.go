@@ -205,6 +205,30 @@ func (r *memoryRepo) FindByID(_ context.Context, id string) (user.User, error) {
 	return u, nil
 }
 
+func (r *memoryRepo) FindByOIDCSubject(_ context.Context, subject string) (user.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, u := range r.usersByID {
+		if u.OIDCSubject != nil && *u.OIDCSubject == subject {
+			return u, nil
+		}
+	}
+	return user.User{}, ErrUserNotFound
+}
+
+func (r *memoryRepo) SetOIDCSubject(_ context.Context, id string, subject string) (user.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.usersByID[id]
+	if !ok {
+		return user.User{}, ErrUserNotFound
+	}
+	u.OIDCSubject = &subject
+	u.UpdatedAt = time.Now()
+	r.usersByID[id] = u
+	return u, nil
+}
+
 func (r *memoryRepo) CreateSession(_ context.Context, record session.Record) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

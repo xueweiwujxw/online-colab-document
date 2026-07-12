@@ -103,6 +103,27 @@ h1 {
   color: #172033;
 }
 
+.oidc-button {
+  width: 100%;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #6b7688;
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  height: 1px;
+  flex: 1;
+  background: #e1e6ee;
+  content: "";
+}
+
 .app-shell {
   min-height: 100vh;
   padding: 32px;

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 
+import { getOIDCLoginURL } from '../../api/auth';
 import { useAuth } from '../../auth/AuthContext';
 
 export function LoginPage() {
@@ -66,6 +67,19 @@ export function LoginPage() {
 
         <button className="primary-button" disabled={submitting} type="submit">
           {submitting ? 'Signing in' : 'Sign in'}
+        </button>
+
+        <div className="divider">
+          <span>or</span>
+        </div>
+
+        <button
+          className="secondary-button oidc-button"
+          disabled={submitting}
+          onClick={() => window.location.assign(getOIDCLoginURL())}
+          type="button"
+        >
+          使用 OIDC 登录
         </button>
       </form>
     </main>

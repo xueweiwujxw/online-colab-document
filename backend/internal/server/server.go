@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"online-colab-document/backend/internal/auth/local"
+	oidcauth "online-colab-document/backend/internal/auth/oidc"
 	"online-colab-document/backend/internal/config"
 	"online-colab-document/backend/internal/health"
 )
@@ -37,6 +38,31 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		mux.HandleFunc("POST /api/auth/local/login", authHandler.Login)
 		mux.HandleFunc("POST /api/auth/logout", authHandler.Logout)
 		mux.HandleFunc("GET /api/auth/me", authHandler.Me)
+
+		oidcService := oidcauth.NewService(
+			oidcauth.Config{
+				Enabled:          cfg.OIDCEnabled,
+				IssuerURL:        cfg.OIDCIssuerURL,
+				ClientID:         cfg.OIDCClientID,
+				ClientSecret:     cfg.OIDCClientSecret,
+				RedirectURL:      cfg.OIDCRedirectURL,
+				Scopes:           cfg.OIDCScopes,
+				AutoMergeByEmail: cfg.OIDCAutoMergeByEmail,
+			},
+			authRepo,
+			authRepo,
+			oidcauth.NewProvider,
+		)
+		oidcHandler := oidcauth.NewHandler(
+			oidcService,
+			logger,
+			cfg.SessionCookieName,
+			cfg.AppEnv == "production",
+			time.Duration(cfg.SessionTTLHours)*time.Hour,
+			cfg.FrontendOrigin,
+		)
+		mux.HandleFunc("GET /api/auth/oidc/login", oidcHandler.Login)
+		mux.HandleFunc("GET /api/auth/oidc/callback", oidcHandler.Callback)
 	}
 
 	handler := withLogging(logger, withCORS(cfg, mux))
