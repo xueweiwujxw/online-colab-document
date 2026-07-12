@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M2 OIDC 登录。尚未实现文档上传下载、权限、ONLYOFFICE、Markdown 协同。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M3 文档上传下载。尚未实现权限、ONLYOFFICE、Markdown 协同。
 
 ## 技术栈
 
@@ -58,6 +58,7 @@ OIDC_CLIENT_SECRET=change-me
 OIDC_REDIRECT_URL=http://localhost:8080/api/auth/oidc/callback
 OIDC_SCOPES=openid,email,profile
 OIDC_AUTO_MERGE_BY_EMAIL=false
+DOCUMENT_MAX_UPLOAD_BYTES=52428800
 ```
 
 前端：
@@ -81,15 +82,18 @@ make lint
 
 ## 当前里程碑
 
-M2 OIDC 登录：
+M3 文档上传下载：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
 - HttpOnly session cookie，服务端仅保存 token hash
 - OIDC 登录跳转、callback、id_token 校验和 userinfo 获取
 - OIDC 用户自动创建，默认不按 email 合并本地用户
-- 前端 `/login` 页面支持本地登录和 OIDC 登录入口
+- documents / document_versions 数据库 migration
+- 文档上传、列表、详情、下载、软删除和版本列表
+- MinIO / S3 storage 抽象与对象存储实现
+- 前端 `/documents` 和 `/documents/:id` 页面
 
 ## 下一步开发计划
 
-M3 将实现文档上传下载和文档列表。
+M4 将实现文档权限系统。

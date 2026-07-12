@@ -1,0 +1,223 @@
+package document
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+)
+
+var ErrNotFound = errors.New("document not found")
+
+type Repository interface {
+	CreateWithVersion(ctx context.Context, doc Document, version Version) error
+	ListByOwner(ctx context.Context, ownerID string) ([]Document, error)
+	FindByIDForOwner(ctx context.Context, id string, ownerID string) (Document, error)
+	SoftDeleteForOwner(ctx context.Context, id string, ownerID string, deletedAt time.Time) error
+	ListVersionsForOwner(ctx context.Context, documentID string, ownerID string) ([]Version, error)
+}
+
+type PostgresRepository struct {
+	db *sql.DB
+}
+
+func NewPostgresRepository(db *sql.DB) *PostgresRepository {
+	return &PostgresRepository{db: db}
+}
+
+func (r *PostgresRepository) CreateWithVersion(ctx context.Context, doc Document, version Version) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin create document tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(
+		ctx,
+		`INSERT INTO documents (
+			id, owner_id, title, original_filename, file_ext, mime_type, storage_key,
+			current_version_id, size_bytes, deleted_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		doc.ID,
+		doc.OwnerID,
+		doc.Title,
+		doc.OriginalFilename,
+		doc.FileExt,
+		doc.MimeType,
+		doc.StorageKey,
+		doc.CurrentVersionID,
+		doc.SizeBytes,
+		doc.DeletedAt,
+		doc.CreatedAt,
+		doc.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert document: %w", err)
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		`INSERT INTO document_versions (
+			id, document_id, version_no, storage_key, size_bytes, created_by, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		version.ID,
+		version.DocumentID,
+		version.VersionNo,
+		version.StorageKey,
+		version.SizeBytes,
+		version.CreatedBy,
+		version.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert document version: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit create document tx: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListByOwner(ctx context.Context, ownerID string) ([]Document, error) {
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, owner_id, title, original_filename, file_ext, mime_type, storage_key,
+			current_version_id, size_bytes, deleted_at, created_at, updated_at
+		FROM documents
+		WHERE owner_id = $1 AND deleted_at IS NULL
+		ORDER BY updated_at DESC`,
+		ownerID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list documents: %w", err)
+	}
+	defer rows.Close()
+
+	var docs []Document
+	for rows.Next() {
+		doc, err := scanDocument(rows)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate documents: %w", err)
+	}
+	return docs, nil
+}
+
+func (r *PostgresRepository) FindByIDForOwner(ctx context.Context, id string, ownerID string) (Document, error) {
+	row := r.db.QueryRowContext(
+		ctx,
+		`SELECT id, owner_id, title, original_filename, file_ext, mime_type, storage_key,
+			current_version_id, size_bytes, deleted_at, created_at, updated_at
+		FROM documents
+		WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
+		id,
+		ownerID,
+	)
+	return scanDocument(row)
+}
+
+func (r *PostgresRepository) SoftDeleteForOwner(ctx context.Context, id string, ownerID string, deletedAt time.Time) error {
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE documents SET deleted_at = $1, updated_at = $1
+		WHERE id = $2 AND owner_id = $3 AND deleted_at IS NULL`,
+		deletedAt,
+		id,
+		ownerID,
+	)
+	if err != nil {
+		return fmt.Errorf("soft delete document: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("soft delete rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) ListVersionsForOwner(ctx context.Context, documentID string, ownerID string) ([]Version, error) {
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT v.id, v.document_id, v.version_no, v.storage_key, v.size_bytes, v.created_by, v.created_at
+		FROM document_versions v
+		JOIN documents d ON d.id = v.document_id
+		WHERE d.id = $1 AND d.owner_id = $2 AND d.deleted_at IS NULL
+		ORDER BY v.version_no DESC`,
+		documentID,
+		ownerID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list document versions: %w", err)
+	}
+	defer rows.Close()
+
+	var versions []Version
+	for rows.Next() {
+		version, err := scanVersion(rows)
+		if err != nil {
+			return nil, err
+		}
+		versions = append(versions, version)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate document versions: %w", err)
+	}
+	return versions, nil
+}
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanDocument(row rowScanner) (Document, error) {
+	var doc Document
+	err := row.Scan(
+		&doc.ID,
+		&doc.OwnerID,
+		&doc.Title,
+		&doc.OriginalFilename,
+		&doc.FileExt,
+		&doc.MimeType,
+		&doc.StorageKey,
+		&doc.CurrentVersionID,
+		&doc.SizeBytes,
+		&doc.DeletedAt,
+		&doc.CreatedAt,
+		&doc.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Document{}, ErrNotFound
+	}
+	if err != nil {
+		return Document{}, fmt.Errorf("scan document: %w", err)
+	}
+	return doc, nil
+}
+
+func scanVersion(row rowScanner) (Version, error) {
+	var version Version
+	err := row.Scan(
+		&version.ID,
+		&version.DocumentID,
+		&version.VersionNo,
+		&version.StorageKey,
+		&version.SizeBytes,
+		&version.CreatedBy,
+		&version.CreatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Version{}, ErrNotFound
+	}
+	if err != nil {
+		return Version{}, fmt.Errorf("scan document version: %w", err)
+	}
+	return version, nil
+}

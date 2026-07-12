@@ -101,6 +101,10 @@ h1 {
   border: 1px solid #cbd3df;
   background: #ffffff;
   color: #172033;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .oidc-button {
@@ -139,8 +143,30 @@ h1 {
 .user-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   color: #354257;
+}
+
+.upload-button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #1e6fcb;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0 16px;
+}
+
+.upload-button input {
+  inline-size: 1px;
+  block-size: 1px;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .empty-state {
@@ -150,6 +176,102 @@ h1 {
   padding: 28px;
   color: #536176;
   background: #ffffff;
+}
+
+.document-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.document-row {
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 90px 180px 110px auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.document-title {
+  color: #172033;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.document-title:hover,
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.document-meta,
+.empty-inline {
+  color: #536176;
+  font-size: 14px;
+}
+
+.document-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.danger-button {
+  color: #9f2723;
+}
+
+.back-link {
+  display: inline-flex;
+  margin-bottom: 20px;
+  color: #1e6fcb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #e1e6ee;
+  padding-bottom: 24px;
+}
+
+.primary-link {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  border-radius: 6px;
+  background: #1e6fcb;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0 16px;
+  text-decoration: none;
+}
+
+.version-list {
+  margin-top: 28px;
+}
+
+.version-list h2 {
+  margin: 0 0 14px;
+  color: #172033;
+  font-size: 22px;
+}
+
+.version-row {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 1fr 120px 200px;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid #e1e6ee;
+  color: #354257;
 }
 
 @media (max-width: 620px) {
@@ -168,6 +290,19 @@ h1 {
 
   .topbar {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .document-row,
+  .version-row {
+    grid-template-columns: 1fr;
+  }
+
+  .document-actions {
+    justify-content: flex-start;
+  }
+
+  .detail-header {
     flex-direction: column;
   }
 }

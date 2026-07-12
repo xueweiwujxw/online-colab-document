@@ -11,7 +11,10 @@ import (
 	"online-colab-document/backend/internal/auth/local"
 	oidcauth "online-colab-document/backend/internal/auth/oidc"
 	"online-colab-document/backend/internal/config"
+	"online-colab-document/backend/internal/document"
 	"online-colab-document/backend/internal/health"
+	"online-colab-document/backend/internal/middleware"
+	"online-colab-document/backend/internal/storage"
 )
 
 type Server struct {
@@ -63,6 +66,30 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		)
 		mux.HandleFunc("GET /api/auth/oidc/login", oidcHandler.Login)
 		mux.HandleFunc("GET /api/auth/oidc/callback", oidcHandler.Callback)
+
+		objectStorage, err := storage.NewMinIOStorage(storage.MinIOConfig{
+			Endpoint:  cfg.S3Endpoint,
+			AccessKey: cfg.S3AccessKey,
+			SecretKey: cfg.S3SecretKey,
+			Bucket:    cfg.S3Bucket,
+			UseSSL:    cfg.S3UseSSL,
+		})
+		if err != nil {
+			logger.Error("storage setup failed", "error", err)
+		} else {
+			documentRepo := document.NewPostgresRepository(db)
+			documentService := document.NewService(documentRepo, objectStorage, cfg.DocumentMaxUploadBytes)
+			documentHandler := document.NewHandler(documentService, logger)
+			requireAuth := func(next http.HandlerFunc) http.Handler {
+				return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
+			}
+			mux.Handle("GET /api/documents", requireAuth(documentHandler.List))
+			mux.Handle("POST /api/documents/upload", requireAuth(documentHandler.Upload))
+			mux.Handle("GET /api/documents/{id}", requireAuth(documentHandler.Get))
+			mux.Handle("GET /api/documents/{id}/download", requireAuth(documentHandler.Download))
+			mux.Handle("DELETE /api/documents/{id}", requireAuth(documentHandler.Delete))
+			mux.Handle("GET /api/documents/{id}/versions", requireAuth(documentHandler.Versions))
+		}
 	}
 
 	handler := withLogging(logger, withCORS(cfg, mux))
