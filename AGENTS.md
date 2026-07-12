@@ -174,7 +174,9 @@ misc
 提交
 ```
 
-除非用户明确要求，不要自动 git commit。
+开发过程中每完成一个可验证的小部分，应及时提交一次 commit。
+提交前必须确认本次提交范围，只包含当前小部分相关改动，不混入无关文件。
+Commit message 必须遵守 Conventional Commits。
 
 ## 7. 测试规范
 
