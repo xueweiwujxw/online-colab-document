@@ -543,6 +543,18 @@ h1 {
   white-space: nowrap;
 }
 
+.office-collab-note {
+  border: 1px solid rgb(249 115 22 / 28%);
+  border-radius: 999px;
+  background: var(--warm-soft);
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
 .office-save-error {
   margin: 0;
 }

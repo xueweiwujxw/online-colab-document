@@ -106,6 +106,7 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
           {state.status === 'success' ? (
             <span className="connection-pill">{state.session.mode === 'edit' ? '可编辑' : '只读'}</span>
           ) : null}
+          {state.status === 'success' ? <span className="office-collab-note">单人编辑</span> : null}
           {saveError ? <span className="form-error office-save-error">{saveError}</span> : null}
           {state.status === 'success' && state.session.mode === 'edit' ? (
             <button

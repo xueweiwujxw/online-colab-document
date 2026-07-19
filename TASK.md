@@ -2168,6 +2168,8 @@ viewer 只能只读打开
 
 当前限制：
 
+- Excel / Word 当前 Casual iframe POC 只支持单人编辑保存，不支持多人实时共享编辑。
+- Casual Sheets 包提供 opt-in collab API（Yjs + Hocuspocus），但当前 embed runtime 没有接入 collab provider，也没有后端 Hocuspocus 房间和权限校验服务。
 - 还没有完成浏览器内真实编辑 UI 的人工验证。
 - 还没有支持旧格式 doc / xls 的 Casual 打开链路。
 - 还没有删除 ONLYOFFICE，正式替换前继续保留回退路径。
