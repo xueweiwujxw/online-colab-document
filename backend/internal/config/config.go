@@ -8,66 +8,68 @@ import (
 )
 
 type Config struct {
-	AppEnv                 string
-	HTTPAddr               string
-	DatabaseURL            string
-	RedisAddr              string
-	S3Endpoint             string
-	S3AccessKey            string
-	S3SecretKey            string
-	S3Bucket               string
-	S3UseSSL               bool
-	FrontendOrigin         string
-	SessionCookieName      string
-	SessionTTLHours        int
-	PasswordHashPepper     string
-	OIDCEnabled            bool
-	OIDCIssuerURL          string
-	OIDCClientID           string
-	OIDCClientSecret       string
-	OIDCRedirectURL        string
-	OIDCScopes             []string
-	OIDCAutoMergeByEmail   bool
-	DocumentMaxUploadBytes int64
-	OnlyOfficeEnabled      bool
-	OnlyOfficePublicURL    string
-	OnlyOfficeInternalURL  string
-	OnlyOfficeJWTSecret    string
-	PublicAppURL           string
-	PublicAPIURL           string
-	BackendInternalURL     string
+	AppEnv                         string
+	HTTPAddr                       string
+	DatabaseURL                    string
+	RedisAddr                      string
+	S3Endpoint                     string
+	S3AccessKey                    string
+	S3SecretKey                    string
+	S3Bucket                       string
+	S3UseSSL                       bool
+	FrontendOrigin                 string
+	SessionCookieName              string
+	SessionTTLHours                int
+	PasswordHashPepper             string
+	OIDCEnabled                    bool
+	OIDCIssuerURL                  string
+	OIDCClientID                   string
+	OIDCClientSecret               string
+	OIDCRedirectURL                string
+	OIDCScopes                     []string
+	OIDCAutoMergeByEmail           bool
+	DocumentMaxUploadBytes         int64
+	OnlyOfficeEnabled              bool
+	OnlyOfficePublicURL            string
+	OnlyOfficeInternalURL          string
+	OnlyOfficeJWTSecret            string
+	PublicAppURL                   string
+	PublicAPIURL                   string
+	BackendInternalURL             string
+	MarkdownSnapshotUpdateInterval int
 }
 
 func Load() Config {
 	return Config{
-		AppEnv:                 getEnv("APP_ENV", "development"),
-		HTTPAddr:               getEnv("HTTP_ADDR", ":8080"),
-		DatabaseURL:            getEnv("DATABASE_URL", "postgres://docs:docs@postgres:5432/docs?sslmode=disable"),
-		RedisAddr:              getEnv("REDIS_ADDR", "redis:6379"),
-		S3Endpoint:             getEnv("S3_ENDPOINT", "http://minio:9000"),
-		S3AccessKey:            getEnv("S3_ACCESS_KEY", "minioadmin"),
-		S3SecretKey:            getEnv("S3_SECRET_KEY", "minioadmin"),
-		S3Bucket:               getEnv("S3_BUCKET", "docs"),
-		S3UseSSL:               getBoolEnv("S3_USE_SSL", false),
-		FrontendOrigin:         getEnv("FRONTEND_ORIGIN", "http://localhost:3000"),
-		SessionCookieName:      getEnv("SESSION_COOKIE_NAME", "docs_session"),
-		SessionTTLHours:        getIntEnv("SESSION_TTL_HOURS", 168),
-		PasswordHashPepper:     getEnv("PASSWORD_HASH_PEPPER", ""),
-		OIDCEnabled:            getBoolEnv("OIDC_ENABLED", false),
-		OIDCIssuerURL:          getEnv("OIDC_ISSUER_URL", ""),
-		OIDCClientID:           getEnv("OIDC_CLIENT_ID", ""),
-		OIDCClientSecret:       getEnv("OIDC_CLIENT_SECRET", ""),
-		OIDCRedirectURL:        getEnv("OIDC_REDIRECT_URL", ""),
-		OIDCScopes:             getListEnv("OIDC_SCOPES", []string{"openid", "email", "profile"}),
-		OIDCAutoMergeByEmail:   getBoolEnv("OIDC_AUTO_MERGE_BY_EMAIL", false),
-		DocumentMaxUploadBytes: getInt64Env("DOCUMENT_MAX_UPLOAD_BYTES", 50<<20),
-		OnlyOfficeEnabled:      getBoolEnv("ONLYOFFICE_ENABLED", false),
-		OnlyOfficePublicURL:    getEnv("ONLYOFFICE_PUBLIC_URL", "http://localhost:8080/onlyoffice"),
-		OnlyOfficeInternalURL:  getEnv("ONLYOFFICE_INTERNAL_URL", "http://onlyoffice"),
-		OnlyOfficeJWTSecret:    getEnv("ONLYOFFICE_JWT_SECRET", ""),
-		PublicAppURL:           getEnv("PUBLIC_APP_URL", "http://localhost:3000"),
-		PublicAPIURL:           getEnv("PUBLIC_API_URL", "http://localhost:8080"),
-		BackendInternalURL:     getEnv("BACKEND_INTERNAL_URL", "http://backend:8080"),
+		AppEnv:                         getEnv("APP_ENV", "development"),
+		HTTPAddr:                       getEnv("HTTP_ADDR", ":8080"),
+		DatabaseURL:                    getEnv("DATABASE_URL", "postgres://docs:docs@postgres:5432/docs?sslmode=disable"),
+		RedisAddr:                      getEnv("REDIS_ADDR", "redis:6379"),
+		S3Endpoint:                     getEnv("S3_ENDPOINT", "http://minio:9000"),
+		S3AccessKey:                    getEnv("S3_ACCESS_KEY", "minioadmin"),
+		S3SecretKey:                    getEnv("S3_SECRET_KEY", "minioadmin"),
+		S3Bucket:                       getEnv("S3_BUCKET", "docs"),
+		S3UseSSL:                       getBoolEnv("S3_USE_SSL", false),
+		FrontendOrigin:                 getEnv("FRONTEND_ORIGIN", "http://localhost:3000"),
+		SessionCookieName:              getEnv("SESSION_COOKIE_NAME", "docs_session"),
+		SessionTTLHours:                getIntEnv("SESSION_TTL_HOURS", 168),
+		PasswordHashPepper:             getEnv("PASSWORD_HASH_PEPPER", ""),
+		OIDCEnabled:                    getBoolEnv("OIDC_ENABLED", false),
+		OIDCIssuerURL:                  getEnv("OIDC_ISSUER_URL", ""),
+		OIDCClientID:                   getEnv("OIDC_CLIENT_ID", ""),
+		OIDCClientSecret:               getEnv("OIDC_CLIENT_SECRET", ""),
+		OIDCRedirectURL:                getEnv("OIDC_REDIRECT_URL", ""),
+		OIDCScopes:                     getListEnv("OIDC_SCOPES", []string{"openid", "email", "profile"}),
+		OIDCAutoMergeByEmail:           getBoolEnv("OIDC_AUTO_MERGE_BY_EMAIL", false),
+		DocumentMaxUploadBytes:         getInt64Env("DOCUMENT_MAX_UPLOAD_BYTES", 50<<20),
+		OnlyOfficeEnabled:              getBoolEnv("ONLYOFFICE_ENABLED", false),
+		OnlyOfficePublicURL:            getEnv("ONLYOFFICE_PUBLIC_URL", "http://localhost:8080/onlyoffice"),
+		OnlyOfficeInternalURL:          getEnv("ONLYOFFICE_INTERNAL_URL", "http://onlyoffice"),
+		OnlyOfficeJWTSecret:            getEnv("ONLYOFFICE_JWT_SECRET", ""),
+		PublicAppURL:                   getEnv("PUBLIC_APP_URL", "http://localhost:3000"),
+		PublicAPIURL:                   getEnv("PUBLIC_API_URL", "http://localhost:8080"),
+		BackendInternalURL:             getEnv("BACKEND_INTERNAL_URL", "http://backend:8080"),
+		MarkdownSnapshotUpdateInterval: getIntEnv("MARKDOWN_SNAPSHOT_UPDATE_INTERVAL", 100),
 	}
 }
 

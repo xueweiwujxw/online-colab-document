@@ -1,89 +1,147 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as Y from 'yjs';
 
 import {
   documentDownloadURL,
-  getMarkdownDocument,
-  saveMarkdownDocument,
-  type DocumentItem,
+  getMarkdownSnapshot,
+  markdownWebSocketURL,
+  type PresenceUser,
 } from '../../api/documents';
 import { useAuth } from '../../auth/AuthContext';
 
-type MarkdownState =
-  | { status: 'loading'; document: null; content: string; canEdit: false; error: null }
-  | { status: 'success'; document: DocumentItem; content: string; canEdit: boolean; error: null }
-  | { status: 'error'; document: null; content: string; canEdit: false; error: string };
+type ConnectionState = 'loading' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
+
+type ServerMessage = {
+  type: 'init' | 'update' | 'presence' | 'error';
+  content?: string;
+  canEdit?: boolean;
+  updateSeq?: number;
+  users?: PresenceUser[];
+  error?: string;
+};
 
 export function MarkdownEditorPage({ documentId }: { documentId: string }) {
   const auth = useAuth();
-  const [state, setState] = useState<MarkdownState>({
-    status: 'loading',
-    document: null,
-    content: '',
-    canEdit: false,
-    error: null,
-  });
+  const docRef = useRef(new Y.Doc());
+  const textRef = useRef(docRef.current.getText('markdown'));
+  const reconnectRef = useRef<number | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
   const [draft, setDraft] = useState('');
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
+  const [users, setUsers] = useState<PresenceUser[]>([]);
+  const [connection, setConnection] = useState<ConnectionState>('loading');
+  const [error, setError] = useState<string | null>(null);
+  const [lastSavedSeq, setLastSavedSeq] = useState<number | null>(null);
 
   useEffect(() => {
     if (auth.status !== 'authenticated') {
       return;
     }
-    let mounted = true;
-    getMarkdownDocument(documentId)
-      .then((markdown) => {
-        if (mounted) {
-          setState({
-            status: 'success',
-            document: markdown.document,
-            content: markdown.content,
-            canEdit: markdown.canEdit,
-            error: null,
-          });
-          setDraft(markdown.content);
-          setSaveState('idle');
-          setSaveError(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (mounted) {
-          setState({
-            status: 'error',
-            document: null,
-            content: '',
-            canEdit: false,
-            error: error instanceof Error ? error.message : 'Failed to load Markdown document',
-          });
-        }
+    let stopped = false;
+
+    function applyContent(content: string) {
+      const text = textRef.current;
+      docRef.current.transact(() => {
+        text.delete(0, text.length);
+        text.insert(0, content);
       });
+      setDraft(content);
+    }
+
+    function connect() {
+      setConnection((current) => (current === 'loading' ? 'loading' : 'reconnecting'));
+      const socket = new WebSocket(markdownWebSocketURL(documentId));
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        if (stopped) {
+          socket.close();
+          return;
+        }
+        setConnection('connected');
+        setError(null);
+        socket.send(JSON.stringify({ type: 'presence' }));
+      };
+
+      socket.onmessage = (event) => {
+        const message = JSON.parse(event.data as string) as ServerMessage;
+        if (message.type === 'init') {
+          applyContent(message.content ?? '');
+          setCanEdit(Boolean(message.canEdit));
+          setUsers(message.users ?? []);
+          setLastSavedSeq(message.updateSeq ?? null);
+          return;
+        }
+        if (message.type === 'update') {
+          applyContent(message.content ?? '');
+          setLastSavedSeq(message.updateSeq ?? null);
+          return;
+        }
+        if (message.type === 'presence') {
+          setUsers(message.users ?? []);
+          return;
+        }
+        if (message.type === 'error') {
+          setError(message.error ?? 'Collaboration error');
+        }
+      };
+
+      socket.onerror = () => {
+        setConnection('error');
+        setError('WebSocket connection failed');
+      };
+
+      socket.onclose = () => {
+        if (stopped) {
+          return;
+        }
+        setConnection('disconnected');
+        reconnectRef.current = window.setTimeout(connect, 1200);
+      };
+    }
+
+    getMarkdownSnapshot(documentId)
+      .then((snapshot) => {
+        if (stopped) {
+          return;
+        }
+        applyContent(snapshot.content);
+        setCanEdit(snapshot.canEdit);
+        setUsers(snapshot.users);
+        setLastSavedSeq(snapshot.versionNo);
+        connect();
+      })
+      .catch((caught: unknown) => {
+        if (stopped) {
+          return;
+        }
+        setConnection('error');
+        setError(caught instanceof Error ? caught.message : 'Failed to load Markdown snapshot');
+      });
+
     return () => {
-      mounted = false;
+      stopped = true;
+      if (reconnectRef.current !== null) {
+        window.clearTimeout(reconnectRef.current);
+      }
+      socketRef.current?.close();
     };
   }, [auth.status, documentId]);
 
   const preview = useMemo(() => renderMarkdownPreview(draft), [draft]);
 
-  async function onSave() {
-    if (state.status !== 'success' || !state.canEdit || saveState === 'saving') {
+  function onDraftChange(content: string) {
+    if (!canEdit) {
       return;
     }
-    setSaveState('saving');
-    setSaveError(null);
-    try {
-      const markdown = await saveMarkdownDocument(documentId, draft);
-      setState({
-        status: 'success',
-        document: markdown.document,
-        content: markdown.content,
-        canEdit: markdown.canEdit,
-        error: null,
-      });
-      setDraft(markdown.content);
-      setSaveState('saved');
-    } catch (error) {
-      setSaveState('error');
-      setSaveError(error instanceof Error ? error.message : 'Save failed');
+    const text = textRef.current;
+    docRef.current.transact(() => {
+      text.delete(0, text.length);
+      text.insert(0, content);
+    });
+    setDraft(content);
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'update', content }));
     }
   }
 
@@ -100,34 +158,8 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
     return null;
   }
 
-  if (state.status === 'loading') {
-    return (
-      <main className="editor-shell markdown-shell">
-        <header className="editor-topbar">
-          <a className="back-link" href={`/documents/${documentId}`}>
-            Back to document
-          </a>
-        </header>
-        <section className="empty-state">Loading</section>
-      </main>
-    );
-  }
-
-  if (state.status === 'error') {
-    return (
-      <main className="editor-shell markdown-shell">
-        <header className="editor-topbar">
-          <a className="back-link" href={`/documents/${documentId}`}>
-            Back to document
-          </a>
-        </header>
-        <section className="empty-state">{state.error}</section>
-      </main>
-    );
-  }
-
-  const dirty = draft !== state.content;
-  const saveLabel = saveState === 'saving' ? 'Saving' : 'Save';
+  const readonly = !canEdit;
+  const statusText = connectionStatusText(connection, readonly);
 
   return (
     <main className="editor-shell markdown-shell">
@@ -136,31 +168,32 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           Back to document
         </a>
         <div className="markdown-toolbar">
-          <span className="document-meta">{state.canEdit ? 'Editable' : 'Read only'}</span>
-          <span className="document-meta">{saveStatusText(saveState, dirty)}</span>
+          <span className={`connection-pill connection-${connection}`}>{statusText}</span>
+          <span className="document-meta">{lastSavedSeq === null ? 'Snapshot' : `Seq ${lastSavedSeq}`}</span>
           <a className="secondary-button" href={documentDownloadURL(documentId)}>
             Download
           </a>
-          <button
-            className="primary-button markdown-save-button"
-            disabled={!state.canEdit || !dirty || saveState === 'saving'}
-            onClick={() => void onSave()}
-            type="button"
-          >
-            {saveLabel}
-          </button>
         </div>
       </header>
-      {saveError ? <p className="form-error markdown-save-error">{saveError}</p> : null}
+      {error ? <p className="form-error markdown-save-error">{error}</p> : null}
+      <section className="presence-bar">
+        {users.length === 0 ? (
+          <span className="empty-inline">No other users online.</span>
+        ) : (
+          users.map((user) => (
+            <span className="presence-user" key={`${user.userId}-${user.displayName}`}>
+              {user.displayName}
+              <small>{user.canEdit ? 'editor' : 'viewer'}</small>
+            </span>
+          ))
+        )}
+      </section>
       <section className="markdown-editor-grid">
         <label className="markdown-pane">
           <span>Markdown</span>
           <textarea
-            readOnly={!state.canEdit}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              setSaveState('idle');
-            }}
+            readOnly={readonly || connection === 'loading'}
+            onChange={(event) => onDraftChange(event.target.value)}
             value={draft}
           />
         </label>
@@ -173,17 +206,20 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
   );
 }
 
-function saveStatusText(saveState: 'idle' | 'saving' | 'saved' | 'error', dirty: boolean): string {
-  if (saveState === 'saving') {
-    return 'Saving changes';
+function connectionStatusText(connection: ConnectionState, readonly: boolean): string {
+  if (connection === 'loading') {
+    return 'Loading';
   }
-  if (saveState === 'saved' && !dirty) {
-    return 'Saved';
+  if (connection === 'connected') {
+    return readonly ? 'Connected readonly' : 'Connected';
   }
-  if (saveState === 'error') {
-    return 'Save failed';
+  if (connection === 'reconnecting') {
+    return 'Reconnecting';
   }
-  return dirty ? 'Unsaved changes' : 'No changes';
+  if (connection === 'error') {
+    return 'Connection error';
+  }
+  return 'Disconnected';
 }
 
 function renderMarkdownPreview(content: string) {

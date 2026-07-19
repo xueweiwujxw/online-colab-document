@@ -50,4 +50,6 @@ Word / Excel 的格式兼容、渲染、编辑和多人协同复杂度很高。�
 
 ## Markdown 为什么单独实现
 
-Markdown 是文本格式，服务端保存和前端编辑成本较低。第一版可以实现源码编辑、预览、保存和下载；后续再基于 Yjs、WebSocket 和 snapshot 持久化实现多人协同、presence 和断线重连。
+Markdown 是文本格式，服务端保存和前端编辑成本较低。普通编辑阶段实现源码编辑、预览、保存和下载；协同阶段基于 Yjs、WebSocket 和 PostgreSQL snapshot/update 持久化实现多人协同、presence 和断线重连。
+
+当前 Markdown 协同第一版只支持单 backend 实例内的实时广播。多 backend 实例部署时，需要增加 Redis pub/sub 或其他跨实例消息总线来同步 update 与 presence。

@@ -13,6 +13,7 @@ import (
 	"online-colab-document/backend/internal/config"
 	"online-colab-document/backend/internal/document"
 	"online-colab-document/backend/internal/health"
+	markdowncollab "online-colab-document/backend/internal/markdown/collab"
 	"online-colab-document/backend/internal/middleware"
 	"online-colab-document/backend/internal/onlyoffice"
 	"online-colab-document/backend/internal/permission"
@@ -85,6 +86,20 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			documentRepo := document.NewPostgresRepository(db)
 			documentService := document.NewService(documentRepo, objectStorage, permissionService, cfg.DocumentMaxUploadBytes)
 			documentHandler := document.NewHandler(documentService, logger)
+			markdownCollabService := markdowncollab.NewService(
+				markdowncollab.NewPostgresRepository(db),
+				documentRepo,
+				permissionService,
+				objectStorage,
+				cfg.MarkdownSnapshotUpdateInterval,
+			)
+			markdownCollabHandler := markdowncollab.NewHandler(
+				markdownCollabService,
+				authService,
+				cfg.SessionCookieName,
+				cfg.FrontendOrigin,
+				logger,
+			)
 			onlyOfficeService := onlyoffice.NewService(
 				onlyoffice.Config{
 					Enabled:          cfg.OnlyOfficeEnabled,
@@ -108,6 +123,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /api/documents/{id}/download", requireAuth(documentHandler.Download))
 			mux.Handle("GET /api/documents/{id}/markdown", requireAuth(documentHandler.GetMarkdown))
 			mux.Handle("PUT /api/documents/{id}/markdown", requireAuth(documentHandler.UpdateMarkdown))
+			mux.Handle("GET /api/documents/{id}/markdown/snapshot", requireAuth(markdownCollabHandler.Snapshot))
+			mux.HandleFunc("GET /api/documents/{id}/markdown/ws", markdownCollabHandler.WebSocket)
 			mux.Handle("DELETE /api/documents/{id}", requireAuth(documentHandler.Delete))
 			mux.Handle("GET /api/documents/{id}/versions", requireAuth(documentHandler.Versions))
 			mux.Handle("GET /api/documents/{id}/permissions", requireAuth(permissionHandler.List))

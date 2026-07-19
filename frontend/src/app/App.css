@@ -333,15 +333,70 @@ h1 {
   margin: 12px 18px 0;
 }
 
+.connection-pill {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #e9f6ef;
+  color: #20643f;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.connection-loading,
+.connection-reconnecting {
+  background: #fff4d8;
+  color: #765317;
+}
+
+.connection-disconnected,
+.connection-error {
+  background: #fbe5e3;
+  color: #9f2723;
+}
+
+.presence-bar {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #d9dee7;
+  background: #ffffff;
+  padding: 8px 18px;
+}
+
+.presence-user {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d9dee7;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.presence-user small {
+  color: #536176;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .markdown-editor-grid {
-  min-height: calc(100vh - 58px);
+  min-height: calc(100vh - 106px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0;
 }
 
 .markdown-pane {
-  min-height: calc(100vh - 58px);
+  min-height: calc(100vh - 106px);
   display: grid;
   grid-template-rows: 42px 1fr;
   border-right: 1px solid #d9dee7;

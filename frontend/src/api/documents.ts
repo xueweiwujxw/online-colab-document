@@ -25,6 +25,20 @@ export type MarkdownDocument = {
   canEdit: boolean;
 };
 
+export type PresenceUser = {
+  userId: string;
+  displayName: string;
+  canEdit: boolean;
+};
+
+export type MarkdownSnapshot = {
+  documentId: string;
+  content: string;
+  versionNo: number;
+  canEdit: boolean;
+  users: PresenceUser[];
+};
+
 export async function listDocuments(): Promise<DocumentItem[]> {
   const response = await getJSON<{ items: DocumentItem[] }>('/api/documents');
   return response.items;
@@ -76,4 +90,16 @@ export function saveMarkdownDocument(id: string, content: string): Promise<Markd
     { content },
     { method: 'PUT' },
   );
+}
+
+export function getMarkdownSnapshot(id: string): Promise<MarkdownSnapshot> {
+  return getJSON<MarkdownSnapshot>(`/api/documents/${id}/markdown/snapshot`);
+}
+
+export function markdownWebSocketURL(id: string): string {
+  const base =
+    apiBaseUrl === ''
+      ? window.location.origin
+      : apiBaseUrl;
+  return `${base.replace(/^http/, 'ws')}/api/documents/${id}/markdown/ws`;
 }

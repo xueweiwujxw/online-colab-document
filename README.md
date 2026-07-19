@@ -67,6 +67,7 @@ ONLYOFFICE_JWT_SECRET=change-me
 PUBLIC_APP_URL=http://localhost:3000
 PUBLIC_API_URL=http://localhost:8080
 BACKEND_INTERNAL_URL=http://backend:8080
+MARKDOWN_SNAPSHOT_UPDATE_INTERVAL=100
 ```
 
 前端：
@@ -90,7 +91,7 @@ make lint
 
 ## 当前里程碑
 
-M6 Markdown 普通编辑：
+M7 Markdown 协同编辑：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -114,7 +115,17 @@ M6 Markdown 普通编辑：
 - Markdown 保存生成新版本并更新当前下载内容
 - 前端 `/documents/:id/markdown` 源码编辑和预览页面
 - viewer 只读打开 Markdown，editor/owner 可以保存
+- Markdown 协同 snapshot 接口 `GET /api/documents/:id/markdown/snapshot`
+- Markdown 协同 WebSocket `WS /api/documents/:id/markdown/ws`
+- editor/owner 修改内容实时广播到同一文档其他客户端
+- viewer 可以连接和接收更新，但不能提交编辑
+- Markdown update 和周期 snapshot 持久化到 PostgreSQL
+- presence 显示当前在线用户和只读/可编辑状态
+
+## 当前限制
+
+- Markdown 协同第一版只支持单 backend 实例内实时广播；多实例部署需要 Redis pub/sub 或其他跨实例消息总线。
 
 ## 下一步开发计划
 
-M7 将实现 Markdown 多人协同编辑。
+M8 将实现分享链接。

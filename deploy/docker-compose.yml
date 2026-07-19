@@ -30,6 +30,7 @@ services:
       PUBLIC_APP_URL: http://localhost:3000
       PUBLIC_API_URL: http://localhost:8080
       BACKEND_INTERNAL_URL: http://backend:8080
+      MARKDOWN_SNAPSHOT_UPDATE_INTERVAL: "100"
     ports:
       - "8080:8080"
     depends_on:
