@@ -130,7 +130,7 @@ export function DocumentListPage() {
         <section className="document-list">
           {documents.items.map((document) => (
             <article className="document-row" key={document.id}>
-              <a className="document-title" href={documentOpenURL(document)}>
+              <a className="document-title" href={`/documents/${document.id}`}>
                 {document.title}
               </a>
               <span className="file-badge">{document.fileExt}</span>
@@ -143,6 +143,16 @@ export function DocumentListPage() {
                 <a className="secondary-button" href={documentDownloadURL(document.id)}>
                   下载
                 </a>
+                {document.canManage ? (
+                  <a className="secondary-button" href={`/documents/${document.id}/permissions`}>
+                    权限
+                  </a>
+                ) : null}
+                {document.canManage ? (
+                  <a className="secondary-button" href={`/documents/${document.id}/share`}>
+                    分享
+                  </a>
+                ) : null}
                 {document.canManage ? (
                   <button
                     className="secondary-button danger-button"
