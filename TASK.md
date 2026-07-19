@@ -2177,10 +2177,12 @@ viewer 只能只读打开
 - 已新增自托管 office-collab Hocuspocus/Yjs WebSocket 服务，并通过 cookie 转发到后端校验 xlsx view/write 权限。
 - 开发 compose 已启用 `ws://localhost:1234`，xlsx session 可返回 `enabled: true`。
 - 已验证 xlsx 编辑页浏览器烟测：表格 canvas 正常渲染、无英文菜单栏、协同 WebSocket 返回 101。
+- 已新增 xlsx workbook snapshot 实时同步：编辑后通过 Hocuspocus/Yjs 房间广播当前 workbook，另一端无需保存和刷新即可接收并应用。
+- 已验证双页面 xlsx 协同烟测：两个页面均显示协同已连接，编辑后发送端产生 WebSocket 数据帧，接收端收到对应数据帧。
 
 当前限制：
 
-- Excel 当前 Casual React POC 已连接 Hocuspocus/Yjs 服务，但还没有完成浏览器双窗口真实单元格编辑同步验证。
+- Excel 当前 Casual React POC 已实现 snapshot 级实时同步；还不是单元格级 CRDT 合并，并发编辑同一区域时以后到达的 workbook snapshot 为准。
 - office-collab 当前为单实例内存协同状态；重启会丢失实时 Yjs 状态，最终保存仍走后端 office/content 版本链路。
 - Word 当前仍走 Casual iframe POC，只支持单人编辑保存，不支持多人实时共享编辑。
 - CasualSheets 的 `lazyPlugins` 暂时关闭以避开缺失的 `@univerjs/docs-mention-ui` 懒加载白屏问题；后续需要恢复高级表格能力时单独修复插件清单或升级依赖。

@@ -4,9 +4,11 @@ import {
   type CasualSheetsAPI,
 } from '@casualoffice/sheets/sheets';
 import { EmbedHostTransport, type SaveRequestData } from '@casualoffice/sheets/embed';
+import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider';
 import '@casualoffice/sheets/styles';
 import '@univerjs/sheets/facade';
 import '@univerjs/sheets-ui/facade';
+import * as Y from 'yjs';
 import {
   workbookDataToXlsx,
   xlsxToWorkbookData,
@@ -32,6 +34,11 @@ type EditorState =
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 type CollabConnectionStatus = 'connecting' | 'live' | 'offline';
+type RealtimeSnapshot = {
+  clientId: string;
+  clock: number;
+  workbook: ImportedWorkbook;
+};
 type CollabState =
   | { status: 'idle'; session: null }
   | { status: 'loading'; session: null }
@@ -230,6 +237,12 @@ function DirectSheetsHost({
   onSaveError: (message: string) => void;
 }) {
   const apiRef = useRef<CasualSheetsAPI | null>(null);
+  const realtimeMapRef = useRef<Y.Map<RealtimeSnapshot> | null>(null);
+  const suppressRealtimePublishUntil = useRef(0);
+  const realtimeClientId = useRef(createClientId());
+  const realtimeClock = useRef(0);
+  const lastRemoteVersion = useRef<string | null>(null);
+  const [sheetApi, setSheetApi] = useState<CasualSheetsAPI | null>(null);
   const [sheetState, setSheetState] = useState<
     | { status: 'loading'; workbook: null; error: null }
     | { status: 'success'; workbook: ImportedWorkbook; error: null }
@@ -289,6 +302,95 @@ function DirectSheetsHost({
     return () => onSaveReady(null);
   }, [onSaveReady, saveSnapshot]);
 
+  useEffect(() => {
+    if (!sheetApi || !collabSession?.enabled || !collabSession.serverUrl) {
+      realtimeMapRef.current = null;
+      return;
+    }
+
+    onCollabStatus('connecting');
+    const doc = new Y.Doc();
+    const map = doc.getMap<RealtimeSnapshot>('office-snapshot');
+    realtimeMapRef.current = map;
+    const websocket = new HocuspocusProviderWebsocket({
+      messageReconnectTimeout: 10_000,
+      url: officeCollabURL(collabSession.serverUrl, collabSession.room, collabSession.role),
+    });
+    const provider = new HocuspocusProvider({
+      document: doc,
+      name: collabSession.room,
+      token: 'anon',
+      websocketProvider: websocket,
+    });
+    provider.attach();
+
+    const applyRemoteSnapshot = (snapshot: RealtimeSnapshot | undefined) => {
+      if (!snapshot || snapshot.clientId === realtimeClientId.current) {
+        return;
+      }
+      const version = `${snapshot.clientId}:${snapshot.clock}`;
+      if (lastRemoteVersion.current === version) {
+        return;
+      }
+      lastRemoteVersion.current = version;
+      suppressRealtimePublishUntil.current = Date.now() + 1000;
+      sheetApi.setContent(snapshot.workbook);
+      sheetApi.setDocumentMode(session.mode === 'edit' ? 'editing' : 'viewing');
+    };
+
+    const observer = () => applyRemoteSnapshot(map.get('latest'));
+    map.observe(observer);
+    provider.on('status', ({ status }: { status: string }) => {
+      onCollabStatus(status === 'connected' ? 'live' : status === 'connecting' ? 'connecting' : 'offline');
+    });
+    provider.on('synced', ({ state }: { state: boolean }) => {
+      if (!state) {
+        return;
+      }
+      onCollabStatus('live');
+      const latest = map.get('latest');
+      if (latest) {
+        applyRemoteSnapshot(latest);
+        return;
+      }
+      if (collabSession.role === 'write') {
+        const initial = sheetApi.getContent();
+        if (initial) {
+          realtimeClock.current += 1;
+          map.set('latest', {
+            clientId: realtimeClientId.current,
+            clock: realtimeClock.current,
+            workbook: initial,
+          });
+        }
+      }
+    });
+
+    return () => {
+      map.unobserve(observer);
+      realtimeMapRef.current = null;
+      provider.destroy();
+      websocket.destroy();
+      doc.destroy();
+    };
+  }, [collabSession, onCollabStatus, session.mode, sheetApi]);
+
+  const publishRealtimeSnapshot = useCallback(
+    (snapshot: ImportedWorkbook) => {
+      const map = realtimeMapRef.current;
+      if (!map || collabSession?.role !== 'write' || Date.now() < suppressRealtimePublishUntil.current) {
+        return;
+      }
+      realtimeClock.current += 1;
+      map.set('latest', {
+        clientId: realtimeClientId.current,
+        clock: realtimeClock.current,
+        workbook: snapshot,
+      });
+    },
+    [collabSession?.role],
+  );
+
   if (sheetState.status === 'loading') {
     return <section className="empty-state editor-state">正在解析 xlsx 表格</section>;
   }
@@ -302,24 +404,16 @@ function DirectSheetsHost({
         key={`${session.documentId}:${session.mode}`}
         appearance="light"
         chrome="none"
-        collab={
-          collabSession?.enabled
-            ? {
-                room: collabSession.room,
-                server: collabSession.serverUrl ?? '',
-                role: collabSession.role,
-                onStatus: onCollabStatus,
-              }
-            : undefined
-        }
         documentMode={session.mode === 'edit' ? 'editing' : 'viewing'}
         initialData={sheetState.workbook}
         lazyPlugins={false}
         locale={SHEETS_LOCALE}
         locales={SHEETS_LOCALES}
         onError={(error) => onSaveError(error.message)}
+        onChange={publishRealtimeSnapshot}
         onReady={(api) => {
           apiRef.current = api;
+          setSheetApi(api);
         }}
         onSave={(snapshot) => {
           void saveSnapshot(snapshot);
@@ -329,6 +423,15 @@ function DirectSheetsHost({
       />
     </section>
   );
+}
+
+function createClientId(): string {
+  return window.crypto?.randomUUID?.() ?? `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
+
+function officeCollabURL(serverURL: string, room: string, role: string): string {
+  const separator = serverURL.includes('?') ? '&' : '?';
+  return `${serverURL}${separator}room=${encodeURIComponent(room)}&role=${role === 'view' ? 'view' : 'write'}`;
 }
 
 function CasualIframeHost({
