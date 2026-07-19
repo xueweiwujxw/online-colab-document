@@ -27,6 +27,8 @@ services:
       ONLYOFFICE_PUBLIC_URL: http://localhost:8081
       ONLYOFFICE_INTERNAL_URL: http://onlyoffice
       ONLYOFFICE_JWT_SECRET: change-me
+      OFFICE_COLLAB_ENABLED: ${OFFICE_COLLAB_ENABLED:-false}
+      OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-}
       PUBLIC_APP_URL: http://localhost:3000
       PUBLIC_API_URL: http://localhost:8080
       BACKEND_INTERNAL_URL: http://backend:8080

@@ -45,6 +45,20 @@ func (h Handler) Session(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, session)
 }
 
+func (h Handler) CollabSession(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	session, err := h.service.CollabSession(r.Context(), currentUser, r.PathValue("id"))
+	if err != nil {
+		h.writeError(w, "office collab session failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, session)
+}
+
 func (h Handler) Save(w http.ResponseWriter, r *http.Request) {
 	currentUser, ok := middleware.CurrentUser(r.Context())
 	if !ok {

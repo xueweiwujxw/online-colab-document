@@ -10,8 +10,22 @@ export type OfficeSession = {
   saveUrl: string;
 };
 
+export type OfficeCollabSession = {
+  enabled: boolean;
+  documentId: string;
+  fileExt: string;
+  room: string;
+  role: 'view' | 'write';
+  serverUrl?: string;
+  reason?: string;
+};
+
 export function getOfficeSession(documentId: string): Promise<OfficeSession> {
   return getJSON<OfficeSession>(`/api/documents/${documentId}/office/session`);
+}
+
+export function getOfficeCollabSession(documentId: string): Promise<OfficeCollabSession> {
+  return getJSON<OfficeCollabSession>(`/api/documents/${documentId}/office/collab/session`);
 }
 
 export async function fetchOfficeContent(url: string): Promise<ArrayBuffer> {

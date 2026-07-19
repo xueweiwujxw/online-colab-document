@@ -140,9 +140,11 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			onlyOfficeHandler := onlyoffice.NewHandler(onlyOfficeService, logger).WithAudit(auditService)
 			officeService := office.NewService(
 				office.Config{
-					Provider:       "casual",
-					PublicAPIURL:   cfg.PublicAPIURL,
-					MaxUploadBytes: cfg.DocumentMaxUploadBytes,
+					Provider:        "casual",
+					PublicAPIURL:    cfg.PublicAPIURL,
+					CollabPublicURL: cfg.OfficeCollabPublicURL,
+					CollabEnabled:   cfg.OfficeCollabEnabled,
+					MaxUploadBytes:  cfg.DocumentMaxUploadBytes,
 				},
 				documentRepo,
 				permissionService,
@@ -171,6 +173,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.HandleFunc("GET /api/share/{token}/download", shareHandler.Download)
 			mux.HandleFunc("PUT /api/share/{token}/markdown", shareHandler.SaveMarkdown)
 			mux.Handle("GET /api/documents/{id}/office/session", requireAuth(officeHandler.Session))
+			mux.Handle("GET /api/documents/{id}/office/collab/session", requireAuth(officeHandler.CollabSession))
 			mux.Handle("PUT /api/documents/{id}/office/content", requireAuth(officeHandler.Save))
 			mux.Handle("GET /api/documents/{id}/onlyoffice/config", requireAuth(onlyOfficeHandler.Config))
 			mux.HandleFunc("GET /api/onlyoffice/download/{documentId}", onlyOfficeHandler.Download)

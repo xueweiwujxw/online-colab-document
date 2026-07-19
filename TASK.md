@@ -2136,6 +2136,13 @@ ONLYOFFICE 容器可访问 xlsx 下载地址
 
 状态：进行中。
 
+方向：
+
+- 当前产品重点先收敛到 `xlsx` 和 `md`。
+- `xlsx` 必须支持在线多人共享编辑，是 Office 替换的高优先级目标。
+- `md` 后续升级为类飞书文档的富文本协同编辑体验。
+- `doc` / `docx` 保留上传、下载和后续兼容空间，但不作为当前编辑体验优化重点。
+
 范围：
 
 - 选择一个替代 ONLYOFFICE 的自托管开源 Office 编辑器候选方案优先做 POC。
@@ -2173,6 +2180,19 @@ viewer 只能只读打开
 - 还没有完成浏览器内真实编辑 UI 的人工验证。
 - 还没有支持旧格式 doc / xls 的 Casual 打开链路。
 - 还没有删除 ONLYOFFICE，正式替换前继续保留回退路径。
+
+下一阶段：Excel 协同 POC：
+
+```text
+新增自托管 Hocuspocus/Yjs WebSocket 服务
+新增后端 Office collab 权限校验接口，基于现有 PermissionService 判断 view/write
+xlsx 前端从 iframe embed 切到 React 直渲染 CasualSheets
+CasualSheets 通过 collab prop 连接 Hocuspocus 房间
+viewer 以 view role 加入，只能接收远端更新
+editor/owner 以 write role 加入，可以广播修改
+保存仍走后端 office/content，并继续生成版本和审计
+前端显示协同连接状态和在线编辑限制
+```
 
 ---
 

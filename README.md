@@ -12,7 +12,7 @@ Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服
 - Cache: Redis
 - Storage: MinIO / S3
 - Deploy: Podman Compose / Docker Compose compatible compose file
-- Office editor: 后续里程碑使用 ONLYOFFICE Document Server
+- Office editor: 自托管开源 Office 编辑器，当前保留 ONLYOFFICE 回退并推进 xlsx 协同 POC
 - Markdown collab: 后续里程碑使用 Yjs / WebSocket
 
 ## 本地启动
@@ -78,6 +78,8 @@ ONLYOFFICE_ENABLED=true
 ONLYOFFICE_PUBLIC_URL=http://localhost:8081
 ONLYOFFICE_INTERNAL_URL=http://onlyoffice
 ONLYOFFICE_JWT_SECRET=change-me
+OFFICE_COLLAB_ENABLED=false
+OFFICE_COLLAB_PUBLIC_URL=
 PUBLIC_APP_URL=http://localhost:3000
 PUBLIC_API_URL=http://localhost:8080
 BACKEND_INTERNAL_URL=http://backend:8080

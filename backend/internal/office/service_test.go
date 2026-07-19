@@ -41,6 +41,75 @@ func TestSessionRejectsUnsupportedFile(t *testing.T) {
 	}
 }
 
+func TestCollabSessionReturnsWriteRoleForEditor(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "xlsx"
+	h.permissions.canView = true
+	h.permissions.canEdit = true
+	h.service.cfg.CollabEnabled = true
+	h.service.cfg.CollabPublicURL = "ws://collab.example.test/yjs/"
+
+	session, err := h.service.CollabSession(context.Background(), testUser(), "doc-1")
+	if err != nil {
+		t.Fatalf("CollabSession returned error: %v", err)
+	}
+	if !session.Enabled {
+		t.Fatalf("enabled = false, want true")
+	}
+	if session.Role != "write" {
+		t.Fatalf("role = %q, want write", session.Role)
+	}
+	if session.Room != "office:doc-1" {
+		t.Fatalf("room = %q, want office:doc-1", session.Room)
+	}
+	if session.ServerURL != "ws://collab.example.test/yjs" {
+		t.Fatalf("server url = %q", session.ServerURL)
+	}
+}
+
+func TestCollabSessionReturnsViewRoleForViewer(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "xlsx"
+	h.permissions.canView = true
+	h.permissions.canEdit = false
+	h.service.cfg.CollabEnabled = true
+	h.service.cfg.CollabPublicURL = "ws://collab.example.test/yjs"
+
+	session, err := h.service.CollabSession(context.Background(), testUser(), "doc-1")
+	if err != nil {
+		t.Fatalf("CollabSession returned error: %v", err)
+	}
+	if session.Role != "view" {
+		t.Fatalf("role = %q, want view", session.Role)
+	}
+}
+
+func TestCollabSessionDisabledWhenServiceNotConfigured(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "xlsx"
+
+	session, err := h.service.CollabSession(context.Background(), testUser(), "doc-1")
+	if err != nil {
+		t.Fatalf("CollabSession returned error: %v", err)
+	}
+	if session.Enabled {
+		t.Fatalf("enabled = true, want false")
+	}
+	if session.Reason == "" {
+		t.Fatalf("reason is empty")
+	}
+}
+
+func TestCollabSessionRejectsDocx(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "docx"
+
+	_, err := h.service.CollabSession(context.Background(), testUser(), "doc-1")
+	if err != ErrUnsupportedFile {
+		t.Fatalf("error = %v, want ErrUnsupportedFile", err)
+	}
+}
+
 func TestSaveRequiresEditPermission(t *testing.T) {
 	h := newHarness()
 	h.permissions.canView = true

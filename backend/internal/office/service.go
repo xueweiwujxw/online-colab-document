@@ -22,9 +22,11 @@ var (
 )
 
 type Config struct {
-	Provider       string
-	PublicAPIURL   string
-	MaxUploadBytes int64
+	Provider        string
+	PublicAPIURL    string
+	CollabPublicURL string
+	CollabEnabled   bool
+	MaxUploadBytes  int64
 }
 
 type DocumentRepository interface {
@@ -54,6 +56,16 @@ type Session struct {
 	Mode        string `json:"mode"`
 	DownloadURL string `json:"downloadUrl"`
 	SaveURL     string `json:"saveUrl"`
+}
+
+type CollabSession struct {
+	Enabled    bool   `json:"enabled"`
+	DocumentID string `json:"documentId"`
+	FileExt    string `json:"fileExt"`
+	Room       string `json:"room"`
+	Role       string `json:"role"`
+	ServerURL  string `json:"serverUrl,omitempty"`
+	Reason     string `json:"reason,omitempty"`
 }
 
 func NewService(cfg Config, documents DocumentRepository, permissions PermissionService, objectStorage storage.Storage) *Service {
@@ -106,6 +118,44 @@ func (s *Service) Session(ctx context.Context, currentUser user.User, documentID
 		DownloadURL: base + "/api/documents/" + doc.ID + "/download",
 		SaveURL:     base + "/api/documents/" + doc.ID + "/office/content",
 	}, nil
+}
+
+func (s *Service) CollabSession(ctx context.Context, currentUser user.User, documentID string) (CollabSession, error) {
+	doc, err := s.documents.FindByID(ctx, documentID)
+	if err != nil {
+		return CollabSession{}, err
+	}
+	if strings.ToLower(doc.FileExt) != "xlsx" {
+		return CollabSession{}, ErrUnsupportedFile
+	}
+	canView, err := s.permissions.CanView(ctx, currentUser.ID, documentID)
+	if err != nil {
+		return CollabSession{}, err
+	}
+	if !canView {
+		return CollabSession{}, ErrForbidden
+	}
+	canEdit, err := s.permissions.CanEdit(ctx, currentUser.ID, documentID)
+	if err != nil {
+		return CollabSession{}, err
+	}
+	role := "view"
+	if canEdit {
+		role = "write"
+	}
+	serverURL := strings.TrimRight(s.cfg.CollabPublicURL, "/")
+	session := CollabSession{
+		Enabled:    s.cfg.CollabEnabled && serverURL != "",
+		DocumentID: doc.ID,
+		FileExt:    strings.ToLower(doc.FileExt),
+		Room:       "office:" + doc.ID,
+		Role:       role,
+		ServerURL:  serverURL,
+	}
+	if !session.Enabled {
+		session.Reason = "office collab service is not configured"
+	}
+	return session, nil
 }
 
 func (s *Service) Save(ctx context.Context, currentUser user.User, documentID string, body io.Reader) (document.Document, int64, error) {

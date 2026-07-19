@@ -33,6 +33,8 @@ type Config struct {
 	OnlyOfficePublicURL            string
 	OnlyOfficeInternalURL          string
 	OnlyOfficeJWTSecret            string
+	OfficeCollabPublicURL          string
+	OfficeCollabEnabled            bool
 	PublicAppURL                   string
 	PublicAPIURL                   string
 	BackendInternalURL             string
@@ -66,6 +68,8 @@ func Load() Config {
 		OnlyOfficePublicURL:            getEnv("ONLYOFFICE_PUBLIC_URL", "http://localhost:8080/onlyoffice"),
 		OnlyOfficeInternalURL:          getEnv("ONLYOFFICE_INTERNAL_URL", "http://onlyoffice"),
 		OnlyOfficeJWTSecret:            getEnv("ONLYOFFICE_JWT_SECRET", ""),
+		OfficeCollabPublicURL:          getEnv("OFFICE_COLLAB_PUBLIC_URL", ""),
+		OfficeCollabEnabled:            getBoolEnv("OFFICE_COLLAB_ENABLED", false),
 		PublicAppURL:                   getEnv("PUBLIC_APP_URL", "http://localhost:3000"),
 		PublicAPIURL:                   getEnv("PUBLIC_API_URL", "http://localhost:8080"),
 		BackendInternalURL:             getEnv("BACKEND_INTERNAL_URL", "http://backend:8080"),

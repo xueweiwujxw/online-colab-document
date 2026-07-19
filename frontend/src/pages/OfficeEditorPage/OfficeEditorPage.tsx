@@ -3,8 +3,10 @@ import { EmbedHostTransport, type SaveRequestData } from '@casualoffice/sheets/e
 
 import {
   fetchOfficeContent,
+  getOfficeCollabSession,
   getOfficeSession,
   saveOfficeContent,
+  type OfficeCollabSession,
   type OfficeSession,
 } from '../../api/office';
 import { ApiError, errorMessage } from '../../api/client';
@@ -16,6 +18,11 @@ type EditorState =
   | { status: 'error'; session: null; buffer: null; error: string };
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+type CollabState =
+  | { status: 'idle'; session: null }
+  | { status: 'loading'; session: null }
+  | { status: 'success'; session: OfficeCollabSession }
+  | { status: 'error'; session: null };
 
 export function OfficeEditorPage({ documentId }: { documentId: string }) {
   const auth = useAuth();
@@ -28,6 +35,7 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
   });
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [collabState, setCollabState] = useState<CollabState>({ status: 'idle', session: null });
   const onTransport = useCallback((transport: EmbedHostTransport | null) => {
     activeTransport.current = transport;
   }, []);
@@ -47,11 +55,29 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
     }
     let mounted = true;
     setState({ status: 'loading', session: null, buffer: null, error: null });
+    setSaveState('idle');
+    setSaveError(null);
+    setCollabState({ status: 'idle', session: null });
     getOfficeSession(documentId)
       .then(async (session) => {
         const buffer = await fetchOfficeContent(session.downloadUrl);
         if (mounted) {
           setState({ status: 'success', session, buffer, error: null });
+        }
+        if (session.fileExt === 'xlsx') {
+          setCollabState({ status: 'loading', session: null });
+          try {
+            const collabSession = await getOfficeCollabSession(documentId);
+            if (mounted) {
+              setCollabState({ status: 'success', session: collabSession });
+            }
+          } catch {
+            if (mounted) {
+              setCollabState({ status: 'error', session: null });
+            }
+          }
+        } else if (mounted) {
+          setCollabState({ status: 'idle', session: null });
         }
       })
       .catch((error: unknown) => {
@@ -106,7 +132,7 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
           {state.status === 'success' ? (
             <span className="connection-pill">{state.session.mode === 'edit' ? '可编辑' : '只读'}</span>
           ) : null}
-          {state.status === 'success' ? <span className="office-collab-note">单人编辑</span> : null}
+          {state.status === 'success' ? <span className="office-collab-note">{collabLabel(collabState)}</span> : null}
           {saveError ? <span className="form-error office-save-error">{saveError}</span> : null}
           {state.status === 'success' && state.session.mode === 'edit' ? (
             <button
@@ -238,4 +264,14 @@ function embedBasePath(fileExt: string): string {
 
 function providerName(fileExt: string): string {
   return fileExt === 'xlsx' ? 'Casual Sheets' : 'Casual Docs';
+}
+
+function collabLabel(state: CollabState): string {
+  if (state.status === 'loading') {
+    return '协同检测中';
+  }
+  if (state.status === 'success' && state.session.enabled) {
+    return state.session.role === 'write' ? '协同可编辑' : '协同只读';
+  }
+  return '单人编辑';
 }
