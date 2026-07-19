@@ -262,6 +262,119 @@ func TestEditorCanSaveMarkdownCreatesVersionAndDownloadReturnsLatest(t *testing.
 	}
 }
 
+func TestDownloadHistoricalVersion(t *testing.T) {
+	repo := newMemoryRepo()
+	objectStorage := newMemoryStorage()
+	service := NewService(repo, objectStorage, nil, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("first"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	firstVersionID := *doc.CurrentVersionID
+	if _, err := service.SaveMarkdown(context.Background(), "owner-1", doc.ID, "second"); err != nil {
+		t.Fatalf("save markdown: %v", err)
+	}
+
+	download, err := service.DownloadVersion(context.Background(), "owner-1", doc.ID, firstVersionID)
+
+	if err != nil {
+		t.Fatalf("download version: %v", err)
+	}
+	defer download.Reader.Close()
+	data, err := io.ReadAll(download.Reader)
+	if err != nil {
+		t.Fatalf("read version: %v", err)
+	}
+	if string(data) != "first" {
+		t.Fatalf("expected historical content first, got %q", string(data))
+	}
+}
+
+func TestViewerCannotRestoreVersion(t *testing.T) {
+	repo := newMemoryRepo()
+	permissions := newFakePermissionService()
+	service := NewService(repo, newMemoryStorage(), permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("first"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	permissions.view[doc.ID+":viewer-1"] = true
+
+	_, err = service.RestoreVersion(context.Background(), "viewer-1", doc.ID, *doc.CurrentVersionID)
+
+	if err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+}
+
+func TestEditorCanRestoreVersionCreatesNewCurrentVersion(t *testing.T) {
+	repo := newMemoryRepo()
+	objectStorage := newMemoryStorage()
+	permissions := newFakePermissionService()
+	service := NewService(repo, objectStorage, permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("first"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	firstVersionID := *doc.CurrentVersionID
+	permissions.edit[doc.ID+":editor-1"] = true
+	if _, err := service.SaveMarkdown(context.Background(), "editor-1", doc.ID, "second"); err != nil {
+		t.Fatalf("save markdown: %v", err)
+	}
+
+	restored, err := service.RestoreVersion(context.Background(), "editor-1", doc.ID, firstVersionID)
+
+	if err != nil {
+		t.Fatalf("restore version: %v", err)
+	}
+	if restored.ID == firstVersionID {
+		t.Fatalf("restore must create a new version")
+	}
+	if restored.CreatedBy == nil || *restored.CreatedBy != "editor-1" {
+		t.Fatalf("expected restored version created by editor-1, got %#v", restored.CreatedBy)
+	}
+	if repo.versionCount() != 3 {
+		t.Fatalf("expected three versions, got %d", repo.versionCount())
+	}
+	download, err := service.Download(context.Background(), "editor-1", doc.ID)
+	if err != nil {
+		t.Fatalf("download current: %v", err)
+	}
+	defer download.Reader.Close()
+	data, err := io.ReadAll(download.Reader)
+	if err != nil {
+		t.Fatalf("read current: %v", err)
+	}
+	if string(data) != "first" {
+		t.Fatalf("expected restored content first, got %q", string(data))
+	}
+	updated, err := repo.FindByID(context.Background(), doc.ID)
+	if err != nil {
+		t.Fatalf("find updated document: %v", err)
+	}
+	if updated.CurrentVersionID == nil || *updated.CurrentVersionID != restored.ID {
+		t.Fatalf("expected current_version_id %s, got %#v", restored.ID, updated.CurrentVersionID)
+	}
+}
+
 func TestViewerCannotSaveMarkdown(t *testing.T) {
 	repo := newMemoryRepo()
 	permissions := newFakePermissionService()
@@ -461,6 +574,21 @@ func (r *memoryRepo) ListVersions(_ context.Context, documentID string) ([]Versi
 		return nil, ErrNotFound
 	}
 	return append([]Version(nil), r.versions[documentID]...), nil
+}
+
+func (r *memoryRepo) FindVersion(_ context.Context, documentID string, versionID string) (Version, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	doc, ok := r.documents[documentID]
+	if !ok || doc.DeletedAt != nil {
+		return Version{}, ErrNotFound
+	}
+	for _, version := range r.versions[documentID] {
+		if version.ID == versionID {
+			return version, nil
+		}
+	}
+	return Version{}, ErrNotFound
 }
 
 func (r *memoryRepo) HasOnlyOfficeSave(context.Context, string, string) (bool, error) {

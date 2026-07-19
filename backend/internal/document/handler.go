@@ -50,7 +50,12 @@ func (h Handler) List(w http.ResponseWriter, r *http.Request) {
 			h.writeError(w, "check document manage permission failed", err)
 			return
 		}
-		items = append(items, ToPublic(doc, canManage))
+		canEdit, err := h.service.CanEdit(r.Context(), currentUser.ID, doc.ID)
+		if err != nil {
+			h.writeError(w, "check document edit permission failed", err)
+			return
+		}
+		items = append(items, ToPublic(doc, canManage, canEdit))
 	}
 	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -84,7 +89,7 @@ func (h Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "upload document failed", err)
 		return
 	}
-	api.WriteJSON(w, http.StatusCreated, ToPublic(doc, true))
+	api.WriteJSON(w, http.StatusCreated, ToPublic(doc, true, true))
 }
 
 func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +108,12 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "check document manage permission failed", err)
 		return
 	}
-	api.WriteJSON(w, http.StatusOK, ToPublic(doc, canManage))
+	canEdit, err := h.service.CanEdit(r.Context(), currentUser.ID, doc.ID)
+	if err != nil {
+		h.writeError(w, "check document edit permission failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, ToPublic(doc, canManage, canEdit))
 }
 
 func (h Handler) Download(w http.ResponseWriter, r *http.Request) {
@@ -131,6 +141,31 @@ func (h Handler) Download(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h Handler) DownloadVersion(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	download, err := h.service.DownloadVersion(r.Context(), currentUser.ID, r.PathValue("id"), r.PathValue("versionId"))
+	if err != nil {
+		h.writeError(w, "download document version failed", err)
+		return
+	}
+	defer download.Reader.Close()
+
+	w.Header().Set("Content-Type", download.Document.MimeType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", download.Version.SizeBytes))
+	w.Header().Set(
+		"Content-Disposition",
+		mime.FormatMediaType("attachment", map[string]string{"filename": download.Document.OriginalFilename}),
+	)
+	w.WriteHeader(http.StatusOK)
+	if _, err := io.Copy(w, download.Reader); err != nil {
+		h.logger.Error("stream document version failed", "error", err)
+	}
+}
+
 func (h Handler) GetMarkdown(w http.ResponseWriter, r *http.Request) {
 	currentUser, ok := middleware.CurrentUser(r.Context())
 	if !ok {
@@ -148,7 +183,7 @@ func (h Handler) GetMarkdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.WriteJSON(w, http.StatusOK, markdownResponse{
-		Document: ToPublic(markdown.Document, canManage),
+		Document: ToPublic(markdown.Document, canManage, markdown.CanEdit),
 		Content:  markdown.Content,
 		CanEdit:  markdown.CanEdit,
 	})
@@ -176,7 +211,7 @@ func (h Handler) UpdateMarkdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.WriteJSON(w, http.StatusOK, markdownResponse{
-		Document: ToPublic(markdown.Document, canManage),
+		Document: ToPublic(markdown.Document, canManage, markdown.CanEdit),
 		Content:  markdown.Content,
 		CanEdit:  markdown.CanEdit,
 	})
@@ -211,6 +246,20 @@ func (h Handler) Versions(w http.ResponseWriter, r *http.Request) {
 		items = append(items, VersionToPublic(version))
 	}
 	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	version, err := h.service.RestoreVersion(r.Context(), currentUser.ID, r.PathValue("id"), r.PathValue("versionId"))
+	if err != nil {
+		h.writeError(w, "restore document version failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusCreated, VersionToPublic(version))
 }
 
 func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error) {

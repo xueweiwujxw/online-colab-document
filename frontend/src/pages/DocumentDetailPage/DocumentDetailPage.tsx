@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 
 import {
   documentDownloadURL,
+  documentVersionDownloadURL,
   getDocument,
   listDocumentVersions,
+  restoreDocumentVersion,
   type DocumentItem,
   type DocumentVersion,
 } from '../../api/documents';
@@ -22,32 +24,50 @@ export function DocumentDetailPage({ id }: { id: string }) {
     versions: [],
     error: null,
   });
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+
+  async function refreshDocument(mounted = true) {
+    try {
+      const [document, versions] = await Promise.all([getDocument(id), listDocumentVersions(id)]);
+      if (mounted) {
+        setState({ status: 'success', document, versions, error: null });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState({
+          status: 'error',
+          document: null,
+          versions: [],
+          error: error instanceof Error ? error.message : 'Failed to load document',
+        });
+      }
+    }
+  }
 
   useEffect(() => {
     if (auth.status !== 'authenticated') {
       return;
     }
     let mounted = true;
-    Promise.all([getDocument(id), listDocumentVersions(id)])
-      .then(([document, versions]) => {
-        if (mounted) {
-          setState({ status: 'success', document, versions, error: null });
-        }
-      })
-      .catch((error: unknown) => {
-        if (mounted) {
-          setState({
-            status: 'error',
-            document: null,
-            versions: [],
-            error: error instanceof Error ? error.message : 'Failed to load document',
-          });
-        }
-      });
+    void refreshDocument(mounted);
     return () => {
       mounted = false;
     };
   }, [auth.status, id]);
+
+  async function onRestore(versionId: string) {
+    setActionError(null);
+    setRestoringVersionId(versionId);
+    try {
+      await restoreDocumentVersion(id, versionId);
+      await refreshDocument();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Restore failed');
+    } finally {
+      setRestoringVersionId(null);
+    }
+  }
 
   if (auth.status === 'loading') {
     return (
@@ -118,6 +138,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
           </a>
         </div>
       </header>
+      {actionError ? <p className="form-error">{actionError}</p> : null}
       <section className="version-list">
         <h2>Versions</h2>
         {state.versions.length === 0 ? (
@@ -126,8 +147,27 @@ export function DocumentDetailPage({ id }: { id: string }) {
           state.versions.map((version) => (
             <div className="version-row" key={version.id}>
               <span>Version {version.versionNo}</span>
+              <span>{version.createdBy ?? 'system'}</span>
               <span>{formatSize(version.sizeBytes)}</span>
               <span>{formatDate(version.createdAt)}</span>
+              <div className="version-actions">
+                <a
+                  className="secondary-button"
+                  href={documentVersionDownloadURL(state.document.id, version.id)}
+                >
+                  Download
+                </a>
+                {state.document.canEdit ? (
+                  <button
+                    className="secondary-button"
+                    disabled={restoringVersionId === version.id}
+                    onClick={() => void onRestore(version.id)}
+                    type="button"
+                  >
+                    {restoringVersionId === version.id ? 'Restoring' : 'Restore'}
+                  </button>
+                ) : null}
+              </div>
             </div>
           ))
         )}

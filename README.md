@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M8 分享链接。尚未实现版本恢复和审计日志。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M9 版本管理。尚未实现审计日志。
 
 ## 技术栈
 
@@ -91,7 +91,7 @@ make lint
 
 ## 当前里程碑
 
-M8 分享链接：
+M9 版本管理：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -129,6 +129,11 @@ M8 分享链接：
 - viewer 分享链接只读，editor 分享链接可以保存 Markdown
 - 前端 `/documents/:id/share` 分享管理页
 - 前端 `/share/:token` 分享访问页
+- 版本列表显示版本号、创建人、创建时间和文件大小
+- 支持历史版本下载 `GET /api/documents/:id/versions/:versionId/download`
+- 支持恢复历史版本 `POST /api/documents/:id/versions/:versionId/restore`
+- 恢复历史版本会生成新版本，不覆盖旧版本
+- viewer 不能恢复，editor/owner 可以恢复
 
 ## 当前限制
 
@@ -137,4 +142,4 @@ M8 分享链接：
 
 ## 下一步开发计划
 
-M9 将实现版本管理。
+M10 将实现审计日志。

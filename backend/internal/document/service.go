@@ -55,6 +55,12 @@ type Download struct {
 	Reader   io.ReadCloser
 }
 
+type VersionDownload struct {
+	Document Document
+	Version  Version
+	Reader   io.ReadCloser
+}
+
 type MarkdownDocument struct {
 	Document Document
 	Content  string
@@ -169,6 +175,75 @@ func (s *Service) Download(ctx context.Context, userID string, id string) (Downl
 		return Download{}, err
 	}
 	return Download{Document: doc, Reader: reader}, nil
+}
+
+func (s *Service) DownloadVersion(ctx context.Context, userID string, id string, versionID string) (VersionDownload, error) {
+	doc, err := s.Get(ctx, userID, id)
+	if err != nil {
+		return VersionDownload{}, err
+	}
+	version, err := s.repo.FindVersion(ctx, id, versionID)
+	if err != nil {
+		return VersionDownload{}, err
+	}
+	reader, err := s.storage.GetObject(ctx, version.StorageKey)
+	if err != nil {
+		return VersionDownload{}, err
+	}
+	return VersionDownload{Document: doc, Version: version, Reader: reader}, nil
+}
+
+func (s *Service) RestoreVersion(ctx context.Context, userID string, id string, versionID string) (Version, error) {
+	if userID == "" || id == "" || versionID == "" {
+		return Version{}, ErrForbidden
+	}
+	canEdit, err := s.CanEdit(ctx, userID, id)
+	if err != nil {
+		return Version{}, err
+	}
+	if !canEdit {
+		return Version{}, ErrForbidden
+	}
+	doc, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return Version{}, err
+	}
+	source, err := s.repo.FindVersion(ctx, id, versionID)
+	if err != nil {
+		return Version{}, err
+	}
+	reader, err := s.storage.GetObject(ctx, source.StorageKey)
+	if err != nil {
+		return Version{}, err
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return Version{}, err
+	}
+	newVersionID, err := s.newID()
+	if err != nil {
+		return Version{}, err
+	}
+	storageKey := storageKey(doc.ID, newVersionID, doc.OriginalFilename)
+	if err := s.storage.PutObject(ctx, storageKey, bytes.NewReader(data), int64(len(data)), doc.MimeType); err != nil {
+		return Version{}, err
+	}
+	now := s.now().UTC()
+	createdBy := userID
+	version := Version{
+		ID:         newVersionID,
+		DocumentID: doc.ID,
+		StorageKey: storageKey,
+		SizeBytes:  int64(len(data)),
+		CreatedBy:  &createdBy,
+		CreatedAt:  now,
+	}
+	if err := s.repo.AddDocumentVersion(ctx, doc.ID, version, now); err != nil {
+		_ = s.storage.DeleteObject(ctx, storageKey)
+		return Version{}, err
+	}
+	return s.repo.FindVersion(ctx, doc.ID, newVersionID)
 }
 
 func (s *Service) GetMarkdown(ctx context.Context, userID string, id string) (MarkdownDocument, error) {

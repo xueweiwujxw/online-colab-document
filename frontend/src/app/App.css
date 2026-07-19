@@ -521,11 +521,17 @@ h1 {
 .version-row {
   min-height: 48px;
   display: grid;
-  grid-template-columns: 1fr 120px 200px;
+  grid-template-columns: 1fr minmax(160px, 1.2fr) 120px 190px auto;
   align-items: center;
   gap: 14px;
   border-bottom: 1px solid #e1e6ee;
   color: #354257;
+}
+
+.version-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 @media (max-width: 620px) {
@@ -553,6 +559,10 @@ h1 {
   }
 
   .document-actions {
+    justify-content: flex-start;
+  }
+
+  .version-actions {
     justify-content: flex-start;
   }
 

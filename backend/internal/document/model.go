@@ -37,16 +37,18 @@ type PublicDocument struct {
 	UpdatedAt        time.Time `json:"updatedAt"`
 	CreatedAt        time.Time `json:"createdAt"`
 	CanManage        bool      `json:"canManage"`
+	CanEdit          bool      `json:"canEdit"`
 }
 
 type PublicVersion struct {
 	ID        string    `json:"id"`
 	VersionNo int64     `json:"versionNo"`
 	SizeBytes int64     `json:"sizeBytes"`
+	CreatedBy *string   `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func ToPublic(d Document, canManage bool) PublicDocument {
+func ToPublic(d Document, canManage bool, canEdit bool) PublicDocument {
 	return PublicDocument{
 		ID:               d.ID,
 		Title:            d.Title,
@@ -57,6 +59,7 @@ func ToPublic(d Document, canManage bool) PublicDocument {
 		UpdatedAt:        d.UpdatedAt,
 		CreatedAt:        d.CreatedAt,
 		CanManage:        canManage,
+		CanEdit:          canEdit,
 	}
 }
 
@@ -65,6 +68,7 @@ func VersionToPublic(v Version) PublicVersion {
 		ID:        v.ID,
 		VersionNo: v.VersionNo,
 		SizeBytes: v.SizeBytes,
+		CreatedBy: v.CreatedBy,
 		CreatedAt: v.CreatedAt,
 	}
 }

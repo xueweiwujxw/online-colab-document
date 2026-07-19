@@ -156,7 +156,7 @@ func (s *Service) Access(ctx context.Context, token string) (AccessResponse, err
 		return AccessResponse{}, err
 	}
 	response := AccessResponse{
-		Document: document.ToPublic(doc, false),
+		Document: document.ToPublic(doc, false, link.Permission == PermissionEditor),
 		CanEdit:  link.Permission == PermissionEditor,
 	}
 	if isMarkdownDocument(doc.FileExt) {
@@ -218,7 +218,7 @@ func (s *Service) SaveMarkdown(ctx context.Context, token string, content string
 		return AccessResponse{}, err
 	}
 	return AccessResponse{
-		Document: document.ToPublic(updated, false),
+		Document: document.ToPublic(updated, false, true),
 		Content:  content,
 		CanEdit:  true,
 	}, nil

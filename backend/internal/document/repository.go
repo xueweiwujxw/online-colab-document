@@ -17,6 +17,7 @@ type Repository interface {
 	FindByID(ctx context.Context, id string) (Document, error)
 	SoftDeleteForOwner(ctx context.Context, id string, ownerID string, deletedAt time.Time) error
 	ListVersions(ctx context.Context, documentID string) ([]Version, error)
+	FindVersion(ctx context.Context, documentID string, versionID string) (Version, error)
 	HasOnlyOfficeSave(ctx context.Context, documentID string, documentKey string) (bool, error)
 	AddVersion(ctx context.Context, documentID string, version Version, documentKey string, updatedAt time.Time) (bool, error)
 	AddDocumentVersion(ctx context.Context, documentID string, version Version, updatedAt time.Time) error
@@ -204,6 +205,19 @@ func (r *PostgresRepository) ListVersions(ctx context.Context, documentID string
 		return nil, fmt.Errorf("iterate document versions: %w", err)
 	}
 	return versions, nil
+}
+
+func (r *PostgresRepository) FindVersion(ctx context.Context, documentID string, versionID string) (Version, error) {
+	row := r.db.QueryRowContext(
+		ctx,
+		`SELECT v.id, v.document_id, v.version_no, v.storage_key, v.size_bytes, v.created_by, v.created_at
+		FROM document_versions v
+		JOIN documents d ON d.id = v.document_id
+		WHERE d.id = $1 AND v.id = $2 AND d.deleted_at IS NULL`,
+		documentID,
+		versionID,
+	)
+	return scanVersion(row)
 }
 
 func (r *PostgresRepository) AddVersion(ctx context.Context, documentID string, version Version, documentKey string, updatedAt time.Time) (bool, error) {

@@ -10,12 +10,14 @@ export type DocumentItem = {
   updatedAt: string;
   createdAt: string;
   canManage: boolean;
+  canEdit: boolean;
 };
 
 export type DocumentVersion = {
   id: string;
   versionNo: number;
   sizeBytes: number;
+  createdBy: string | null;
   createdAt: string;
 };
 
@@ -78,6 +80,14 @@ export async function uploadDocument(file: File): Promise<DocumentItem> {
 
 export function documentDownloadURL(id: string): string {
   return `${apiBaseUrl}/api/documents/${id}/download`;
+}
+
+export function documentVersionDownloadURL(id: string, versionId: string): string {
+  return `${apiBaseUrl}/api/documents/${id}/versions/${versionId}/download`;
+}
+
+export function restoreDocumentVersion(id: string, versionId: string): Promise<DocumentVersion> {
+  return sendJSON<DocumentVersion>(`/api/documents/${id}/versions/${versionId}/restore`);
 }
 
 export function getMarkdownDocument(id: string): Promise<MarkdownDocument> {

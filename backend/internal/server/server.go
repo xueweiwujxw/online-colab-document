@@ -139,6 +139,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.HandleFunc("GET /api/documents/{id}/markdown/ws", markdownCollabHandler.WebSocket)
 			mux.Handle("DELETE /api/documents/{id}", requireAuth(documentHandler.Delete))
 			mux.Handle("GET /api/documents/{id}/versions", requireAuth(documentHandler.Versions))
+			mux.Handle("GET /api/documents/{id}/versions/{versionId}/download", requireAuth(documentHandler.DownloadVersion))
+			mux.Handle("POST /api/documents/{id}/versions/{versionId}/restore", requireAuth(documentHandler.RestoreVersion))
 			mux.Handle("GET /api/documents/{id}/permissions", requireAuth(permissionHandler.List))
 			mux.Handle("POST /api/documents/{id}/permissions", requireAuth(permissionHandler.Grant))
 			mux.Handle("DELETE /api/documents/{id}/permissions/{permissionId}", requireAuth(permissionHandler.Delete))

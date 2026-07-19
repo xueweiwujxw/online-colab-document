@@ -58,3 +58,7 @@ Markdown 是文本格式，服务端保存和前端编辑成本较低。普通�
 ## 分享链接
 
 分享链接由 owner 创建，数据库只保存 token hash。创建响应会返回一次明文 token 和完整 URL；后续列表只显示链接元数据。公开分享访问不要求登录，viewer 链接只读，editor 链接可以保存 Markdown。
+
+## 版本管理
+
+每次上传、Markdown 保存、ONLYOFFICE 保存回调和历史版本恢复都会写入 `document_versions`。恢复历史版本会读取旧版本对象，写入新的对象存储 key，再创建一个新版本并更新 `documents.current_version_id`，不会覆盖旧版本。
