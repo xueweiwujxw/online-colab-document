@@ -465,6 +465,35 @@ h1 {
   background: var(--surface);
 }
 
+.office-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.office-save-error {
+  margin: 0;
+}
+
+.office-frame {
+  min-height: calc(100vh - 64px);
+  border: 0;
+  background: var(--surface);
+}
+
+.office-docx-frame {
+  overflow: auto;
+}
+
+.office-sheet-iframe {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  display: block;
+  border: 0;
+  background: #fff;
+}
+
 .editor-state {
   margin: 18px 24px;
 }

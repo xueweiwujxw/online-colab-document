@@ -9,6 +9,7 @@ const (
 	ActionDocumentDownload  = "document.download"
 	ActionDocumentDelete    = "document.delete"
 	ActionMarkdownSave      = "document.markdown_save"
+	ActionOfficeSave        = "office.save"
 	ActionOnlyOfficeSave    = "onlyoffice.save"
 	ActionVersionRestore    = "document.version_restore"
 	ActionPermissionGrant   = "permission.grant"

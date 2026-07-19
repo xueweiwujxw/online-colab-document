@@ -1,0 +1,51 @@
+import { ApiError, apiBaseUrl, getJSON } from './client';
+
+export type OfficeSession = {
+  provider: 'casual' | 'onlyoffice' | string;
+  documentId: string;
+  fileExt: string;
+  title: string;
+  mode: 'view' | 'edit';
+  downloadUrl: string;
+  saveUrl: string;
+};
+
+export function getOfficeSession(documentId: string): Promise<OfficeSession> {
+  return getJSON<OfficeSession>(`/api/documents/${documentId}/office/session`);
+}
+
+export async function fetchOfficeContent(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(resolveApiUrl(url), {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/octet-stream',
+    },
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+  return response.arrayBuffer();
+}
+
+export async function saveOfficeContent(url: string, buffer: ArrayBuffer): Promise<{ etag: string }> {
+  const response = await fetch(resolveApiUrl(url), {
+    method: 'PUT',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/octet-stream',
+    },
+    body: buffer,
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+  return response.json() as Promise<{ etag: string }>;
+}
+
+function resolveApiUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${apiBaseUrl}${url}`;
+}

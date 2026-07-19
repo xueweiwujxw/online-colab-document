@@ -2127,7 +2127,7 @@ ONLYOFFICE 容器可访问 xlsx 下载地址
 
 ## Plan 8：Office 编辑器替换 POC
 
-状态：未开始。
+状态：进行中。
 
 范围：
 

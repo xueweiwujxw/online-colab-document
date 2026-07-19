@@ -163,6 +163,7 @@ function actionLabel(action: string): string {
     'document.download': '下载文档',
     'document.delete': '删除文档',
     'document.markdown_save': '保存 Markdown',
+    'office.save': 'Office 保存',
     'onlyoffice.save': 'ONLYOFFICE 保存',
     'document.version_restore': '恢复版本',
     'permission.grant': '授权',

@@ -16,6 +16,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/.turbo/
+frontend/public/casual-docs/
+frontend/public/casual-sheets/
+frontend/public/fonts/
 frontend/package-lock.json
 frontend/tsconfig.tsbuildinfo
 package-lock.json

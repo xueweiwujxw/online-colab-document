@@ -6,11 +6,22 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/sync-casual-sheets-assets.mjs && tsc -b && vite build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@casualoffice/docs": "^1.4.2",
+    "@casualoffice/sheets": "^0.20.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-dropcursor": "^1.8.3",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.11",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.12.0",
+    "prosemirror-view": "^1.42.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.6.3",
