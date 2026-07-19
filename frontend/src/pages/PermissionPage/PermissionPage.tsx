@@ -34,7 +34,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       setState({
         status: 'error',
         items: [],
-        error: errorMessage(error, 'Failed to load permissions'),
+        error: errorMessage(error, '加载权限失败'),
       });
     }
   }
@@ -57,12 +57,12 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       setSubjectId('');
       await refreshPermissions();
     } catch (error) {
-      setActionError(errorMessage(error, 'Grant failed'));
+      setActionError(errorMessage(error, '授权失败'));
     }
   }
 
   async function onDelete(permissionId: string) {
-    if (!window.confirm('Delete this permission?')) {
+    if (!window.confirm('确认删除这个权限？')) {
       return;
     }
     setActionError(null);
@@ -70,14 +70,14 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       await deletePermission(documentId, permissionId);
       await refreshPermissions();
     } catch (error) {
-      setActionError(errorMessage(error, 'Delete failed'));
+      setActionError(errorMessage(error, '删除失败'));
     }
   }
 
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -90,18 +90,18 @@ export function PermissionPage({ documentId }: { documentId: string }) {
   return (
     <main className="app-shell">
       <a className="back-link" href={`/documents/${documentId}`}>
-        Back to document
+        返回文档
       </a>
       <header className="detail-header">
         <div>
-          <p className="eyebrow">Permissions</p>
-          <h1>Manage access</h1>
+          <p className="eyebrow">权限</p>
+          <h1>管理访问</h1>
         </div>
       </header>
 
       <form className="permission-form" onSubmit={onSubmit}>
         <label className="field">
-          <span>User ID</span>
+          <span>用户 ID</span>
           <input
             onChange={(event) => setSubjectId(event.target.value)}
             required
@@ -110,39 +110,39 @@ export function PermissionPage({ documentId }: { documentId: string }) {
           />
         </label>
         <label className="field">
-          <span>Permission</span>
+          <span>权限</span>
           <select
             onChange={(event) => setPermission(event.target.value as 'viewer' | 'editor')}
             value={permission}
           >
-            <option value="viewer">viewer</option>
-            <option value="editor">editor</option>
+            <option value="viewer">只读</option>
+            <option value="editor">可编辑</option>
           </select>
         </label>
         <button className="primary-button permission-submit" type="submit">
-          Grant
+          授权
         </button>
       </form>
 
       {actionError ? <p className="form-error">{actionError}</p> : null}
-      {state.status === 'loading' ? <section className="empty-state">Loading</section> : null}
+      {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
       {state.status === 'success' && state.items.length === 0 ? (
-        <section className="empty-state">No permissions yet.</section>
+        <section className="empty-state">暂无权限。</section>
       ) : null}
       {state.status === 'success' && state.items.length > 0 ? (
         <section className="document-list">
           {state.items.map((item) => (
             <article className="document-row permission-row" key={item.id}>
               <span className="document-title">{item.subjectId}</span>
-              <span className="document-meta">{item.subjectType}</span>
-              <span className="document-meta">{item.permission}</span>
+              <span className="document-meta">{subjectTypeLabel(item.subjectType)}</span>
+              <span className="document-meta">{permissionLabel(item.permission)}</span>
               <button
                 className="secondary-button danger-button"
                 onClick={() => void onDelete(item.id)}
                 type="button"
               >
-                Delete
+                删除
               </button>
             </article>
           ))}
@@ -150,4 +150,24 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       ) : null}
     </main>
   );
+}
+
+function permissionLabel(permission: string): string {
+  if (permission === 'owner') {
+    return '所有者';
+  }
+  if (permission === 'editor') {
+    return '可编辑';
+  }
+  if (permission === 'viewer') {
+    return '只读';
+  }
+  return permission;
+}
+
+function subjectTypeLabel(subjectType: string): string {
+  if (subjectType === 'user') {
+    return '用户';
+  }
+  return subjectType;
 }

@@ -15,10 +15,10 @@ services:
       FRONTEND_ORIGIN: http://localhost:3000
       SESSION_COOKIE_NAME: docs_session
       SESSION_TTL_HOURS: "168"
-      OIDC_ENABLED: "false"
-      OIDC_ISSUER_URL: https://idp.example.com
-      OIDC_CLIENT_ID: docs-collab
-      OIDC_CLIENT_SECRET: change-me
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://mock-oidc:8080/realms/docs-collab}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-docs-collab}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-docs-collab-secret}
       OIDC_REDIRECT_URL: http://localhost:8080/api/auth/oidc/callback
       OIDC_SCOPES: openid,email,profile
       OIDC_AUTO_MERGE_BY_EMAIL: "false"
@@ -97,14 +97,16 @@ services:
       - backend
       - onlyoffice
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.1
+  mock-oidc:
+    build:
+      context: ./mock-oidc
     profiles:
       - oidc
-    command: start-dev
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      OIDC_ISSUER: http://mock-oidc:8080/realms/docs-collab
+      OIDC_PUBLIC_BASE: http://localhost:8082/realms/docs-collab
+      OIDC_CLIENT_ID: docs-collab
+      OIDC_CLIENT_SECRET: docs-collab-secret
     ports:
       - "8082:8080"
 

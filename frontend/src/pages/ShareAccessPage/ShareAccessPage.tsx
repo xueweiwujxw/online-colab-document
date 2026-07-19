@@ -37,7 +37,7 @@ export function ShareAccessPage({ token }: { token: string }) {
           setState({
             status: 'error',
             access: null,
-            error: errorMessage(error, 'Failed to load share link'),
+            error: errorMessage(error, '加载分享链接失败'),
           });
         }
       });
@@ -61,14 +61,14 @@ export function ShareAccessPage({ token }: { token: string }) {
       setSaveState('saved');
     } catch (error) {
       setSaveState('error');
-      setSaveError(errorMessage(error, 'Save failed'));
+      setSaveError(errorMessage(error, '保存失败'));
     }
   }
 
   if (state.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -88,13 +88,13 @@ export function ShareAccessPage({ token }: { token: string }) {
     <main className="editor-shell markdown-shell">
       <header className="editor-topbar">
         <div>
-          <p className="eyebrow">Shared document</p>
+          <p className="eyebrow">分享文档</p>
           <strong>{state.access.document.title}</strong>
         </div>
         <div className="markdown-toolbar">
-          <span className="document-meta">{state.access.canEdit ? 'Editable link' : 'Read only link'}</span>
+          <span className="document-meta">{state.access.canEdit ? '可编辑链接' : '只读链接'}</span>
           <a className="secondary-button" href={sharedDownloadURL(token)}>
-            Download
+            下载
           </a>
           {isMarkdown ? (
             <button
@@ -103,7 +103,7 @@ export function ShareAccessPage({ token }: { token: string }) {
               onClick={() => void onSave()}
               type="button"
             >
-              {saveState === 'saving' ? 'Saving' : 'Save'}
+              {saveState === 'saving' ? '保存中' : '保存'}
             </button>
           ) : null}
         </div>
@@ -112,7 +112,7 @@ export function ShareAccessPage({ token }: { token: string }) {
       {isMarkdown ? (
         <section className="markdown-editor-grid">
           <label className="markdown-pane">
-            <span>Markdown</span>
+            <span>Markdown 源码</span>
             <textarea
               readOnly={!state.access.canEdit}
               onChange={(event) => {
@@ -123,12 +123,12 @@ export function ShareAccessPage({ token }: { token: string }) {
             />
           </label>
           <section className="markdown-pane markdown-preview-pane">
-            <span>Preview</span>
+            <span>预览</span>
             <div className="markdown-preview">{preview}</div>
           </section>
         </section>
       ) : (
-        <section className="empty-state">Use download to open this shared document.</section>
+        <section className="empty-state">请下载后打开这个分享文档。</section>
       )}
     </main>
   );
@@ -136,7 +136,7 @@ export function ShareAccessPage({ token }: { token: string }) {
 
 function renderMarkdownPreview(content: string) {
   if (content.trim() === '') {
-    return <p className="empty-inline">Nothing to preview.</p>;
+    return <p className="empty-inline">暂无可预览内容。</p>;
   }
   return content.split(/\n{2,}/).map((block, index) => {
     const trimmed = block.trim();

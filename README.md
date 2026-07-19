@@ -67,9 +67,9 @@ SESSION_COOKIE_NAME=docs_session
 SESSION_TTL_HOURS=168
 PASSWORD_HASH_PEPPER=
 OIDC_ENABLED=false
-OIDC_ISSUER_URL=https://idp.example.com
+OIDC_ISSUER_URL=http://mock-oidc:8080/realms/docs-collab
 OIDC_CLIENT_ID=docs-collab
-OIDC_CLIENT_SECRET=change-me
+OIDC_CLIENT_SECRET=docs-collab-secret
 OIDC_REDIRECT_URL=http://localhost:8080/api/auth/oidc/callback
 OIDC_SCOPES=openid,email,profile
 OIDC_AUTO_MERGE_BY_EMAIL=false
@@ -154,14 +154,14 @@ M12 Docker 部署与安全加固：
 - 审计 metadata 过滤 password/token/secret/cookie 等敏感字段
 - 管理员审计查询接口 `GET /api/admin/audit-logs`
 - 管理员前端页面 `/admin/audit-logs`
-- 前端 API 错误统一携带 HTTP status，403 显示 Forbidden
+- 前端 API 错误统一携带 HTTP status，403 显示无权限访问
 - 前端新增 `/documents/:id/versions` 独立版本管理页
 - 文档删除、权限删除、分享链接禁用、版本恢复等 destructive action 增加确认
 - 主要页面补齐 loading / error / empty / forbidden 处理
 - backend 启动时自动执行 `backend/migrations`
 - 生产 compose `deploy/docker-compose.prod.yml`
 - nginx 配置 `deploy/nginx/nginx.conf`，支持 `/api/`、`/onlyoffice/`、WebSocket upgrade、上传大小限制和 gzip
-- 开发 compose 增加可选 nginx proxy profile 和 Keycloak OIDC dev profile
+- 开发 compose 增加可选 nginx proxy profile 和 mock OIDC dev profile
 - 完整环境变量样例 `deploy/env/app.env.example`
 - 部署、ONLYOFFICE、权限、Markdown 协同文档
 

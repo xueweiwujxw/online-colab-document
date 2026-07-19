@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 export function PageLoading() {
   return (
     <main className="app-shell">
-      <section className="empty-state">Loading</section>
+      <section className="empty-state">加载中</section>
     </main>
   );
 }
@@ -14,7 +14,7 @@ export function PageError({ children }: { children: ReactNode }) {
   return (
     <main className="app-shell">
       <a className="back-link" href="/documents">
-        Back to documents
+        返回文档
       </a>
       <section className="empty-state">{children}</section>
     </main>

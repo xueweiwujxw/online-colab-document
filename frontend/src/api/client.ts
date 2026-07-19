@@ -5,7 +5,7 @@ export class ApiError extends Error {
   status: number;
 
   constructor(status: number, message?: string) {
-    super(message ?? `Request failed with status ${status}`);
+    super(message ?? `请求失败，状态码 ${status}`);
     this.name = 'ApiError';
     this.status = status;
   }
@@ -17,7 +17,7 @@ export function isForbidden(error: unknown): boolean {
 
 export function errorMessage(error: unknown, fallback: string): string {
   if (isForbidden(error)) {
-    return 'Forbidden';
+    return '无权限访问';
   }
   return error instanceof Error ? error.message : fallback;
 }

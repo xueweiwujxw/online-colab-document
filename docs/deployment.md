@@ -23,13 +23,18 @@ podman compose -f deploy/docker-compose.yml --profile proxy up --build
 
 统一入口为 `http://localhost:8088`，`/api/` 代理到 backend，`/onlyoffice/` 代理到 ONLYOFFICE。
 
-可选 Keycloak 开发 profile：
+可选 mock OIDC 开发 profile：
 
 ```bash
-podman compose -f deploy/docker-compose.yml --profile oidc up --build
+OIDC_ENABLED=true podman compose -f deploy/docker-compose.yml --profile oidc up --build
 ```
 
-Keycloak 开发控制台默认在 `http://localhost:8082`，初始账号仅用于本地开发：`admin` / `admin`。
+mock OIDC 服务默认在 `http://localhost:8082`，会自动签发固定测试用户：
+
+- Email: `oidc-user@example.com`
+- Display name: `OIDC 测试用户`
+
+它模拟标准 discovery、authorization code、token、JWKS 和 userinfo 接口。用途仅限本地开发测试，不要用于生产。启用后点击登录页的 “使用 OIDC 登录” 会直接完成 mock OIDC 授权并回到文档列表。
 
 ## 生产环境
 

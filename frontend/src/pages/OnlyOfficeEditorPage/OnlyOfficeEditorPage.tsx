@@ -42,7 +42,7 @@ export function OnlyOfficeEditorPage({ documentId }: { documentId: string }) {
           setState({
             status: 'error',
             config: null,
-            error: errorMessage(error, 'Failed to load editor'),
+            error: errorMessage(error, '加载编辑器失败'),
           });
         }
       });
@@ -63,14 +63,14 @@ export function OnlyOfficeEditorPage({ documentId }: { documentId: string }) {
         }
       })
       .catch(() => {
-        setState({ status: 'error', config: null, error: 'Failed to load ONLYOFFICE editor' });
+        setState({ status: 'error', config: null, error: '加载 ONLYOFFICE 编辑器失败' });
       });
   }, [state]);
 
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -84,14 +84,14 @@ export function OnlyOfficeEditorPage({ documentId }: { documentId: string }) {
     <main className="editor-shell">
       <header className="editor-topbar">
         <a className="back-link" href={`/documents/${documentId}`}>
-          Back to document
+          返回文档
         </a>
         {state.status === 'success' ? (
-          <span className="document-meta">{state.config.editorConfig.mode}</span>
+          <span className="connection-pill">{state.config.editorConfig.mode === 'edit' ? '可编辑' : '只读'}</span>
         ) : null}
       </header>
-      {state.status === 'loading' ? <section className="empty-state">Loading</section> : null}
-      {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
+      {state.status === 'loading' ? <section className="empty-state editor-state">加载中</section> : null}
+      {state.status === 'error' ? <section className="empty-state editor-state">{state.error}</section> : null}
       <section className="onlyoffice-frame" id="onlyoffice-editor" />
     </main>
   );

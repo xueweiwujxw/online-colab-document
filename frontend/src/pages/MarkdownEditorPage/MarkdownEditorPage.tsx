@@ -83,13 +83,13 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           return;
         }
         if (message.type === 'error') {
-          setError(message.error ?? 'Collaboration error');
+          setError(message.error ?? '协同编辑错误');
         }
       };
 
       socket.onerror = () => {
         setConnection('error');
-        setError('WebSocket connection failed');
+        setError('WebSocket 连接失败');
       };
 
       socket.onclose = () => {
@@ -117,7 +117,7 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           return;
         }
         setConnection('error');
-        setError(errorMessage(caught, 'Failed to load Markdown snapshot'));
+        setError(errorMessage(caught, '加载 Markdown 快照失败'));
       });
 
     return () => {
@@ -149,7 +149,7 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -166,32 +166,32 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
     <main className="editor-shell markdown-shell">
       <header className="editor-topbar">
         <a className="back-link" href={`/documents/${documentId}`}>
-          Back to document
+          返回文档
         </a>
         <div className="markdown-toolbar">
           <span className={`connection-pill connection-${connection}`}>{statusText}</span>
-          <span className="document-meta">{lastSavedSeq === null ? 'Snapshot' : `Seq ${lastSavedSeq}`}</span>
+          <span className="document-meta">{lastSavedSeq === null ? '快照' : `序号 ${lastSavedSeq}`}</span>
           <a className="secondary-button" href={documentDownloadURL(documentId)}>
-            Download
+            下载
           </a>
         </div>
       </header>
       {error ? <p className="form-error markdown-save-error">{error}</p> : null}
       <section className="presence-bar">
         {users.length === 0 ? (
-          <span className="empty-inline">No other users online.</span>
+          <span className="empty-inline">暂无其他在线用户。</span>
         ) : (
           users.map((user) => (
             <span className="presence-user" key={`${user.userId}-${user.displayName}`}>
               {user.displayName}
-              <small>{user.canEdit ? 'editor' : 'viewer'}</small>
+              <small>{user.canEdit ? '可编辑' : '只读'}</small>
             </span>
           ))
         )}
       </section>
       <section className="markdown-editor-grid">
         <label className="markdown-pane">
-          <span>Markdown</span>
+          <span>Markdown 源码</span>
           <textarea
             readOnly={readonly || connection === 'loading'}
             onChange={(event) => onDraftChange(event.target.value)}
@@ -199,7 +199,7 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           />
         </label>
         <section className="markdown-pane markdown-preview-pane">
-          <span>Preview</span>
+          <span>预览</span>
           <div className="markdown-preview">{preview}</div>
         </section>
       </section>
@@ -209,23 +209,23 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
 
 function connectionStatusText(connection: ConnectionState, readonly: boolean): string {
   if (connection === 'loading') {
-    return 'Loading';
+    return '加载中';
   }
   if (connection === 'connected') {
-    return readonly ? 'Connected readonly' : 'Connected';
+    return readonly ? '已连接，只读' : '已连接';
   }
   if (connection === 'reconnecting') {
-    return 'Reconnecting';
+    return '重连中';
   }
   if (connection === 'error') {
-    return 'Connection error';
+    return '连接错误';
   }
-  return 'Disconnected';
+  return '已断开';
 }
 
 function renderMarkdownPreview(content: string) {
   if (content.trim() === '') {
-    return <p className="empty-inline">Nothing to preview.</p>;
+    return <p className="empty-inline">暂无可预览内容。</p>;
   }
   return content.split(/\n{2,}/).map((block, index) => {
     const trimmed = block.trim();

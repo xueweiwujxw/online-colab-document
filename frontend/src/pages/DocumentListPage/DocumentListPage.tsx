@@ -34,7 +34,7 @@ export function DocumentListPage() {
       setDocuments({
         status: 'error',
         items: [],
-        error: errorMessage(error, 'Failed to load documents'),
+        error: errorMessage(error, '加载文档失败'),
       });
     }
   }
@@ -57,14 +57,14 @@ export function DocumentListPage() {
       await uploadDocument(file);
       await refreshDocuments();
     } catch (error) {
-      setActionError(errorMessage(error, 'Upload failed'));
+      setActionError(errorMessage(error, '上传失败'));
     } finally {
       setUploading(false);
     }
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm('Delete this document?')) {
+    if (!window.confirm('确认删除这个文档？')) {
       return;
     }
     setActionError(null);
@@ -72,14 +72,14 @@ export function DocumentListPage() {
       await deleteDocument(id);
       await refreshDocuments();
     } catch (error) {
-      setActionError(errorMessage(error, 'Delete failed'));
+      setActionError(errorMessage(error, '删除失败'));
     }
   }
 
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -93,32 +93,32 @@ export function DocumentListPage() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Documents</p>
-          <h1>My documents</h1>
+          <p className="eyebrow">文档</p>
+          <h1>我的文档</h1>
         </div>
         <div className="user-actions">
           {auth.user.isAdmin ? (
             <a className="secondary-button" href="/admin/audit-logs">
-              Audit logs
+              审计日志
             </a>
           ) : null}
           <label className="upload-button">
             <input disabled={uploading} onChange={onUpload} type="file" />
-            {uploading ? 'Uploading' : 'Upload'}
+            {uploading ? '上传中' : '上传'}
           </label>
           <span>{auth.user.displayName}</span>
           <button className="secondary-button" onClick={() => void auth.logout()} type="button">
-            Sign out
+            退出登录
           </button>
         </div>
       </header>
       {actionError ? <p className="form-error">{actionError}</p> : null}
-      {documents.status === 'loading' ? <section className="empty-state">Loading</section> : null}
+      {documents.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {documents.status === 'error' ? (
         <section className="empty-state">{documents.error}</section>
       ) : null}
       {documents.status === 'success' && documents.items.length === 0 ? (
-        <section className="empty-state">No documents yet.</section>
+        <section className="empty-state">暂无文档。</section>
       ) : null}
       {documents.status === 'success' && documents.items.length > 0 ? (
         <section className="document-list">
@@ -132,7 +132,7 @@ export function DocumentListPage() {
               <span className="document-meta">{formatSize(document.sizeBytes)}</span>
               <div className="document-actions">
                 <a className="secondary-button" href={documentDownloadURL(document.id)}>
-                  Download
+                  下载
                 </a>
                 {document.canManage ? (
                   <button
@@ -140,7 +140,7 @@ export function DocumentListPage() {
                     onClick={() => void onDelete(document.id)}
                     type="button"
                   >
-                    Delete
+                    删除
                   </button>
                 ) : null}
               </div>

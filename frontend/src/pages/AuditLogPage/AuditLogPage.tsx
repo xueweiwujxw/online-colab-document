@@ -29,7 +29,7 @@ export function AuditLogPage() {
       setState({
         status: 'error',
         items: [],
-        error: errorMessage(error, 'Failed to load audit logs'),
+        error: errorMessage(error, '加载审计日志失败'),
       });
     }
   }
@@ -48,7 +48,7 @@ export function AuditLogPage() {
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -62,9 +62,9 @@ export function AuditLogPage() {
     return (
       <main className="app-shell">
         <a className="back-link" href="/documents">
-          Back to documents
+          返回文档
         </a>
-        <section className="empty-state">Forbidden</section>
+        <section className="empty-state">无权限访问</section>
       </main>
     );
   }
@@ -73,21 +73,21 @@ export function AuditLogPage() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Admin</p>
-          <h1>Audit logs</h1>
+          <p className="eyebrow">管理</p>
+          <h1>审计日志</h1>
         </div>
         <div className="user-actions">
           <a className="secondary-button" href="/documents">
-            Documents
+            文档
           </a>
           <button className="secondary-button" onClick={() => void auth.logout()} type="button">
-            Sign out
+            退出登录
           </button>
         </div>
       </header>
       <form className="audit-filters" onSubmit={onSubmit}>
         <label className="field">
-          Action
+          操作
           <input
             onChange={(event) => setFilter({ ...filter, action: event.target.value })}
             placeholder="document.upload"
@@ -95,7 +95,7 @@ export function AuditLogPage() {
           />
         </label>
         <label className="field">
-          Target type
+          目标类型
           <input
             onChange={(event) => setFilter({ ...filter, targetType: event.target.value })}
             placeholder="document"
@@ -103,14 +103,14 @@ export function AuditLogPage() {
           />
         </label>
         <label className="field">
-          Actor user ID
+          操作者用户 ID
           <input
             onChange={(event) => setFilter({ ...filter, actorUserId: event.target.value })}
             value={filter.actorUserId ?? ''}
           />
         </label>
         <label className="field">
-          Limit
+          数量
           <input
             min="1"
             onChange={(event) => setFilter({ ...filter, limit: Number(event.target.value) })}
@@ -119,23 +119,23 @@ export function AuditLogPage() {
           />
         </label>
         <button className="secondary-button audit-filter-button" type="submit">
-          Filter
+          筛选
         </button>
       </form>
-      {state.status === 'loading' ? <section className="empty-state">Loading</section> : null}
+      {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
       {state.status === 'success' && state.items.length === 0 ? (
-        <section className="empty-state">No audit logs yet.</section>
+        <section className="empty-state">暂无审计日志。</section>
       ) : null}
       {state.status === 'success' && state.items.length > 0 ? (
         <section className="audit-list">
           {state.items.map((item) => (
             <article className="audit-row" key={item.id}>
               <span className="document-meta">{formatDate(item.createdAt)}</span>
-              <span className="document-meta">{item.actorUserId ?? 'anonymous'}</span>
-              <strong>{item.action}</strong>
+              <span className="document-meta">{item.actorUserId ?? '匿名'}</span>
+              <strong>{actionLabel(item.action)}</strong>
               <span className="document-meta">
-                {item.targetType}:{item.targetId}
+                {targetTypeLabel(item.targetType)}:{item.targetId}
               </span>
               <span className="document-meta">{item.ipAddr ?? '-'}</span>
               <span className="document-meta audit-user-agent">{item.userAgent ?? '-'}</span>
@@ -153,4 +153,36 @@ function formatDate(value: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function actionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    'auth.login': '登录',
+    'auth.logout': '登出',
+    'document.upload': '上传文档',
+    'document.download': '下载文档',
+    'document.delete': '删除文档',
+    'document.markdown_save': '保存 Markdown',
+    'onlyoffice.save': 'ONLYOFFICE 保存',
+    'document.version_restore': '恢复版本',
+    'permission.grant': '授权',
+    'permission.delete': '删除权限',
+    'share.create': '创建分享',
+    'share.disable': '禁用分享',
+    'share.access': '访问分享',
+    'share.download': '下载分享',
+    'share.markdown_save': '保存分享 Markdown',
+  };
+  return labels[action] ?? action;
+}
+
+function targetTypeLabel(targetType: string): string {
+  const labels: Record<string, string> = {
+    document: '文档',
+    user: '用户',
+    share: '分享',
+    permission: '权限',
+    version: '版本',
+  };
+  return labels[targetType] ?? targetType;
 }

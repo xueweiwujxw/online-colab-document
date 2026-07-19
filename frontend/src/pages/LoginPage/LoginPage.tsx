@@ -18,7 +18,7 @@ export function LoginPage() {
       await auth.login({ email, password });
       window.location.replace('/documents');
     } catch {
-      setError('Email or password is incorrect.');
+      setError('邮箱或密码不正确。');
     } finally {
       setSubmitting(false);
     }
@@ -33,12 +33,12 @@ export function LoginPage() {
     <main className="auth-shell">
       <form className="login-panel" onSubmit={onSubmit}>
         <div>
-          <p className="eyebrow">Docs Collab Service</p>
-          <h1>Sign in</h1>
+          <p className="eyebrow">在线协作文档</p>
+          <h1>登录</h1>
         </div>
 
         <label className="field">
-          <span>Email</span>
+          <span>邮箱</span>
           <input
             autoComplete="email"
             disabled={submitting}
@@ -51,7 +51,7 @@ export function LoginPage() {
         </label>
 
         <label className="field">
-          <span>Password</span>
+          <span>密码</span>
           <input
             autoComplete="current-password"
             disabled={submitting}
@@ -66,11 +66,11 @@ export function LoginPage() {
         {error ? <p className="form-error">{error}</p> : null}
 
         <button className="primary-button" disabled={submitting} type="submit">
-          {submitting ? 'Signing in' : 'Sign in'}
+          {submitting ? '登录中' : '登录'}
         </button>
 
         <div className="divider">
-          <span>or</span>
+          <span>或</span>
         </div>
 
         <button

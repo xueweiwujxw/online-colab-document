@@ -39,7 +39,7 @@ export function VersionPage({ documentId }: { documentId: string }) {
         status: 'error',
         document: null,
         items: [],
-        error: errorMessage(error, 'Failed to load versions'),
+        error: errorMessage(error, '加载版本失败'),
       });
     }
   }
@@ -49,7 +49,7 @@ export function VersionPage({ documentId }: { documentId: string }) {
   }, [documentId]);
 
   async function onRestore(version: DocumentVersion) {
-    if (!window.confirm(`Restore version ${version.versionNo}?`)) {
+    if (!window.confirm(`确认恢复版本 ${version.versionNo}？`)) {
       return;
     }
     setActionError(null);
@@ -58,7 +58,7 @@ export function VersionPage({ documentId }: { documentId: string }) {
       await restoreDocumentVersion(documentId, version.id);
       await refresh();
     } catch (error) {
-      setActionError(errorMessage(error, 'Restore failed'));
+      setActionError(errorMessage(error, '恢复失败'));
     } finally {
       setRestoringVersionId(null);
     }
@@ -68,26 +68,26 @@ export function VersionPage({ documentId }: { documentId: string }) {
     <RequireAuth>
       <main className="app-shell">
         <a className="back-link" href={`/documents/${documentId}`}>
-          Back to document
+          返回文档
         </a>
         <header className="detail-header">
           <div>
-            <p className="eyebrow">Versions</p>
-            <h1>{state.document?.title ?? 'Document history'}</h1>
+            <p className="eyebrow">版本</p>
+            <h1>{state.document?.title ?? '文档历史'}</h1>
           </div>
         </header>
         {actionError ? <p className="form-error">{actionError}</p> : null}
-        {state.status === 'loading' ? <section className="empty-state">Loading</section> : null}
+        {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
         {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
         {state.status === 'success' && state.items.length === 0 ? (
-          <section className="empty-state">No versions yet.</section>
+          <section className="empty-state">暂无版本。</section>
         ) : null}
         {state.status === 'success' && state.items.length > 0 ? (
           <section className="version-list">
             {state.items.map((version) => (
               <article className="version-row" key={version.id}>
-                <span>Version {version.versionNo}</span>
-                <span>{version.createdBy ?? 'system'}</span>
+                <span>版本 {version.versionNo}</span>
+                <span>{version.createdBy ?? '系统'}</span>
                 <span>{formatSize(version.sizeBytes)}</span>
                 <span>{formatDate(version.createdAt)}</span>
                 <div className="version-actions">
@@ -95,7 +95,7 @@ export function VersionPage({ documentId }: { documentId: string }) {
                     className="secondary-button"
                     href={documentVersionDownloadURL(documentId, version.id)}
                   >
-                    Download
+                    下载
                   </a>
                   {state.document.canEdit ? (
                     <button
@@ -104,7 +104,7 @@ export function VersionPage({ documentId }: { documentId: string }) {
                       onClick={() => void onRestore(version)}
                       type="button"
                     >
-                      {restoringVersionId === version.id ? 'Restoring' : 'Restore'}
+                      {restoringVersionId === version.id ? '恢复中' : '恢复'}
                     </button>
                   ) : null}
                 </div>

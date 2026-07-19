@@ -40,7 +40,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
           status: 'error',
           document: null,
           versions: [],
-          error: errorMessage(error, 'Failed to load document'),
+          error: errorMessage(error, '加载文档失败'),
         });
       }
     }
@@ -58,7 +58,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
   }, [auth.status, id]);
 
   async function onRestore(versionId: string) {
-    if (!window.confirm('Restore this version?')) {
+    if (!window.confirm('确认恢复这个版本？')) {
       return;
     }
     setActionError(null);
@@ -67,7 +67,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
       await restoreDocumentVersion(id, versionId);
       await refreshDocument();
     } catch (error) {
-      setActionError(errorMessage(error, 'Restore failed'));
+      setActionError(errorMessage(error, '恢复失败'));
     } finally {
       setRestoringVersionId(null);
     }
@@ -76,7 +76,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -89,7 +89,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
   if (state.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -98,7 +98,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
     return (
       <main className="app-shell">
         <a className="back-link" href="/documents">
-          Back to documents
+          返回文档
         </a>
         <section className="empty-state">{state.error}</section>
       </main>
@@ -108,7 +108,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
   return (
     <main className="app-shell">
       <a className="back-link" href="/documents">
-        Back to documents
+        返回文档
       </a>
       <header className="detail-header">
         <div>
@@ -119,42 +119,42 @@ export function DocumentDetailPage({ id }: { id: string }) {
         <div className="detail-actions">
           {state.document.canManage ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/permissions`}>
-              Permissions
+              权限
             </a>
           ) : null}
           {state.document.canManage ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/share`}>
-              Share
+              分享
             </a>
           ) : null}
           <a className="secondary-button" href={`/documents/${state.document.id}/versions`}>
-            Versions
+            版本
           </a>
           {isOfficeDocument(state.document.fileExt) ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/edit`}>
-              Open editor
+              打开编辑器
             </a>
           ) : null}
           {isMarkdownDocument(state.document.fileExt) ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/markdown`}>
-              Open editor
+              打开编辑器
             </a>
           ) : null}
           <a className="primary-link" href={documentDownloadURL(state.document.id)}>
-            Download
+            下载
           </a>
         </div>
       </header>
       {actionError ? <p className="form-error">{actionError}</p> : null}
       <section className="version-list">
-        <h2>Versions</h2>
+        <h2>版本</h2>
         {state.versions.length === 0 ? (
-          <p className="empty-inline">No versions yet.</p>
+          <p className="empty-inline">暂无版本。</p>
         ) : (
           state.versions.map((version) => (
             <div className="version-row" key={version.id}>
-              <span>Version {version.versionNo}</span>
-              <span>{version.createdBy ?? 'system'}</span>
+              <span>版本 {version.versionNo}</span>
+              <span>{version.createdBy ?? '系统'}</span>
               <span>{formatSize(version.sizeBytes)}</span>
               <span>{formatDate(version.createdAt)}</span>
               <div className="version-actions">
@@ -162,7 +162,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
                   className="secondary-button"
                   href={documentVersionDownloadURL(state.document.id, version.id)}
                 >
-                  Download
+                  下载
                 </a>
                 {state.document.canEdit ? (
                   <button
@@ -171,7 +171,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
                     onClick={() => void onRestore(version.id)}
                     type="button"
                   >
-                    {restoringVersionId === version.id ? 'Restoring' : 'Restore'}
+                    {restoringVersionId === version.id ? '恢复中' : '恢复'}
                   </button>
                 ) : null}
               </div>

@@ -34,7 +34,7 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
       setState({
         status: 'error',
         items: [],
-        error: errorMessage(error, 'Failed to load share links'),
+        error: errorMessage(error, '加载分享链接失败'),
       });
     }
   }
@@ -59,12 +59,12 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
       setExpiresAt('');
       await refreshLinks();
     } catch (error) {
-      setActionError(errorMessage(error, 'Create share link failed'));
+      setActionError(errorMessage(error, '创建分享链接失败'));
     }
   }
 
   async function onDisable(id: string) {
-    if (!window.confirm('Disable this share link?')) {
+    if (!window.confirm('确认禁用这个分享链接？')) {
       return;
     }
     setActionError(null);
@@ -72,14 +72,14 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
       await disableShareLink(id);
       await refreshLinks();
     } catch (error) {
-      setActionError(errorMessage(error, 'Disable share link failed'));
+      setActionError(errorMessage(error, '禁用分享链接失败'));
     }
   }
 
   if (auth.status === 'loading') {
     return (
       <main className="app-shell">
-        <section className="empty-state">Loading</section>
+        <section className="empty-state">加载中</section>
       </main>
     );
   }
@@ -92,28 +92,28 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
   return (
     <main className="app-shell">
       <a className="back-link" href={`/documents/${documentId}`}>
-        Back to document
+        返回文档
       </a>
       <header className="detail-header">
         <div>
-          <p className="eyebrow">Share</p>
-          <h1>Share links</h1>
+          <p className="eyebrow">分享</p>
+          <h1>分享链接</h1>
         </div>
       </header>
 
       <form className="permission-form" onSubmit={onCreate}>
         <label className="field">
-          <span>Permission</span>
+          <span>权限</span>
           <select
             onChange={(event) => setPermission(event.target.value as SharePermission)}
             value={permission}
           >
-            <option value="viewer">viewer</option>
-            <option value="editor">editor</option>
+            <option value="viewer">只读</option>
+            <option value="editor">可编辑</option>
           </select>
         </label>
         <label className="field">
-          <span>Expires at</span>
+          <span>过期时间</span>
           <input
             onChange={(event) => setExpiresAt(event.target.value)}
             type="datetime-local"
@@ -121,13 +121,13 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
           />
         </label>
         <button className="primary-button permission-submit" type="submit">
-          Create
+          创建
         </button>
       </form>
 
       {created ? (
         <section className="share-token-panel">
-          <p className="document-meta">Token is shown once.</p>
+          <p className="document-meta">链接只展示一次，请及时复制。</p>
           <div className="share-copy-row">
             <input readOnly value={created.url} />
             <button
@@ -137,24 +137,24 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
               }}
               type="button"
             >
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? '已复制' : '复制'}
             </button>
           </div>
         </section>
       ) : null}
       {actionError ? <p className="form-error">{actionError}</p> : null}
-      {state.status === 'loading' ? <section className="empty-state">Loading</section> : null}
+      {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
       {state.status === 'success' && state.items.length === 0 ? (
-        <section className="empty-state">No share links yet.</section>
+        <section className="empty-state">暂无分享链接。</section>
       ) : null}
       {state.status === 'success' && state.items.length > 0 ? (
         <section className="document-list">
           {state.items.map((item) => (
             <article className="document-row share-row" key={item.id}>
-              <span className="document-title">{item.permission}</span>
-              <span className="document-meta">{item.disabled ? 'disabled' : 'active'}</span>
-              <span className="document-meta">{item.expiresAt ? formatDate(item.expiresAt) : 'No expiry'}</span>
+              <span className="document-title">{permissionLabel(item.permission)}</span>
+              <span className="document-meta">{item.disabled ? '已禁用' : '启用中'}</span>
+              <span className="document-meta">{item.expiresAt ? formatDate(item.expiresAt) : '永不过期'}</span>
               <span className="document-meta">{formatDate(item.createdAt)}</span>
               <button
                 className="secondary-button danger-button"
@@ -162,7 +162,7 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
                 onClick={() => void onDisable(item.id)}
                 type="button"
               >
-                Disable
+                禁用
               </button>
             </article>
           ))}
@@ -170,6 +170,16 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
       ) : null}
     </main>
   );
+}
+
+function permissionLabel(permission: string): string {
+  if (permission === 'editor') {
+    return '可编辑';
+  }
+  if (permission === 'viewer') {
+    return '只读';
+  }
+  return permission;
 }
 
 function formatDate(value: string): string {
