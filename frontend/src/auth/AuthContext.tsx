@@ -12,8 +12,10 @@ import {
   getCurrentUser,
   login as loginRequest,
   logout as logoutRequest,
+  register as registerRequest,
   type CurrentUser,
   type LoginInput,
+  type RegisterInput,
 } from '../api/auth';
 
 type AuthState =
@@ -24,6 +26,7 @@ type AuthState =
 type AuthContextValue = AuthState & {
   login: (input: LoginInput) => Promise<void>;
   logout: () => Promise<void>;
+  register: (input: RegisterInput) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -63,14 +66,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const register = useCallback(async (input: RegisterInput) => {
+    try {
+      await registerRequest(input);
+      const user = await loginRequest({ email: input.email, password: input.password });
+      setState({ status: 'authenticated', user, error: null });
+    } catch (error) {
+      setState({
+        status: 'anonymous',
+        user: null,
+        error: error instanceof Error ? error.message : 'Register failed',
+      });
+      throw error;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await logoutRequest();
     setState({ status: 'anonymous', user: null, error: null });
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ ...state, login, logout, refresh }),
-    [state, login, logout, refresh],
+    () => ({ ...state, login, logout, register, refresh }),
+    [state, login, logout, register, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

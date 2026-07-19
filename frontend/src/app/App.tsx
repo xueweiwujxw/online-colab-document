@@ -6,6 +6,7 @@ import { LoginPage } from '../pages/LoginPage/LoginPage';
 import { MarkdownEditorPage } from '../pages/MarkdownEditorPage/MarkdownEditorPage';
 import { OfficeEditorPage } from '../pages/OfficeEditorPage/OfficeEditorPage';
 import { PermissionPage } from '../pages/PermissionPage/PermissionPage';
+import { RegisterPage } from '../pages/RegisterPage/RegisterPage';
 import { ShareAccessPage } from '../pages/ShareAccessPage/ShareAccessPage';
 import { ShareManagementPage } from '../pages/ShareManagementPage/ShareManagementPage';
 import { VersionPage } from '../pages/VersionPage/VersionPage';
@@ -25,6 +26,7 @@ export function App() {
       {shareAccessMatch ? <ShareAccessPage token={shareAccessMatch[1]} /> : null}
       {path === '/admin/audit-logs' ? <AuditLogPage /> : null}
       {path === '/login' ? <LoginPage /> : null}
+      {path === '/register' ? <RegisterPage /> : null}
       {path === '/documents' || path === '/' ? <DocumentListPage /> : null}
       {editorMatch ? <OfficeEditorPage documentId={editorMatch[1]} /> : null}
       {markdownMatch ? <MarkdownEditorPage documentId={markdownMatch[1]} /> : null}
@@ -40,6 +42,7 @@ export function App() {
         <DocumentDetailPage id={documentDetailMatch[1]} />
       ) : null}
       {path !== '/login' &&
+      path !== '/register' &&
       path !== '/documents' &&
       path !== '/' &&
       path !== '/admin/audit-logs' &&

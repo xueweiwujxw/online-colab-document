@@ -1,10 +1,11 @@
 import { FormEvent, useState } from 'react';
 
-import { getOIDCLoginURL } from '../../api/auth';
+import { ApiError } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
-export function LoginPage() {
+export function RegisterPage() {
   const auth = useAuth();
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -15,10 +16,16 @@ export function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await auth.login({ email, password });
+      await auth.register({ displayName, email, password });
       window.location.replace('/documents');
-    } catch {
-      setError('邮箱或密码不正确。');
+    } catch (registerError) {
+      if (registerError instanceof ApiError && registerError.status === 409) {
+        setError('这个邮箱已经注册。');
+      } else if (registerError instanceof ApiError && registerError.status === 400) {
+        setError('请填写有效邮箱、显示名和至少 8 位密码。');
+      } else {
+        setError('注册失败，请稍后重试。');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -34,8 +41,20 @@ export function LoginPage() {
       <form className="login-panel" onSubmit={onSubmit}>
         <div>
           <p className="eyebrow">在线协作文档</p>
-          <h1>登录</h1>
+          <h1>注册账户</h1>
         </div>
+
+        <label className="field">
+          <span>显示名</span>
+          <input
+            autoComplete="name"
+            disabled={submitting}
+            onChange={(event) => setDisplayName(event.target.value)}
+            required
+            type="text"
+            value={displayName}
+          />
+        </label>
 
         <label className="field">
           <span>邮箱</span>
@@ -53,7 +72,7 @@ export function LoginPage() {
         <label className="field">
           <span>密码</span>
           <input
-            autoComplete="current-password"
+            autoComplete="new-password"
             disabled={submitting}
             minLength={8}
             onChange={(event) => setPassword(event.target.value)}
@@ -66,24 +85,11 @@ export function LoginPage() {
         {error ? <p className="form-error">{error}</p> : null}
 
         <button className="primary-button" disabled={submitting} type="submit">
-          {submitting ? '登录中' : '登录'}
-        </button>
-
-        <div className="divider">
-          <span>或</span>
-        </div>
-
-        <button
-          className="secondary-button oidc-button"
-          disabled={submitting}
-          onClick={() => window.location.assign(getOIDCLoginURL())}
-          type="button"
-        >
-          使用 OIDC 登录
+          {submitting ? '注册中' : '注册并登录'}
         </button>
 
         <p className="auth-switch">
-          没有账户？ <a href="/register">注册账户</a>
+          已有账户？ <a href="/login">去登录</a>
         </p>
       </form>
     </main>

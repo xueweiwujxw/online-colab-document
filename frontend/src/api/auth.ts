@@ -13,8 +13,16 @@ export type LoginInput = {
   password: string;
 };
 
+export type RegisterInput = LoginInput & {
+  displayName: string;
+};
+
 export function login(input: LoginInput): Promise<CurrentUser> {
   return sendJSON<CurrentUser>('/api/auth/local/login', input);
+}
+
+export function register(input: RegisterInput): Promise<CurrentUser> {
+  return sendJSON<CurrentUser>('/api/auth/local/register', input);
 }
 
 export function logout(): Promise<{ status: string }> {
