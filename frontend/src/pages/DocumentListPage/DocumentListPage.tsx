@@ -127,7 +127,7 @@ export function DocumentListPage() {
               <a className="document-title" href={`/documents/${document.id}`}>
                 {document.title}
               </a>
-              <span className="document-meta">{document.fileExt}</span>
+              <span className="file-badge">{document.fileExt}</span>
               <span className="document-meta">{formatDate(document.updatedAt)}</span>
               <span className="document-meta">{formatSize(document.sizeBytes)}</span>
               <div className="document-actions">
