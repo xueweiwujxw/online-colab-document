@@ -23,6 +23,7 @@ import (
 	"online-colab-document/backend/internal/permission"
 	"online-colab-document/backend/internal/share"
 	"online-colab-document/backend/internal/storage"
+	appuser "online-colab-document/backend/internal/user"
 )
 
 type Server struct {
@@ -79,6 +80,9 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		requireAuth := func(next http.HandlerFunc) http.Handler {
 			return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
 		}
+		userService := appuser.NewService(appuser.NewPostgresRepository(db))
+		userHandler := appuser.NewHandler(userService, logger)
+		mux.Handle("GET /api/users", requireAuth(userHandler.Search))
 		mux.Handle("GET /api/admin/audit-logs", requireAuth(auditHandler.List))
 
 		objectStorage, err := storage.NewMinIOStorage(storage.MinIOConfig{

@@ -355,7 +355,7 @@ h1 {
 
 .permission-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 180px 120px;
+  grid-template-columns: minmax(220px, 1fr) 180px 120px 120px;
   gap: 14px;
   align-items: end;
   margin-top: 28px;
@@ -367,6 +367,43 @@ h1 {
 
 .permission-row {
   grid-template-columns: minmax(180px, 1fr) 120px 120px auto;
+}
+
+.selected-user {
+  margin: 12px 0 0;
+}
+
+.user-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.user-result {
+  min-height: 64px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 12px;
+  text-align: left;
+}
+
+.user-result:hover,
+.user-result-selected {
+  border-color: #8eb1d8;
+  background: #f8fbff;
+  box-shadow: 0 8px 20px rgb(37 99 235 / 8%);
+}
+
+.user-result span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .share-row {

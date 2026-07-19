@@ -8,11 +8,16 @@ import {
 } from '../../api/permissions';
 import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import { searchUsers, type UserSearchItem } from '../../api/users';
 
 type PermissionState =
   | { status: 'loading'; items: DocumentPermission[]; error: null }
   | { status: 'success'; items: DocumentPermission[]; error: null }
   | { status: 'error'; items: DocumentPermission[]; error: string };
+
+type UserSearchState =
+  | { status: 'idle' | 'loading'; items: UserSearchItem[]; error: null }
+  | { status: 'error'; items: UserSearchItem[]; error: string };
 
 export function PermissionPage({ documentId }: { documentId: string }) {
   const auth = useAuth();
@@ -22,6 +27,13 @@ export function PermissionPage({ documentId }: { documentId: string }) {
     error: null,
   });
   const [subjectId, setSubjectId] = useState('');
+  const [selectedUser, setSelectedUser] = useState<UserSearchItem | null>(null);
+  const [userQuery, setUserQuery] = useState('');
+  const [userSearch, setUserSearch] = useState<UserSearchState>({
+    status: 'idle',
+    items: [],
+    error: null,
+  });
   const [permission, setPermission] = useState<'viewer' | 'editor'>('viewer');
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -42,8 +54,23 @@ export function PermissionPage({ documentId }: { documentId: string }) {
   useEffect(() => {
     if (auth.status === 'authenticated') {
       void refreshPermissions();
+      void refreshUsers('');
     }
   }, [auth.status, documentId]);
+
+  async function refreshUsers(query = userQuery) {
+    setUserSearch((current) => ({ status: 'loading', items: current.items, error: null }));
+    try {
+      const items = await searchUsers(query);
+      setUserSearch({ status: 'idle', items, error: null });
+    } catch (error) {
+      setUserSearch({
+        status: 'error',
+        items: [],
+        error: errorMessage(error, '加载用户失败'),
+      });
+    }
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,6 +82,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
         permission,
       });
       setSubjectId('');
+      setSelectedUser(null);
       await refreshPermissions();
     } catch (error) {
       setActionError(errorMessage(error, '授权失败'));
@@ -101,12 +129,12 @@ export function PermissionPage({ documentId }: { documentId: string }) {
 
       <form className="permission-form" onSubmit={onSubmit}>
         <label className="field">
-          <span>用户 ID</span>
+          <span>搜索用户</span>
           <input
-            onChange={(event) => setSubjectId(event.target.value)}
-            required
+            onChange={(event) => setUserQuery(event.target.value)}
+            placeholder="邮箱或显示名"
             type="text"
-            value={subjectId}
+            value={userQuery}
           />
         </label>
         <label className="field">
@@ -119,12 +147,47 @@ export function PermissionPage({ documentId }: { documentId: string }) {
             <option value="editor">可编辑</option>
           </select>
         </label>
-        <button className="primary-button permission-submit" type="submit">
+        <button
+          className="secondary-button permission-submit"
+          onClick={() => void refreshUsers()}
+          type="button"
+        >
+          搜索
+        </button>
+        <button className="primary-button permission-submit" disabled={subjectId === ''} type="submit">
           授权
         </button>
       </form>
 
       {actionError ? <p className="form-error">{actionError}</p> : null}
+      {selectedUser ? (
+        <p className="document-meta selected-user">
+          已选择：{selectedUser.displayName}（{selectedUser.email}）
+        </p>
+      ) : (
+        <p className="document-meta selected-user">请选择一个用户后授权。</p>
+      )}
+      <section className="user-picker">
+        {userSearch.status === 'loading' ? <span className="empty-inline">加载用户中</span> : null}
+        {userSearch.status === 'error' ? <span className="form-error">{userSearch.error}</span> : null}
+        {userSearch.status !== 'loading' && userSearch.items.length === 0 ? (
+          <span className="empty-inline">暂无匹配用户。</span>
+        ) : null}
+        {userSearch.items.map((item) => (
+          <button
+            className={`user-result ${item.id === subjectId ? 'user-result-selected' : ''}`}
+            key={item.id}
+            onClick={() => {
+              setSubjectId(item.id);
+              setSelectedUser(item);
+            }}
+            type="button"
+          >
+            <strong>{item.displayName}</strong>
+            <span>{item.email}</span>
+          </button>
+        ))}
+      </section>
       {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
       {state.status === 'success' && state.items.length === 0 ? (
