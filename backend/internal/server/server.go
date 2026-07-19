@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -199,4 +201,12 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("response writer does not support hijacking")
+	}
+	return hijacker.Hijack()
 }
