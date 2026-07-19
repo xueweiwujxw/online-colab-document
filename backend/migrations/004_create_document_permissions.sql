@@ -1,4 +1,4 @@
-CREATE TABLE document_permissions (
+CREATE TABLE IF NOT EXISTS document_permissions (
     id UUID PRIMARY KEY,
     document_id UUID NOT NULL REFERENCES documents(id),
     subject_type TEXT NOT NULL,
@@ -8,8 +8,8 @@ CREATE TABLE document_permissions (
     created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE UNIQUE INDEX document_permissions_unique_subject
+CREATE UNIQUE INDEX IF NOT EXISTS document_permissions_unique_subject
     ON document_permissions (document_id, subject_type, subject_id);
 
-CREATE INDEX document_permissions_subject_idx
+CREATE INDEX IF NOT EXISTS document_permissions_subject_idx
     ON document_permissions (subject_type, subject_id);

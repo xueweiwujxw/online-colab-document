@@ -12,6 +12,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"online-colab-document/backend/internal/config"
+	dbmigrate "online-colab-document/backend/internal/db"
 	"online-colab-document/backend/internal/server"
 )
 
@@ -21,14 +22,25 @@ func main() {
 		Level: cfg.LogLevel(),
 	}))
 
-	db, err := sql.Open("postgres", cfg.DatabaseURL)
+	database, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("database open failed", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer database.Close()
 
-	app := server.New(cfg, logger, db)
+	migrationCtx, cancelMigration := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelMigration()
+	if err := database.PingContext(migrationCtx); err != nil {
+		logger.Error("database ping failed", "error", err)
+		os.Exit(1)
+	}
+	if err := dbmigrate.Migrate(migrationCtx, database); err != nil {
+		logger.Error("database migration failed", "error", err)
+		os.Exit(1)
+	}
+
+	app := server.New(cfg, logger, database)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -1,4 +1,4 @@
-CREATE TABLE share_links (
+CREATE TABLE IF NOT EXISTS share_links (
     id UUID PRIMARY KEY,
     document_id UUID NOT NULL REFERENCES documents(id),
     token_hash TEXT NOT NULL UNIQUE,
@@ -9,5 +9,5 @@ CREATE TABLE share_links (
     created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX share_links_document_created_idx
+CREATE INDEX IF NOT EXISTS share_links_document_created_idx
     ON share_links (document_id, created_at DESC);

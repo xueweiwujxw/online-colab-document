@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M11 前端完善。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M12 Docker 部署与安全加固。
 
 ## 技术栈
 
@@ -33,6 +33,20 @@ make dev
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
 - ONLYOFFICE Document Server: http://localhost:8081
+
+可选 nginx 统一入口：
+
+```bash
+podman compose -f deploy/docker-compose.yml --profile proxy up --build
+```
+
+- Nginx unified entry: http://localhost:8088
+
+生产 compose 配置校验：
+
+```bash
+podman compose -f deploy/docker-compose.prod.yml config
+```
 
 ## 环境变量
 
@@ -91,7 +105,7 @@ make lint
 
 ## 当前里程碑
 
-M11 前端完善：
+M12 Docker 部署与安全加固：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -144,12 +158,21 @@ M11 前端完善：
 - 前端新增 `/documents/:id/versions` 独立版本管理页
 - 文档删除、权限删除、分享链接禁用、版本恢复等 destructive action 增加确认
 - 主要页面补齐 loading / error / empty / forbidden 处理
+- backend 启动时自动执行 `backend/migrations`
+- 生产 compose `deploy/docker-compose.prod.yml`
+- nginx 配置 `deploy/nginx/nginx.conf`，支持 `/api/`、`/onlyoffice/`、WebSocket upgrade、上传大小限制和 gzip
+- 开发 compose 增加可选 nginx proxy profile 和 Keycloak OIDC dev profile
+- 完整环境变量样例 `deploy/env/app.env.example`
+- 部署、ONLYOFFICE、权限、Markdown 协同文档
 
 ## 当前限制
 
 - Markdown 协同第一版只支持单 backend 实例内实时广播；多实例部署需要 Redis pub/sub 或其他跨实例消息总线。
 - M10 只实现管理员全局审计查询；owner 查看自己文档相关审计日志仍未开放。
 
-## 下一步开发计划
+## 部署文档
 
-M12 将继续完善 Docker 部署与安全加固。
+- [Deployment](docs/deployment.md)
+- [ONLYOFFICE](docs/onlyoffice.md)
+- [Permission](docs/permission.md)
+- [Markdown Collaboration](docs/markdown-collab.md)

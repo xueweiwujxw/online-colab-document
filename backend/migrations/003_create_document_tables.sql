@@ -1,4 +1,4 @@
-CREATE TABLE documents (
+CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY,
     owner_id UUID NOT NULL REFERENCES users(id),
     title TEXT NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE documents (
     updated_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE TABLE document_versions (
+CREATE TABLE IF NOT EXISTS document_versions (
     id UUID PRIMARY KEY,
     document_id UUID NOT NULL REFERENCES documents(id),
     version_no BIGINT NOT NULL,
@@ -23,9 +23,9 @@ CREATE TABLE document_versions (
     created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX documents_owner_active_idx
+CREATE INDEX IF NOT EXISTS documents_owner_active_idx
     ON documents (owner_id, updated_at DESC)
     WHERE deleted_at IS NULL;
 
-CREATE UNIQUE INDEX document_versions_document_version_no_unique
+CREATE UNIQUE INDEX IF NOT EXISTS document_versions_document_version_no_unique
     ON document_versions (document_id, version_no);

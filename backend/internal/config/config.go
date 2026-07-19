@@ -53,7 +53,7 @@ func Load() Config {
 		FrontendOrigin:                 getEnv("FRONTEND_ORIGIN", "http://localhost:3000"),
 		SessionCookieName:              getEnv("SESSION_COOKIE_NAME", "docs_session"),
 		SessionTTLHours:                getIntEnv("SESSION_TTL_HOURS", 168),
-		PasswordHashPepper:             getEnv("PASSWORD_HASH_PEPPER", ""),
+		PasswordHashPepper:             getEnvAny([]string{"PASSWORD_HASH_PEPPER", "SESSION_SECRET"}, ""),
 		OIDCEnabled:                    getBoolEnv("OIDC_ENABLED", false),
 		OIDCIssuerURL:                  getEnv("OIDC_ISSUER_URL", ""),
 		OIDCClientID:                   getEnv("OIDC_CLIENT_ID", ""),
@@ -61,7 +61,7 @@ func Load() Config {
 		OIDCRedirectURL:                getEnv("OIDC_REDIRECT_URL", ""),
 		OIDCScopes:                     getListEnv("OIDC_SCOPES", []string{"openid", "email", "profile"}),
 		OIDCAutoMergeByEmail:           getBoolEnv("OIDC_AUTO_MERGE_BY_EMAIL", false),
-		DocumentMaxUploadBytes:         getInt64Env("DOCUMENT_MAX_UPLOAD_BYTES", 50<<20),
+		DocumentMaxUploadBytes:         getInt64EnvAny([]string{"DOCUMENT_MAX_UPLOAD_BYTES", "MAX_UPLOAD_BYTES"}, 50<<20),
 		OnlyOfficeEnabled:              getBoolEnv("ONLYOFFICE_ENABLED", false),
 		OnlyOfficePublicURL:            getEnv("ONLYOFFICE_PUBLIC_URL", "http://localhost:8080/onlyoffice"),
 		OnlyOfficeInternalURL:          getEnv("ONLYOFFICE_INTERNAL_URL", "http://onlyoffice"),
@@ -86,6 +86,15 @@ func getEnv(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func getEnvAny(keys []string, fallback string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return fallback
 }
 
 func getBoolEnv(key string, fallback bool) bool {
@@ -122,6 +131,20 @@ func getInt64Env(key string, fallback int64) int64 {
 		return fallback
 	}
 	return parsed
+}
+
+func getInt64EnvAny(keys []string, fallback int64) int64 {
+	for _, key := range keys {
+		value := os.Getenv(key)
+		if value == "" {
+			continue
+		}
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err == nil {
+			return parsed
+		}
+	}
+	return fallback
 }
 
 func getListEnv(key string, fallback []string) []string {

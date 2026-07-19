@@ -1,4 +1,4 @@
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY,
     actor_user_id UUID REFERENCES users(id),
     action TEXT NOT NULL,
@@ -10,11 +10,11 @@ CREATE TABLE audit_logs (
     created_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX audit_logs_created_idx
+CREATE INDEX IF NOT EXISTS audit_logs_created_idx
     ON audit_logs (created_at DESC);
 
-CREATE INDEX audit_logs_actor_idx
+CREATE INDEX IF NOT EXISTS audit_logs_actor_idx
     ON audit_logs (actor_user_id, created_at DESC);
 
-CREATE INDEX audit_logs_target_idx
+CREATE INDEX IF NOT EXISTS audit_logs_target_idx
     ON audit_logs (target_type, target_id, created_at DESC);

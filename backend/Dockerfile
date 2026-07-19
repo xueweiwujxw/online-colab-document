@@ -10,5 +10,7 @@ FROM docker.io/library/alpine:3.20
 
 WORKDIR /app
 COPY --from=build /out/server /app/server
+COPY migrations /app/migrations
+ENV MIGRATIONS_DIR=/app/migrations
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]

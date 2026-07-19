@@ -24,26 +24,16 @@ Go backend
 
 - `backend/cmd/server`: 后端进程入口。
 - `backend/internal/config`: 从环境变量加载配置。
+- `backend/internal/db`: 启动时执行数据库 migrations。
 - `backend/internal/health`: health check 与 ready check。
 - `backend/internal/server`: HTTP server、路由、中间件、优雅退出。
 - `frontend/src/api`: 集中管理前端 API 调用。
 - `frontend/src/app`: 当前 M0 首页应用。
 - `deploy`: Docker Compose、环境变量样例和部署配置。
 
-## 后续里程碑
+## 里程碑
 
-- M1: 本地用户认证。
-- M2: OIDC 登录。
-- M3: 文档上传下载。
-- M4: 权限系统。
-- M5: ONLYOFFICE 集成。
-- M6: Markdown 普通编辑。
-- M7: Markdown 协同编辑。
-- M8: 分享链接。
-- M9: 版本管理。
-- M10: 审计日志。
-- M11: 前端完善。
-- M12: Docker 部署与安全加固。
+M0 到 M12 已覆盖项目骨架、本地/OIDC 登录、文档上传下载、权限、ONLYOFFICE、Markdown 编辑、Markdown 协同、分享链接、版本管理、审计日志、前端完善和 Docker 部署。
 
 ## Word / Excel 为什么使用 ONLYOFFICE
 
