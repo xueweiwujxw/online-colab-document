@@ -34,12 +34,13 @@
 - Database: PostgreSQL
 - Cache: Redis
 - Storage: MinIO / S3
-- Office editor: ONLYOFFICE Document Server
+- Office editor: pluggable self-hosted open-source provider
 - Markdown collab: Yjs / WebSocket
 - Deploy: Docker Compose / Nginx
 
 禁止自研 docx / xlsx 编辑器。  
-Word / Excel 在线编辑必须通过 ONLYOFFICE。
+Word / Excel 在线编辑必须通过自托管开源 Office 编辑器提供商实现，例如 ONLYOFFICE、Collabora Online 或经过 POC 验证的同类方案。
+替换编辑器前必须先在 `TASK.md` 记录计划，并验证 doc/docx/xls/xlsx 的打开、编辑、保存、权限和版本链路。
 
 ## 3. 代码约束
 
@@ -82,7 +83,7 @@ none
 
 1. 只靠前端隐藏按钮做权限。
 2. 未检查权限就返回下载地址。
-3. 未检查权限就返回 ONLYOFFICE config。
+3. 未检查权限就返回 Office 编辑器 config / WOPI / session 信息。
 4. 未检查权限就建立 Markdown WebSocket。
 5. 在 handler 中到处散落权限判断。
 

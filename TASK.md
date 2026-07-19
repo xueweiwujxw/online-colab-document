@@ -24,7 +24,8 @@
 
 ## 1. 总体技术路线
 
-Word / Excel 在线编辑不自研，使用 ONLYOFFICE Document Server。
+Word / Excel 在线编辑不自研，使用自托管开源 Office 编辑器提供商。
+当前已实现的提供商是 ONLYOFFICE Document Server；后续可以通过明确计划替换为 Collabora Online、Casual Office 或其他经过 POC 验证的开源方案。
 
 本系统负责：
 
@@ -36,16 +37,25 @@ Word / Excel 在线编辑不自研，使用 ONLYOFFICE Document Server。
 - 版本管理
 - 分享链接
 - 审计日志
-- ONLYOFFICE 配置生成
-- ONLYOFFICE 保存回调处理
+- Office 编辑器配置生成
+- Office 编辑器保存回调处理
 
-ONLYOFFICE 负责：
+Office 编辑器提供商负责：
 
 - docx 在线预览
 - docx 在线编辑
 - xlsx 在线预览
 - xlsx 在线编辑
 - Word / Excel 多人协同编辑
+
+Office 编辑器提供商要求：
+
+- 必须自托管，不能依赖外部 SaaS 保存用户文档。
+- 必须支持 doc/docx/xls/xlsx 的在线打开。
+- 必须至少支持 docx/xlsx 在线编辑和保存回后端。
+- 必须接入统一权限判断。
+- 必须能和版本管理、审计日志、对象存储链路集成。
+- 禁止在本项目内自研 docx / xlsx 编辑器。
 
 Markdown 编辑可以自研。
 
@@ -2113,6 +2123,32 @@ M12 完成后的体验修补按计划逐个执行，不混合提交。
 ONLYOFFICE xlsx config 正常生成
 ONLYOFFICE 容器可访问 xlsx 下载地址
 前端构建和后端测试通过
+```
+
+## Plan 8：Office 编辑器替换 POC
+
+状态：未开始。
+
+范围：
+
+- 选择一个替代 ONLYOFFICE 的自托管开源 Office 编辑器候选方案优先做 POC。
+- 优先验证 Casual Office；如果无法满足基本链路，再评估 Collabora Online + WOPI。
+- POC 必须复用现有文档、权限、版本、审计和对象存储边界。
+- 不自研 docx / xlsx 编辑器。
+- 不在 POC 通过前删除现有 ONLYOFFICE 代码和部署配置。
+- 不实现完整迁移，只完成候选方案可行性验证和最小接入。
+
+验收标准：
+
+```text
+docx 可以通过候选编辑器打开
+xlsx 可以通过候选编辑器打开
+editor/owner 可以编辑并保存生成新版本
+viewer 只能只读打开
+无权限用户不能获取编辑器 session/config/WOPI 信息
+保存动作写入审计日志
+前端构建和后端测试通过
+记录是否建议进入正式替换计划
 ```
 
 ---
