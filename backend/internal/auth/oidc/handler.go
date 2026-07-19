@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"online-colab-document/backend/internal/api"
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/local"
 	"online-colab-document/backend/internal/auth/session"
 )
@@ -25,6 +27,11 @@ type Handler struct {
 	sessionTTL   time.Duration
 	frontendURL  string
 	transientTTL time.Duration
+	audit        AuditRecorder
+}
+
+type AuditRecorder interface {
+	Record(ctx context.Context, input audit.RecordInput) error
 }
 
 func NewHandler(service *Service, logger *slog.Logger, cookieName string, secure bool, sessionTTL time.Duration, frontendURL string) Handler {
@@ -37,6 +44,11 @@ func NewHandler(service *Service, logger *slog.Logger, cookieName string, secure
 		frontendURL:  frontendURL,
 		transientTTL: 10 * time.Minute,
 	}
+}
+
+func (h Handler) WithAudit(recorder AuditRecorder) Handler {
+	h.audit = recorder
+	return h
 }
 
 func (h Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +95,16 @@ func (h Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		h.writeAuthError(w, "oidc callback failed", err)
 		return
 	}
+	actorUserID := authSession.User.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionLogin,
+		TargetType:  "user",
+		TargetID:    authSession.User.ID,
+		Metadata: map[string]any{
+			"authSource": "oidc",
+		},
+	})
 	http.SetCookie(w, session.Cookie(h.cookieName, authSession.Token, authSession.ExpiresAt, h.secure))
 	http.Redirect(w, r, h.redirectURL(), http.StatusFound)
 }
@@ -146,5 +168,15 @@ func expiredTransientCookie(name string, secure bool) *http.Cookie {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func (h Handler) recordAudit(r *http.Request, input audit.RecordInput) {
+	if h.audit == nil {
+		return
+	}
+	input.IPAddr, input.UserAgent = audit.RequestInfo(r)
+	if err := h.audit.Record(r.Context(), input); err != nil {
+		h.logger.Error("audit log failed", "error", err)
 	}
 }

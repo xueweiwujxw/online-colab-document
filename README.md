@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M9 版本管理。尚未实现审计日志。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M10 审计日志。
 
 ## 技术栈
 
@@ -91,7 +91,7 @@ make lint
 
 ## 当前里程碑
 
-M9 版本管理：
+M10 审计日志：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -134,12 +134,18 @@ M9 版本管理：
 - 支持恢复历史版本 `POST /api/documents/:id/versions/:versionId/restore`
 - 恢复历史版本会生成新版本，不覆盖旧版本
 - viewer 不能恢复，editor/owner 可以恢复
+- audit_logs 数据库 migration
+- 关键操作审计记录：登录、登出、OIDC 登录、文档上传/下载/删除、Markdown 保存、ONLYOFFICE 保存 callback、权限授予/删除、分享链接创建/禁用/访问/下载/Markdown 保存、历史版本恢复
+- 审计写入失败只记录 error log，不影响主流程
+- 审计 metadata 过滤 password/token/secret/cookie 等敏感字段
+- 管理员审计查询接口 `GET /api/admin/audit-logs`
+- 管理员前端页面 `/admin/audit-logs`
 
 ## 当前限制
 
 - Markdown 协同第一版只支持单 backend 实例内实时广播；多实例部署需要 Redis pub/sub 或其他跨实例消息总线。
-- 分享链接访问审计将在 M10 审计日志里统一落表。
+- M10 只实现管理员全局审计查询；owner 查看自己文档相关审计日志仍未开放。
 
 ## 下一步开发计划
 
-M10 将实现审计日志。
+M11 将继续完善前端体验。

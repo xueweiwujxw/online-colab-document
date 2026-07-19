@@ -93,6 +93,11 @@ export function DocumentListPage() {
           <h1>My documents</h1>
         </div>
         <div className="user-actions">
+          {auth.user.isAdmin ? (
+            <a className="secondary-button" href="/admin/audit-logs">
+              Audit logs
+            </a>
+          ) : null}
           <label className="upload-button">
             <input disabled={uploading} onChange={onUpload} type="file" />
             {uploading ? 'Uploading' : 'Upload'}

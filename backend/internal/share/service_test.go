@@ -5,10 +5,14 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/document"
 )
 
@@ -119,6 +123,38 @@ func TestViewerLinkCannotEditAndEditorLinkCanEdit(t *testing.T) {
 	}
 	if string(data) != "updated" {
 		t.Fatalf("expected latest content, got %q", string(data))
+	}
+}
+
+func TestShareAccessWritesAudit(t *testing.T) {
+	fixture := newTestFixture()
+	fixture.repo.links["viewer"] = Link{
+		ID:         "viewer",
+		DocumentID: "doc-1",
+		TokenHash:  HashToken("viewer-token"),
+		Permission: PermissionViewer,
+		CreatedAt:  fixture.now,
+	}
+	handler := NewHandler(fixture.service, slog.Default())
+	recorder := &fakeAuditRecorder{}
+	handler = handler.WithAudit(recorder)
+	req := httptest.NewRequest(http.MethodGet, "/api/share/viewer-token", nil)
+	req.SetPathValue("token", "viewer-token")
+	rec := httptest.NewRecorder()
+
+	handler.Access(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(recorder.inputs) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(recorder.inputs))
+	}
+	if recorder.inputs[0].Action != audit.ActionShareAccess || recorder.inputs[0].TargetID != "doc-1" {
+		t.Fatalf("unexpected audit input: %#v", recorder.inputs[0])
+	}
+	if _, ok := recorder.inputs[0].Metadata["token"]; ok {
+		t.Fatalf("audit metadata must not contain token")
 	}
 }
 
@@ -302,4 +338,13 @@ func (s *memoryStorage) DeleteObject(_ context.Context, key string) error {
 
 func (s *memoryStorage) PresignedGetURL(context.Context, string, time.Duration) (string, error) {
 	return "", nil
+}
+
+type fakeAuditRecorder struct {
+	inputs []audit.RecordInput
+}
+
+func (r *fakeAuditRecorder) Record(_ context.Context, input audit.RecordInput) error {
+	r.inputs = append(r.inputs, input)
+	return nil
 }

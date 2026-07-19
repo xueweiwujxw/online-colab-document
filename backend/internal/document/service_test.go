@@ -13,6 +13,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"online-colab-document/backend/internal/audit"
+	"online-colab-document/backend/internal/middleware"
+	"online-colab-document/backend/internal/user"
 )
 
 func TestUploadSuccessCreatesDocumentVersionAndObject(t *testing.T) {
@@ -80,6 +84,34 @@ func TestUploadRequiresAuthenticatedUser(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status 401, got %d", rec.Code)
+	}
+}
+
+func TestUploadWritesAudit(t *testing.T) {
+	handler := NewHandler(NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024), slog.Default())
+	recorder := &fakeAuditRecorder{}
+	handler = handler.WithAudit(recorder)
+	secured := middleware.RequireAuth(
+		documentTestAuthenticator{user: user.User{ID: "owner-1"}},
+		"docs_session",
+		http.HandlerFunc(handler.Upload),
+	)
+	body, contentType := multipartBody(t, "file", "example.md", "text/markdown", "hello")
+	req := httptest.NewRequest(http.MethodPost, "/api/documents/upload", body)
+	req.Header.Set("Content-Type", contentType)
+	req.AddCookie(&http.Cookie{Name: "docs_session", Value: "session"})
+	rec := httptest.NewRecorder()
+
+	secured.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(recorder.inputs) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(recorder.inputs))
+	}
+	if recorder.inputs[0].Action != audit.ActionDocumentUpload || recorder.inputs[0].TargetType != "document" {
+		t.Fatalf("unexpected audit input: %#v", recorder.inputs[0])
 	}
 }
 
@@ -711,4 +743,21 @@ func (s *fakePermissionService) CanManage(_ context.Context, userID string, docu
 
 func (s *fakePermissionService) CanDelete(_ context.Context, userID string, documentID string) (bool, error) {
 	return s.delete[documentID+":"+userID], nil
+}
+
+type documentTestAuthenticator struct {
+	user user.User
+}
+
+func (a documentTestAuthenticator) CurrentUser(context.Context, string) (user.User, error) {
+	return a.user, nil
+}
+
+type fakeAuditRecorder struct {
+	inputs []audit.RecordInput
+}
+
+func (r *fakeAuditRecorder) Record(_ context.Context, input audit.RecordInput) error {
+	r.inputs = append(r.inputs, input)
+	return nil
 }

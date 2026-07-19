@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/local"
 	oidcauth "online-colab-document/backend/internal/auth/oidc"
 	"online-colab-document/backend/internal/config"
@@ -43,7 +44,9 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			cfg.PasswordHashPepper,
 			time.Duration(cfg.SessionTTLHours)*time.Hour,
 		)
-		authHandler := local.NewHandler(authService, logger, cfg.SessionCookieName, cfg.AppEnv == "production")
+		auditService := audit.NewService(audit.NewPostgresRepository(db))
+		auditHandler := audit.NewHandler(auditService, logger)
+		authHandler := local.NewHandler(authService, logger, cfg.SessionCookieName, cfg.AppEnv == "production").WithAudit(auditService)
 		mux.HandleFunc("POST /api/auth/local/register", authHandler.Register)
 		mux.HandleFunc("POST /api/auth/local/login", authHandler.Login)
 		mux.HandleFunc("POST /api/auth/logout", authHandler.Logout)
@@ -70,9 +73,13 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			cfg.AppEnv == "production",
 			time.Duration(cfg.SessionTTLHours)*time.Hour,
 			cfg.FrontendOrigin,
-		)
+		).WithAudit(auditService)
 		mux.HandleFunc("GET /api/auth/oidc/login", oidcHandler.Login)
 		mux.HandleFunc("GET /api/auth/oidc/callback", oidcHandler.Callback)
+		requireAuth := func(next http.HandlerFunc) http.Handler {
+			return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
+		}
+		mux.Handle("GET /api/admin/audit-logs", requireAuth(auditHandler.List))
 
 		objectStorage, err := storage.NewMinIOStorage(storage.MinIOConfig{
 			Endpoint:  cfg.S3Endpoint,
@@ -86,10 +93,10 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		} else {
 			permissionRepo := permission.NewPostgresRepository(db)
 			permissionService := permission.NewService(permissionRepo)
-			permissionHandler := permission.NewHandler(permissionService, logger)
+			permissionHandler := permission.NewHandler(permissionService, logger).WithAudit(auditService)
 			documentRepo := document.NewPostgresRepository(db)
 			documentService := document.NewService(documentRepo, objectStorage, permissionService, cfg.DocumentMaxUploadBytes)
-			documentHandler := document.NewHandler(documentService, logger)
+			documentHandler := document.NewHandler(documentService, logger).WithAudit(auditService)
 			shareService := share.NewService(
 				share.NewPostgresRepository(db),
 				documentRepo,
@@ -97,7 +104,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 				objectStorage,
 				cfg.PublicAppURL,
 			)
-			shareHandler := share.NewHandler(shareService, logger)
+			shareHandler := share.NewHandler(shareService, logger).WithAudit(auditService)
 			markdownCollabService := markdowncollab.NewService(
 				markdowncollab.NewPostgresRepository(db),
 				documentRepo,
@@ -125,10 +132,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 				permissionService,
 				objectStorage,
 			)
-			onlyOfficeHandler := onlyoffice.NewHandler(onlyOfficeService, logger)
-			requireAuth := func(next http.HandlerFunc) http.Handler {
-				return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
-			}
+			onlyOfficeHandler := onlyoffice.NewHandler(onlyOfficeService, logger).WithAudit(auditService)
 			mux.Handle("GET /api/documents", requireAuth(documentHandler.List))
 			mux.Handle("POST /api/documents/upload", requireAuth(documentHandler.Upload))
 			mux.Handle("GET /api/documents/{id}", requireAuth(documentHandler.Get))

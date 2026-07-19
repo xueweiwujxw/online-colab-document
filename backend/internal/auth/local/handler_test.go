@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/session"
 	"online-colab-document/backend/internal/user"
 )
@@ -69,6 +70,29 @@ func TestLoginSuccess(t *testing.T) {
 	}
 	if !rec.Result().Cookies()[0].HttpOnly {
 		t.Fatalf("expected HttpOnly cookie")
+	}
+}
+
+func TestLoginWritesAudit(t *testing.T) {
+	handler, _ := newTestHandler()
+	recorder := &fakeAuditRecorder{}
+	handler = handler.WithAudit(recorder)
+	registerUser(t, handler, "user@example.com")
+	rec := httptest.NewRecorder()
+
+	handler.Login(rec, httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{
+		"email":"user@example.com",
+		"password":"password123"
+	}`)))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(recorder.inputs) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(recorder.inputs))
+	}
+	if recorder.inputs[0].Action != audit.ActionLogin || recorder.inputs[0].TargetType != "user" {
+		t.Fatalf("unexpected audit input: %#v", recorder.inputs[0])
 	}
 }
 
@@ -306,4 +330,13 @@ func (r *memoryRepo) disable(email string) {
 	u := r.usersByID[id]
 	u.Disabled = true
 	r.usersByID[id] = u
+}
+
+type fakeAuditRecorder struct {
+	inputs []audit.RecordInput
+}
+
+func (r *fakeAuditRecorder) Record(_ context.Context, input audit.RecordInput) error {
+	r.inputs = append(r.inputs, input)
+	return nil
 }

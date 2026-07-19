@@ -1,12 +1,14 @@
 package local
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 
 	"online-colab-document/backend/internal/api"
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/session"
 	"online-colab-document/backend/internal/user"
 )
@@ -16,6 +18,11 @@ type Handler struct {
 	logger     *slog.Logger
 	cookieName string
 	secure     bool
+	audit      AuditRecorder
+}
+
+type AuditRecorder interface {
+	Record(ctx context.Context, input audit.RecordInput) error
 }
 
 func NewHandler(service *Service, logger *slog.Logger, cookieName string, secure bool) Handler {
@@ -25,6 +32,11 @@ func NewHandler(service *Service, logger *slog.Logger, cookieName string, secure
 		cookieName: cookieName,
 		secure:     secure,
 	}
+}
+
+func (h Handler) WithAudit(recorder AuditRecorder) Handler {
+	h.audit = recorder
+	return h
 }
 
 func (h Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -76,16 +88,36 @@ func (h Handler) Login(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
+	actorUserID := authSession.User.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionLogin,
+		TargetType:  "user",
+		TargetID:    authSession.User.ID,
+	})
 	http.SetCookie(w, session.Cookie(h.cookieName, authSession.Token, authSession.ExpiresAt, h.secure))
 	api.WriteJSON(w, http.StatusOK, user.ToPublic(authSession.User))
 }
 
 func (h Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	token := h.tokenFromCookie(r)
+	var actorUserID *string
+	if u, err := h.service.CurrentUser(r.Context(), token); err == nil {
+		id := u.ID
+		actorUserID = &id
+	}
 	if err := h.service.Logout(r.Context(), token); err != nil {
 		h.logger.Error("logout failed", "error", err)
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
+	}
+	if actorUserID != nil {
+		h.recordAudit(r, audit.RecordInput{
+			ActorUserID: actorUserID,
+			Action:      audit.ActionLogout,
+			TargetType:  "user",
+			TargetID:    *actorUserID,
+		})
 	}
 	http.SetCookie(w, session.ExpiredCookie(h.cookieName, h.secure))
 	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -111,4 +143,14 @@ func (h Handler) tokenFromCookie(r *http.Request) string {
 		return ""
 	}
 	return cookie.Value
+}
+
+func (h Handler) recordAudit(r *http.Request, input audit.RecordInput) {
+	if h.audit == nil {
+		return
+	}
+	input.IPAddr, input.UserAgent = audit.RequestInfo(r)
+	if err := h.audit.Record(r.Context(), input); err != nil {
+		h.logger.Error("audit log failed", "error", err)
+	}
 }

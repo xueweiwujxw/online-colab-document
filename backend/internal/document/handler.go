@@ -1,6 +1,7 @@
 package document
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,12 +11,18 @@ import (
 	"net/http"
 
 	"online-colab-document/backend/internal/api"
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/middleware"
 )
 
 type Handler struct {
 	service *Service
 	logger  *slog.Logger
+	audit   AuditRecorder
+}
+
+type AuditRecorder interface {
+	Record(ctx context.Context, input audit.RecordInput) error
 }
 
 type markdownResponse struct {
@@ -30,6 +37,11 @@ type updateMarkdownRequest struct {
 
 func NewHandler(service *Service, logger *slog.Logger) Handler {
 	return Handler{service: service, logger: logger}
+}
+
+func (h Handler) WithAudit(recorder AuditRecorder) Handler {
+	h.audit = recorder
+	return h
 }
 
 func (h Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +101,18 @@ func (h Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "upload document failed", err)
 		return
 	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionDocumentUpload,
+		TargetType:  "document",
+		TargetID:    doc.ID,
+		Metadata: map[string]any{
+			"fileExt":   doc.FileExt,
+			"mimeType":  doc.MimeType,
+			"sizeBytes": doc.SizeBytes,
+		},
+	})
 	api.WriteJSON(w, http.StatusCreated, ToPublic(doc, true, true))
 }
 
@@ -128,6 +152,16 @@ func (h Handler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer download.Reader.Close()
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionDocumentDownload,
+		TargetType:  "document",
+		TargetID:    download.Document.ID,
+		Metadata: map[string]any{
+			"sizeBytes": download.Document.SizeBytes,
+		},
+	})
 
 	w.Header().Set("Content-Type", download.Document.MimeType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", download.Document.SizeBytes))
@@ -205,6 +239,16 @@ func (h Handler) UpdateMarkdown(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "save markdown document failed", err)
 		return
 	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionMarkdownSave,
+		TargetType:  "document",
+		TargetID:    markdown.Document.ID,
+		Metadata: map[string]any{
+			"sizeBytes": markdown.Document.SizeBytes,
+		},
+	})
 	canManage, err := h.service.CanManage(r.Context(), currentUser.ID, markdown.Document.ID)
 	if err != nil {
 		h.writeError(w, "check document manage permission failed", err)
@@ -227,6 +271,13 @@ func (h Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "delete document failed", err)
 		return
 	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionDocumentDelete,
+		TargetType:  "document",
+		TargetID:    r.PathValue("id"),
+	})
 	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -259,6 +310,17 @@ func (h Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "restore document version failed", err)
 		return
 	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionVersionRestore,
+		TargetType:  "document",
+		TargetID:    version.DocumentID,
+		Metadata: map[string]any{
+			"sourceVersionId": r.PathValue("versionId"),
+			"newVersionId":    version.ID,
+		},
+	})
 	api.WriteJSON(w, http.StatusCreated, VersionToPublic(version))
 }
 
@@ -277,5 +339,15 @@ func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error)
 	default:
 		h.logger.Error(logMessage, "error", err)
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+	}
+}
+
+func (h Handler) recordAudit(r *http.Request, input audit.RecordInput) {
+	if h.audit == nil {
+		return
+	}
+	input.IPAddr, input.UserAgent = audit.RequestInfo(r)
+	if err := h.audit.Record(r.Context(), input); err != nil {
+		h.logger.Error("audit log failed", "error", err)
 	}
 }

@@ -534,6 +534,50 @@ h1 {
   gap: 8px;
 }
 
+.audit-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(220px, 1.4fr) 120px auto;
+  gap: 14px;
+  align-items: end;
+  margin-top: 28px;
+}
+
+.audit-filter-button {
+  margin-bottom: 18px;
+}
+
+.audit-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.audit-row {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 180px minmax(180px, 1fr) 180px minmax(220px, 1.2fr) 110px minmax(160px, 1fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.audit-row strong,
+.audit-row code {
+  overflow-wrap: anywhere;
+}
+
+.audit-row code {
+  color: #354257;
+  font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.audit-user-agent {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 620px) {
   .auth-shell,
   .app-shell {
@@ -554,7 +598,8 @@ h1 {
   }
 
   .document-row,
-  .version-row {
+  .version-row,
+  .audit-row {
     grid-template-columns: 1fr;
   }
 
@@ -582,6 +627,10 @@ h1 {
   }
 
   .share-copy-row {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-filters {
     grid-template-columns: 1fr;
   }
 

@@ -1,6 +1,7 @@
 package share
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"online-colab-document/backend/internal/api"
+	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/document"
 	"online-colab-document/backend/internal/middleware"
 )
@@ -18,10 +20,20 @@ import (
 type Handler struct {
 	service *Service
 	logger  *slog.Logger
+	audit   AuditRecorder
+}
+
+type AuditRecorder interface {
+	Record(ctx context.Context, input audit.RecordInput) error
 }
 
 func NewHandler(service *Service, logger *slog.Logger) Handler {
 	return Handler{service: service, logger: logger}
+}
+
+func (h Handler) WithAudit(recorder AuditRecorder) Handler {
+	h.audit = recorder
+	return h
 }
 
 func (h Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +60,18 @@ func (h Handler) Create(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "create share link failed", err)
 		return
 	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionShareCreate,
+		TargetType:  "document",
+		TargetID:    response.DocumentID,
+		Metadata: map[string]any{
+			"shareLinkId": response.ID,
+			"permission":  response.Permission,
+			"expiresAt":   response.ExpiresAt,
+		},
+	})
 	api.WriteJSON(w, http.StatusCreated, response)
 }
 
@@ -79,6 +103,13 @@ func (h Handler) Disable(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "disable share link failed", err)
 		return
 	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionShareDisable,
+		TargetType:  "share_link",
+		TargetID:    r.PathValue("id"),
+	})
 	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -88,6 +119,14 @@ func (h Handler) Access(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "access share link failed", err)
 		return
 	}
+	h.recordAudit(r, audit.RecordInput{
+		Action:     audit.ActionShareAccess,
+		TargetType: "document",
+		TargetID:   response.Document.ID,
+		Metadata: map[string]any{
+			"canEdit": response.CanEdit,
+		},
+	})
 	api.WriteJSON(w, http.StatusOK, response)
 }
 
@@ -98,6 +137,14 @@ func (h Handler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer download.Reader.Close()
+	h.recordAudit(r, audit.RecordInput{
+		Action:     audit.ActionShareDownload,
+		TargetType: "document",
+		TargetID:   download.Document.ID,
+		Metadata: map[string]any{
+			"sizeBytes": download.Document.SizeBytes,
+		},
+	})
 
 	w.Header().Set("Content-Type", download.Document.MimeType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", download.Document.SizeBytes))
@@ -124,6 +171,14 @@ func (h Handler) SaveMarkdown(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "save shared markdown failed", err)
 		return
 	}
+	h.recordAudit(r, audit.RecordInput{
+		Action:     audit.ActionShareMarkdownSave,
+		TargetType: "document",
+		TargetID:   response.Document.ID,
+		Metadata: map[string]any{
+			"sizeBytes": response.Document.SizeBytes,
+		},
+	})
 	api.WriteJSON(w, http.StatusOK, response)
 }
 
@@ -146,5 +201,15 @@ func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error)
 	default:
 		h.logger.Error(logMessage, "error", err)
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+	}
+}
+
+func (h Handler) recordAudit(r *http.Request, input audit.RecordInput) {
+	if h.audit == nil {
+		return
+	}
+	input.IPAddr, input.UserAgent = audit.RequestInfo(r)
+	if err := h.audit.Record(r.Context(), input); err != nil {
+		h.logger.Error("audit log failed", "error", err)
 	}
 }
