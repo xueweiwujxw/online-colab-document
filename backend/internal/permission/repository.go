@@ -48,7 +48,7 @@ func (r *PostgresRepository) DocumentOwnerID(ctx context.Context, documentID str
 func (r *PostgresRepository) FindForUser(ctx context.Context, documentID string, userID string) (Permission, error) {
 	row := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, document_id, subject_type, subject_id, permission, created_by, created_at
+		`SELECT id, document_id, subject_type, subject_id, NULL, NULL, permission, created_by, created_at
 		FROM document_permissions
 		WHERE document_id = $1 AND subject_type = 'user' AND subject_id = $2`,
 		documentID,
@@ -60,10 +60,12 @@ func (r *PostgresRepository) FindForUser(ctx context.Context, documentID string,
 func (r *PostgresRepository) ListForDocument(ctx context.Context, documentID string) ([]Permission, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, document_id, subject_type, subject_id, permission, created_by, created_at
-		FROM document_permissions
-		WHERE document_id = $1
-		ORDER BY created_at ASC`,
+		`SELECT p.id, p.document_id, p.subject_type, p.subject_id, u.display_name, u.email,
+			p.permission, p.created_by, p.created_at
+		FROM document_permissions p
+		LEFT JOIN users u ON p.subject_type = 'user' AND p.subject_id = u.id
+		WHERE p.document_id = $1
+		ORDER BY p.created_at ASC`,
 		documentID,
 	)
 	if err != nil {
@@ -133,11 +135,15 @@ type rowScanner interface {
 
 func scanPermission(row rowScanner) (Permission, error) {
 	var permission Permission
+	var subjectDisplayName sql.NullString
+	var subjectEmail sql.NullString
 	err := row.Scan(
 		&permission.ID,
 		&permission.DocumentID,
 		&permission.SubjectType,
 		&permission.SubjectID,
+		&subjectDisplayName,
+		&subjectEmail,
 		&permission.Permission,
 		&permission.CreatedBy,
 		&permission.CreatedAt,
@@ -147,6 +153,12 @@ func scanPermission(row rowScanner) (Permission, error) {
 	}
 	if err != nil {
 		return Permission{}, fmt.Errorf("scan document permission: %w", err)
+	}
+	if subjectDisplayName.Valid {
+		permission.SubjectDisplayName = &subjectDisplayName.String
+	}
+	if subjectEmail.Valid {
+		permission.SubjectEmail = &subjectEmail.String
 	}
 	return permission, nil
 }

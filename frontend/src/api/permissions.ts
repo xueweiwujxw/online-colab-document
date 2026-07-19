@@ -5,6 +5,8 @@ export type DocumentPermission = {
   documentId: string;
   subjectType: string;
   subjectId: string;
+  subjectDisplayName?: string;
+  subjectEmail?: string;
   permission: 'viewer' | 'editor';
   createdAt: string;
 };

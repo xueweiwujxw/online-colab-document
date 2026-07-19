@@ -211,7 +211,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
         <section className="document-list">
           {state.items.map((item) => (
             <article className="document-row permission-row" key={item.id}>
-              <span className="document-title">{item.subjectId}</span>
+              <span className="document-title">{permissionSubjectLabel(item)}</span>
               <span className="document-meta">{subjectTypeLabel(item.subjectType)}</span>
               <span className="document-meta">{permissionLabel(item.permission)}</span>
               <button
@@ -227,6 +227,13 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       ) : null}
     </main>
   );
+}
+
+function permissionSubjectLabel(item: DocumentPermission): string {
+  if (item.subjectDisplayName && item.subjectEmail) {
+    return `${item.subjectDisplayName}（${item.subjectEmail}）`;
+  }
+  return item.subjectDisplayName ?? item.subjectEmail ?? item.subjectId;
 }
 
 function permissionForUser(items: DocumentPermission[], userId: string): string | null {
