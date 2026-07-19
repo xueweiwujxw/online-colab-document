@@ -2092,6 +2092,29 @@ M12 完成后的体验修补按计划逐个执行，不混合提交。
 前端容器实际返回新 CSS 资源
 ```
 
+## Plan 7：限制上传类型并验证 Excel 编辑链路
+
+状态：已完成。
+
+范围：
+
+- 上传文件类型仅允许 `doc`、`docx`、`xls`、`xlsx`、`md`、`txt`。
+- 前端文件选择器增加同样的 accept 限制。
+- 后端继续以扩展名和 MIME 双重校验为准。
+- 验证 Excel 文档可以生成 ONLYOFFICE config，并且 ONLYOFFICE 容器可以下载该文档。
+- 不实现 Plan 5。
+
+验收标准：
+
+```text
+允许上传 doc/docx/xls/xlsx/md/txt
+拒绝未列入白名单的扩展名
+权限和审计逻辑不变
+ONLYOFFICE xlsx config 正常生成
+ONLYOFFICE 容器可访问 xlsx 下载地址
+前端构建和后端测试通过
+```
+
 ---
 
 # 6. 每个 Milestone 的 Codex Goal 用法

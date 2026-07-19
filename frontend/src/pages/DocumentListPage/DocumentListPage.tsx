@@ -104,7 +104,12 @@ export function DocumentListPage() {
             </a>
           ) : null}
           <label className="upload-button">
-            <input disabled={uploading} onChange={onUpload} type="file" />
+            <input
+              accept=".doc,.docx,.xls,.xlsx,.md,.txt"
+              disabled={uploading}
+              onChange={onUpload}
+              type="file"
+            />
             {uploading ? '上传中' : '上传'}
           </label>
           <span>{auth.user.displayName}</span>

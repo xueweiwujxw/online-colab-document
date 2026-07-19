@@ -456,12 +456,12 @@ func (t allowedType) accepts(mimeType string) bool {
 }
 
 var allowedFileTypes = map[string]allowedType{
-	"doc":      newAllowedType("application/msword", "application/octet-stream"),
-	"docx":     newAllowedType("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"),
-	"xls":      newAllowedType("application/vnd.ms-excel", "application/octet-stream"),
-	"xlsx":     newAllowedType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"),
-	"md":       newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
-	"markdown": newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
+	"doc":  newAllowedType("application/msword", "application/octet-stream"),
+	"docx": newAllowedType("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"),
+	"xls":  newAllowedType("application/vnd.ms-excel", "application/octet-stream"),
+	"xlsx": newAllowedType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"),
+	"md":   newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
+	"txt":  newAllowedType("text/plain", "text/plain; charset=utf-8", "application/octet-stream"),
 }
 
 func newAllowedType(preferred string, alternates ...string) allowedType {
