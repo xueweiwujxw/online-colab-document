@@ -1979,7 +1979,57 @@ docker compose -f deploy/docker-compose.prod.yml config
 
 ---
 
-# 5. 每个 Milestone 的 Codex Goal 用法
+# 5. 当前迭代任务
+
+M12 完成后的体验修补按计划逐个执行，不混合提交。
+
+## Plan 1：修复 ONLYOFFICE Download failed
+
+状态：已完成。
+
+范围：
+
+- ONLYOFFICE 继续作为 Word / Excel 在线编辑器。
+- ONLYOFFICE 文档下载改为 backend 受控下载地址。
+- 下载地址使用短期签名票据。
+- 保持 ONLYOFFICE config 生成前的统一权限检查。
+
+## Plan 2：Markdown 编辑器在线成员显示
+
+状态：已完成。
+
+范围：
+
+- 使用现有 Markdown WebSocket presence 数据。
+- Markdown 编辑器显示当前在线人数。
+- 当前用户标记为“我”。
+- 每个在线用户显示可编辑 / 只读状态。
+- 不修改进入编辑器的入口逻辑。
+- 不修改 ONLYOFFICE 内部协同成员展示。
+
+验收标准：
+
+```text
+打开 Markdown 编辑器后能看到在线人数
+当前用户显示在成员列表中并标记“我”
+同一文档的其他查看/编辑用户显示在成员列表中
+每个成员都显示可编辑或只读
+前端构建通过
+```
+
+## Plan 3：简化进入编辑器操作
+
+状态：未开始。
+
+范围：
+
+- 文档列表和详情页减少进入编辑器的操作步骤。
+- 按文档类型选择合适的打开目标。
+- 保留下载、权限、分享、版本等管理入口。
+
+---
+
+# 6. 每个 Milestone 的 Codex Goal 用法
 
 ## Goal：M0
 
@@ -2113,7 +2163,7 @@ docker compose -f deploy/docker-compose.prod.yml config
 
 ---
 
-# 6. 完成后统一输出格式
+# 7. 完成后统一输出格式
 
 每次完成一个 milestone 后，必须按下面格式输出：
 
@@ -2148,7 +2198,7 @@ docker compose -f deploy/docker-compose.prod.yml config
 
 ---
 
-# 7. 当前推荐起始 Goal
+# 8. 当前推荐起始 Goal
 
 第一次开发时，把下面这段给 Codex：
 

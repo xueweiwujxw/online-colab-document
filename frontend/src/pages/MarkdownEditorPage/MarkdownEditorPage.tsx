@@ -161,6 +161,15 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
 
   const readonly = !canEdit;
   const statusText = connectionStatusText(connection, readonly);
+  const visibleUsers = users.slice().sort((left, right) => {
+    if (left.userId === auth.user.id) {
+      return -1;
+    }
+    if (right.userId === auth.user.id) {
+      return 1;
+    }
+    return left.displayName.localeCompare(right.displayName);
+  });
 
   return (
     <main className="editor-shell markdown-shell">
@@ -178,12 +187,14 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
       </header>
       {error ? <p className="form-error markdown-save-error">{error}</p> : null}
       <section className="presence-bar">
-        {users.length === 0 ? (
-          <span className="empty-inline">暂无其他在线用户。</span>
+        <span className="presence-summary">当前在线 {visibleUsers.length} 人</span>
+        {visibleUsers.length === 0 ? (
+          <span className="empty-inline">正在获取在线成员。</span>
         ) : (
-          users.map((user) => (
+          visibleUsers.map((user) => (
             <span className="presence-user" key={`${user.userId}-${user.displayName}`}>
               {user.displayName}
+              {user.userId === auth.user.id ? <small>我</small> : null}
               <small>{user.canEdit ? '可编辑' : '只读'}</small>
             </span>
           ))

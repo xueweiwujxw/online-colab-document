@@ -405,6 +405,12 @@ h1 {
   padding: 8px 18px;
 }
 
+.presence-summary {
+  color: #354257;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .presence-user {
   min-height: 30px;
   display: inline-flex;
