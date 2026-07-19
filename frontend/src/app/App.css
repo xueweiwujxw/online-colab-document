@@ -565,6 +565,11 @@ h1 {
   background: var(--surface);
 }
 
+.office-frame-direct {
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
 .office-docx-frame {
   overflow: auto;
 }

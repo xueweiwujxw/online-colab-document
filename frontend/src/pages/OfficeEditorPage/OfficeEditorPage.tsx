@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CasualSheets,
+  type CasualSheetsAPI,
+} from '@casualoffice/sheets/sheets';
 import { EmbedHostTransport, type SaveRequestData } from '@casualoffice/sheets/embed';
+import '@casualoffice/sheets/styles';
+import {
+  workbookDataToXlsx,
+  xlsxToWorkbookData,
+  type ImportedWorkbook,
+} from '@casualoffice/sheets/xlsx';
 
 import {
   fetchOfficeContent,
@@ -27,6 +37,7 @@ type CollabState =
 export function OfficeEditorPage({ documentId }: { documentId: string }) {
   const auth = useAuth();
   const activeTransport = useRef<EmbedHostTransport | null>(null);
+  const activeSheetSave = useRef<(() => void) | null>(null);
   const [state, setState] = useState<EditorState>({
     status: 'loading',
     session: null,
@@ -38,6 +49,9 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
   const [collabState, setCollabState] = useState<CollabState>({ status: 'idle', session: null });
   const onTransport = useCallback((transport: EmbedHostTransport | null) => {
     activeTransport.current = transport;
+  }, []);
+  const onSheetSaveReady = useCallback((save: (() => void) | null) => {
+    activeSheetSave.current = save;
   }, []);
   const onSaveStart = useCallback(() => {
     setSaveState('saving');
@@ -141,7 +155,11 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
               onClick={() => {
                 setSaveState('saving');
                 setSaveError(null);
-                activeTransport.current?.sendCommandSave();
+                if (state.session.fileExt === 'xlsx') {
+                  activeSheetSave.current?.();
+                } else {
+                  activeTransport.current?.sendCommandSave();
+                }
               }}
               type="button"
             >
@@ -155,16 +173,145 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
       ) : null}
       {state.status === 'error' ? <section className="empty-state editor-state">{state.error}</section> : null}
       {state.status === 'success' ? (
-        <CasualIframeHost
-          buffer={state.buffer}
-          onSaveError={onSaveError}
-          onSaveStart={onSaveStart}
-          onSaveSuccess={onSaveSuccess}
-          onTransport={onTransport}
-          session={state.session}
-        />
+        state.session.fileExt === 'xlsx' ? (
+          <DirectSheetsHost
+            buffer={state.buffer}
+            collabSession={collabState.status === 'success' ? collabState.session : null}
+            onSaveError={onSaveError}
+            onSaveReady={onSheetSaveReady}
+            onSaveStart={onSaveStart}
+            onSaveSuccess={onSaveSuccess}
+            session={state.session}
+          />
+        ) : (
+          <CasualIframeHost
+            buffer={state.buffer}
+            onSaveError={onSaveError}
+            onSaveStart={onSaveStart}
+            onSaveSuccess={onSaveSuccess}
+            onTransport={onTransport}
+            session={state.session}
+          />
+        )
       ) : null}
     </main>
+  );
+}
+
+function DirectSheetsHost({
+  session,
+  buffer,
+  collabSession,
+  onSaveReady,
+  onSaveStart,
+  onSaveSuccess,
+  onSaveError,
+}: {
+  session: OfficeSession;
+  buffer: ArrayBuffer;
+  collabSession: OfficeCollabSession | null;
+  onSaveReady: (save: (() => void) | null) => void;
+  onSaveStart: () => void;
+  onSaveSuccess: () => void;
+  onSaveError: (message: string) => void;
+}) {
+  const apiRef = useRef<CasualSheetsAPI | null>(null);
+  const [sheetState, setSheetState] = useState<
+    | { status: 'loading'; workbook: null; error: null }
+    | { status: 'success'; workbook: ImportedWorkbook; error: null }
+    | { status: 'error'; workbook: null; error: string }
+  >({ status: 'loading', workbook: null, error: null });
+
+  useEffect(() => {
+    let mounted = true;
+    setSheetState({ status: 'loading', workbook: null, error: null });
+    xlsxToWorkbookData(buffer.slice(0))
+      .then((workbook) => {
+        if (mounted) {
+          setSheetState({ status: 'success', workbook, error: null });
+        }
+      })
+      .catch((error: unknown) => {
+        if (mounted) {
+          setSheetState({
+            status: 'error',
+            workbook: null,
+            error: errorMessage(error, '解析 xlsx 失败'),
+          });
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [buffer]);
+
+  const saveSnapshot = useCallback(
+    async (snapshot: ImportedWorkbook | null) => {
+      if (session.mode !== 'edit') {
+        onSaveError('只读模式不能保存');
+        return;
+      }
+      if (!snapshot) {
+        onSaveError('表格尚未加载完成');
+        return;
+      }
+      try {
+        onSaveStart();
+        const blob = await workbookDataToXlsx(snapshot);
+        const bytes = await blob.arrayBuffer();
+        await saveOfficeContent(session.saveUrl, bytes);
+        onSaveSuccess();
+      } catch (error: unknown) {
+        onSaveError(errorMessage(error, '保存 xlsx 失败'));
+      }
+    },
+    [onSaveError, onSaveStart, onSaveSuccess, session.mode, session.saveUrl],
+  );
+
+  useEffect(() => {
+    onSaveReady(() => {
+      void saveSnapshot(apiRef.current?.getContent() ?? null);
+    });
+    return () => onSaveReady(null);
+  }, [onSaveReady, saveSnapshot]);
+
+  if (sheetState.status === 'loading') {
+    return <section className="empty-state editor-state">正在解析 xlsx 表格</section>;
+  }
+  if (sheetState.status === 'error') {
+    return <section className="empty-state editor-state">{sheetState.error}</section>;
+  }
+
+  return (
+    <section className="office-frame office-frame-direct">
+      <CasualSheets
+        key={`${session.documentId}:${session.mode}`}
+        appearance="light"
+        chrome={session.mode === 'edit' ? 'full' : 'none'}
+        collab={
+          collabSession?.enabled
+            ? {
+                room: collabSession.room,
+                server: collabSession.serverUrl ?? '',
+                role: collabSession.role,
+                onStatus: () => undefined,
+              }
+            : undefined
+        }
+        documentMode={session.mode === 'edit' ? 'editing' : 'viewing'}
+        initialData={sheetState.workbook}
+        lazyPlugins={true}
+        onError={(error) => onSaveError(error.message)}
+        onReady={(api) => {
+          apiRef.current = api;
+        }}
+        onSave={(snapshot) => {
+          void saveSnapshot(snapshot);
+        }}
+        readOnly={session.mode !== 'edit'}
+        ui={{ header: false, toolbar: false, footer: false, contextMenu: true }}
+      />
+    </section>
   );
 }
 
