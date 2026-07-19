@@ -27,8 +27,8 @@ services:
       ONLYOFFICE_PUBLIC_URL: http://localhost:8081
       ONLYOFFICE_INTERNAL_URL: http://onlyoffice
       ONLYOFFICE_JWT_SECRET: change-me
-      OFFICE_COLLAB_ENABLED: ${OFFICE_COLLAB_ENABLED:-false}
-      OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-}
+      OFFICE_COLLAB_ENABLED: ${OFFICE_COLLAB_ENABLED:-true}
+      OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-ws://localhost:1234}
       PUBLIC_APP_URL: http://localhost:3000
       PUBLIC_API_URL: http://localhost:8080
       BACKEND_INTERNAL_URL: http://backend:8080
@@ -48,6 +48,17 @@ services:
         VITE_API_BASE_URL: http://localhost:8080
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+
+  office-collab:
+    build:
+      context: ../office-collab
+    environment:
+      PORT: "1234"
+      BACKEND_INTERNAL_URL: http://backend:8080
+    ports:
+      - "1234:1234"
     depends_on:
       - backend
 

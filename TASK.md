@@ -2174,10 +2174,13 @@ viewer 只能只读打开
 - 已在编辑页增加 Casual Docs / Casual Sheets 可见标识，并明确提示 doc / xls 暂不支持 Casual POC。
 - 已新增 xlsx 协同 session 权限接口，返回 view/write role、room 和协同服务配置状态。
 - 已将 xlsx 编辑页从 iframe embed 切到 React 直渲染 CasualSheets，为 collab prop 接入做准备。
+- 已新增自托管 office-collab Hocuspocus/Yjs WebSocket 服务，并通过 cookie 转发到后端校验 xlsx view/write 权限。
+- 开发 compose 已启用 `ws://localhost:1234`，xlsx session 可返回 `enabled: true`。
 
 当前限制：
 
-- Excel 当前 Casual React POC 已具备 collab prop 接入点，但还没有部署 Hocuspocus/Yjs 服务，因此仍是单人编辑保存。
+- Excel 当前 Casual React POC 已连接 Hocuspocus/Yjs 服务，但还没有完成浏览器双窗口真实协同编辑人工验证。
+- office-collab 当前为单实例内存协同状态；重启会丢失实时 Yjs 状态，最终保存仍走后端 office/content 版本链路。
 - Word 当前仍走 Casual iframe POC，只支持单人编辑保存，不支持多人实时共享编辑。
 - 还没有完成浏览器内真实编辑 UI 的人工验证。
 - 还没有支持旧格式 doc / xls 的 Casual 打开链路。
@@ -2186,10 +2189,10 @@ viewer 只能只读打开
 下一阶段：Excel 协同 POC：
 
 ```text
-新增自托管 Hocuspocus/Yjs WebSocket 服务
+已新增自托管 Hocuspocus/Yjs WebSocket 服务
 已新增后端 Office collab 权限校验接口，基于现有 PermissionService 判断 view/write
 已将 xlsx 前端从 iframe embed 切到 React 直渲染 CasualSheets
-待接入 CasualSheets collab prop 连接 Hocuspocus 房间
+已接入 CasualSheets collab prop 连接 Hocuspocus 房间
 viewer 以 view role 加入，只能接收远端更新
 editor/owner 以 write role 加入，可以广播修改
 保存仍走后端 office/content，并继续生成版本和审计

@@ -33,6 +33,7 @@ make dev
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
 - ONLYOFFICE Document Server: http://localhost:8081
+- Office collab WebSocket: ws://localhost:1234
 
 可选 nginx 统一入口：
 
@@ -78,8 +79,8 @@ ONLYOFFICE_ENABLED=true
 ONLYOFFICE_PUBLIC_URL=http://localhost:8081
 ONLYOFFICE_INTERNAL_URL=http://onlyoffice
 ONLYOFFICE_JWT_SECRET=change-me
-OFFICE_COLLAB_ENABLED=false
-OFFICE_COLLAB_PUBLIC_URL=
+OFFICE_COLLAB_ENABLED=true
+OFFICE_COLLAB_PUBLIC_URL=ws://localhost:1234
 PUBLIC_APP_URL=http://localhost:3000
 PUBLIC_API_URL=http://localhost:8080
 BACKEND_INTERNAL_URL=http://backend:8080

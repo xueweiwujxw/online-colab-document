@@ -1,0 +1,13 @@
+{
+  "name": "docs-office-collab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^4.4.0"
+  }
+}

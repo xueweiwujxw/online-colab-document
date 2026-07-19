@@ -23,6 +23,9 @@ frontend/package-lock.json
 frontend/tsconfig.tsbuildinfo
 package-lock.json
 
+# Office collaboration service
+office-collab/node_modules/
+
 # Logs
 *.log
 npm-debug.log*

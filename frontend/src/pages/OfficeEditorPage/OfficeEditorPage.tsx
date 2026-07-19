@@ -28,10 +28,11 @@ type EditorState =
   | { status: 'error'; session: null; buffer: null; error: string };
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+type CollabConnectionStatus = 'connecting' | 'live' | 'offline';
 type CollabState =
   | { status: 'idle'; session: null }
   | { status: 'loading'; session: null }
-  | { status: 'success'; session: OfficeCollabSession }
+  | { status: 'success'; session: OfficeCollabSession; connectionStatus?: CollabConnectionStatus }
   | { status: 'error'; session: null };
 
 export function OfficeEditorPage({ documentId }: { documentId: string }) {
@@ -52,6 +53,11 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
   }, []);
   const onSheetSaveReady = useCallback((save: (() => void) | null) => {
     activeSheetSave.current = save;
+  }, []);
+  const onCollabStatus = useCallback((connectionStatus: CollabConnectionStatus) => {
+    setCollabState((current) =>
+      current.status === 'success' ? { ...current, connectionStatus } : current,
+    );
   }, []);
   const onSaveStart = useCallback(() => {
     setSaveState('saving');
@@ -177,6 +183,7 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
           <DirectSheetsHost
             buffer={state.buffer}
             collabSession={collabState.status === 'success' ? collabState.session : null}
+            onCollabStatus={onCollabStatus}
             onSaveError={onSaveError}
             onSaveReady={onSheetSaveReady}
             onSaveStart={onSaveStart}
@@ -203,6 +210,7 @@ function DirectSheetsHost({
   buffer,
   collabSession,
   onSaveReady,
+  onCollabStatus,
   onSaveStart,
   onSaveSuccess,
   onSaveError,
@@ -211,6 +219,7 @@ function DirectSheetsHost({
   buffer: ArrayBuffer;
   collabSession: OfficeCollabSession | null;
   onSaveReady: (save: (() => void) | null) => void;
+  onCollabStatus: (status: CollabConnectionStatus) => void;
   onSaveStart: () => void;
   onSaveSuccess: () => void;
   onSaveError: (message: string) => void;
@@ -294,7 +303,7 @@ function DirectSheetsHost({
                 room: collabSession.room,
                 server: collabSession.serverUrl ?? '',
                 role: collabSession.role,
-                onStatus: () => undefined,
+                onStatus: onCollabStatus,
               }
             : undefined
         }
@@ -418,6 +427,15 @@ function collabLabel(state: CollabState): string {
     return '协同检测中';
   }
   if (state.status === 'success' && state.session.enabled) {
+    if (state.connectionStatus === 'connecting') {
+      return '协同连接中';
+    }
+    if (state.connectionStatus === 'live') {
+      return state.session.role === 'write' ? '协同已连接' : '协同只读在线';
+    }
+    if (state.connectionStatus === 'offline') {
+      return '协同离线';
+    }
     return state.session.role === 'write' ? '协同可编辑' : '协同只读';
   }
   return '单人编辑';

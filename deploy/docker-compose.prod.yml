@@ -21,6 +21,8 @@ services:
       ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:8088/onlyoffice}
       ONLYOFFICE_INTERNAL_URL: http://onlyoffice
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-change-me}
+      OFFICE_COLLAB_ENABLED: ${OFFICE_COLLAB_ENABLED:-true}
+      OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-ws://localhost:8088/office-collab}
       PASSWORD_HASH_PEPPER: ${SESSION_SECRET:-change-me}
       DOCUMENT_MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-52428800}
     depends_on:
@@ -45,6 +47,16 @@ services:
       - backend
     restart: unless-stopped
 
+  office-collab:
+    build:
+      context: ../office-collab
+    environment:
+      PORT: "1234"
+      BACKEND_INTERNAL_URL: http://backend:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   nginx:
     image: docker.io/library/nginx:1.27-alpine
     ports:
@@ -54,6 +66,7 @@ services:
     depends_on:
       - frontend
       - backend
+      - office-collab
       - onlyoffice
     restart: unless-stopped
 
