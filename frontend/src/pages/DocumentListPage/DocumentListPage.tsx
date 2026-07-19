@@ -7,6 +7,7 @@ import {
   uploadDocument,
   type DocumentItem,
 } from '../../api/documents';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type DocumentsState =
@@ -33,7 +34,7 @@ export function DocumentListPage() {
       setDocuments({
         status: 'error',
         items: [],
-        error: error instanceof Error ? error.message : 'Failed to load documents',
+        error: errorMessage(error, 'Failed to load documents'),
       });
     }
   }
@@ -56,19 +57,22 @@ export function DocumentListPage() {
       await uploadDocument(file);
       await refreshDocuments();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Upload failed');
+      setActionError(errorMessage(error, 'Upload failed'));
     } finally {
       setUploading(false);
     }
   }
 
   async function onDelete(id: string) {
+    if (!window.confirm('Delete this document?')) {
+      return;
+    }
     setActionError(null);
     try {
       await deleteDocument(id);
       await refreshDocuments();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Delete failed');
+      setActionError(errorMessage(error, 'Delete failed'));
     }
   }
 

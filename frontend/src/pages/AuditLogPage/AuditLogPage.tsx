@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 
 import { listAuditLogs, type AuditLog, type AuditLogFilter } from '../../api/audit';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type AuditState =
@@ -28,7 +29,7 @@ export function AuditLogPage() {
       setState({
         status: 'error',
         items: [],
-        error: error instanceof Error ? error.message : 'Failed to load audit logs',
+        error: errorMessage(error, 'Failed to load audit logs'),
       });
     }
   }

@@ -1,4 +1,4 @@
-import { apiBaseUrl, getJSON, sendJSON } from './client';
+import { ApiError, apiBaseUrl, getJSON, sendJSON } from './client';
 
 export type DocumentItem = {
   id: string;
@@ -73,7 +73,7 @@ export async function uploadDocument(file: File): Promise<DocumentItem> {
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+    throw new ApiError(response.status);
   }
   return response.json() as Promise<DocumentItem>;
 }

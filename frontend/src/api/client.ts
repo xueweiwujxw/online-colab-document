@@ -1,6 +1,27 @@
 export const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '';
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message?: string) {
+    super(message ?? `Request failed with status ${status}`);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export function isForbidden(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}
+
+export function errorMessage(error: unknown, fallback: string): string {
+  if (isForbidden(error)) {
+    return 'Forbidden';
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 export async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     credentials: 'include',
@@ -12,7 +33,7 @@ export async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+    throw new ApiError(response.status);
   }
 
   return response.json() as Promise<T>;

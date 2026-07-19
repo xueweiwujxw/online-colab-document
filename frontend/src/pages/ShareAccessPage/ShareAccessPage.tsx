@@ -6,6 +6,7 @@ import {
   sharedDownloadURL,
   type ShareAccess,
 } from '../../api/share';
+import { errorMessage } from '../../api/client';
 
 type ShareAccessState =
   | { status: 'loading'; access: null; error: null }
@@ -36,7 +37,7 @@ export function ShareAccessPage({ token }: { token: string }) {
           setState({
             status: 'error',
             access: null,
-            error: error instanceof Error ? error.message : 'Failed to load share link',
+            error: errorMessage(error, 'Failed to load share link'),
           });
         }
       });
@@ -60,7 +61,7 @@ export function ShareAccessPage({ token }: { token: string }) {
       setSaveState('saved');
     } catch (error) {
       setSaveState('error');
-      setSaveError(error instanceof Error ? error.message : 'Save failed');
+      setSaveError(errorMessage(error, 'Save failed'));
     }
   }
 

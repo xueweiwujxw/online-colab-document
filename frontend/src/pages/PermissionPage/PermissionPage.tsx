@@ -6,6 +6,7 @@ import {
   listPermissions,
   type DocumentPermission,
 } from '../../api/permissions';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type PermissionState =
@@ -33,7 +34,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       setState({
         status: 'error',
         items: [],
-        error: error instanceof Error ? error.message : 'Failed to load permissions',
+        error: errorMessage(error, 'Failed to load permissions'),
       });
     }
   }
@@ -56,17 +57,20 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       setSubjectId('');
       await refreshPermissions();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Grant failed');
+      setActionError(errorMessage(error, 'Grant failed'));
     }
   }
 
   async function onDelete(permissionId: string) {
+    if (!window.confirm('Delete this permission?')) {
+      return;
+    }
     setActionError(null);
     try {
       await deletePermission(documentId, permissionId);
       await refreshPermissions();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Delete failed');
+      setActionError(errorMessage(error, 'Delete failed'));
     }
   }
 

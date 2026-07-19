@@ -8,6 +8,7 @@ import {
   type ShareLink,
   type SharePermission,
 } from '../../api/share';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type ShareState =
@@ -33,7 +34,7 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
       setState({
         status: 'error',
         items: [],
-        error: error instanceof Error ? error.message : 'Failed to load share links',
+        error: errorMessage(error, 'Failed to load share links'),
       });
     }
   }
@@ -58,17 +59,20 @@ export function ShareManagementPage({ documentId }: { documentId: string }) {
       setExpiresAt('');
       await refreshLinks();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Create share link failed');
+      setActionError(errorMessage(error, 'Create share link failed'));
     }
   }
 
   async function onDisable(id: string) {
+    if (!window.confirm('Disable this share link?')) {
+      return;
+    }
     setActionError(null);
     try {
       await disableShareLink(id);
       await refreshLinks();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Disable share link failed');
+      setActionError(errorMessage(error, 'Disable share link failed'));
     }
   }
 

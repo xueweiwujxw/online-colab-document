@@ -9,6 +9,7 @@ import {
   type DocumentItem,
   type DocumentVersion,
 } from '../../api/documents';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type DetailState =
@@ -39,7 +40,7 @@ export function DocumentDetailPage({ id }: { id: string }) {
           status: 'error',
           document: null,
           versions: [],
-          error: error instanceof Error ? error.message : 'Failed to load document',
+          error: errorMessage(error, 'Failed to load document'),
         });
       }
     }
@@ -57,13 +58,16 @@ export function DocumentDetailPage({ id }: { id: string }) {
   }, [auth.status, id]);
 
   async function onRestore(versionId: string) {
+    if (!window.confirm('Restore this version?')) {
+      return;
+    }
     setActionError(null);
     setRestoringVersionId(versionId);
     try {
       await restoreDocumentVersion(id, versionId);
       await refreshDocument();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Restore failed');
+      setActionError(errorMessage(error, 'Restore failed'));
     } finally {
       setRestoringVersionId(null);
     }
@@ -123,6 +127,9 @@ export function DocumentDetailPage({ id }: { id: string }) {
               Share
             </a>
           ) : null}
+          <a className="secondary-button" href={`/documents/${state.document.id}/versions`}>
+            Versions
+          </a>
           {isOfficeDocument(state.document.fileExt) ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/edit`}>
               Open editor

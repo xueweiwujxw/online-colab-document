@@ -7,6 +7,7 @@ import {
   markdownWebSocketURL,
   type PresenceUser,
 } from '../../api/documents';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type ConnectionState = 'loading' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
@@ -116,7 +117,7 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           return;
         }
         setConnection('error');
-        setError(caught instanceof Error ? caught.message : 'Failed to load Markdown snapshot');
+        setError(errorMessage(caught, 'Failed to load Markdown snapshot'));
       });
 
     return () => {

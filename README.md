@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M10 审计日志。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M11 前端完善。
 
 ## 技术栈
 
@@ -91,7 +91,7 @@ make lint
 
 ## 当前里程碑
 
-M10 审计日志：
+M11 前端完善：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -140,6 +140,10 @@ M10 审计日志：
 - 审计 metadata 过滤 password/token/secret/cookie 等敏感字段
 - 管理员审计查询接口 `GET /api/admin/audit-logs`
 - 管理员前端页面 `/admin/audit-logs`
+- 前端 API 错误统一携带 HTTP status，403 显示 Forbidden
+- 前端新增 `/documents/:id/versions` 独立版本管理页
+- 文档删除、权限删除、分享链接禁用、版本恢复等 destructive action 增加确认
+- 主要页面补齐 loading / error / empty / forbidden 处理
 
 ## 当前限制
 
@@ -148,4 +152,4 @@ M10 审计日志：
 
 ## 下一步开发计划
 
-M11 将继续完善前端体验。
+M12 将继续完善 Docker 部署与安全加固。

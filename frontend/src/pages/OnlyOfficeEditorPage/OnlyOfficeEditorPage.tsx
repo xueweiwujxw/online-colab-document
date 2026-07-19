@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { getOnlyOfficeConfig, type OnlyOfficeConfig } from '../../api/onlyoffice';
+import { errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 declare global {
@@ -41,7 +42,7 @@ export function OnlyOfficeEditorPage({ documentId }: { documentId: string }) {
           setState({
             status: 'error',
             config: null,
-            error: error instanceof Error ? error.message : 'Failed to load editor',
+            error: errorMessage(error, 'Failed to load editor'),
           });
         }
       });
