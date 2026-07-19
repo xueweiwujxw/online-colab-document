@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +40,9 @@ func TestViewerGetsViewConfig(t *testing.T) {
 	}
 	if cfg.DocumentType != "word" || cfg.Document.URL == "" || cfg.Token == "" {
 		t.Fatalf("unexpected config: %#v", cfg)
+	}
+	if !strings.HasPrefix(cfg.Document.URL, "http://backend.example.test/api/onlyoffice/download/doc-1?token=") {
+		t.Fatalf("expected backend download url, got %q", cfg.Document.URL)
 	}
 }
 
@@ -84,6 +89,50 @@ func TestConfigRejectsNonOfficeDocument(t *testing.T) {
 
 	if err != ErrUnsupportedFile {
 		t.Fatalf("expected ErrUnsupportedFile, got %v", err)
+	}
+}
+
+func TestDownloadWithConfigURLStreamsCurrentDocument(t *testing.T) {
+	harness := newTestHarness()
+	harness.storage.objects["documents/doc-1/versions/version-1/example.docx"] = []byte("office-file")
+	cfg, err := harness.service.Config(context.Background(), user.User{ID: "editor-1", DisplayName: "Editor"}, "doc-1")
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	token := tokenFromURL(t, cfg.Document.URL)
+
+	download, err := harness.service.Download(context.Background(), "doc-1", token)
+
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	defer download.Reader.Close()
+	data, err := io.ReadAll(download.Reader)
+	if err != nil {
+		t.Fatalf("read download: %v", err)
+	}
+	if string(data) != "office-file" {
+		t.Fatalf("unexpected download content %q", string(data))
+	}
+}
+
+func TestDownloadRejectsExpiredTicket(t *testing.T) {
+	harness := newTestHarness()
+	harness.service.now = func() time.Time { return time.Unix(2000, 0) }
+	token, err := signJWT(downloadTicket{
+		DocumentID: "doc-1",
+		Key:        "doc-doc-1-version-1",
+		StorageKey: "documents/doc-1/versions/version-1/example.docx",
+		ExpiresAt:  1999,
+	}, harness.service.cfg.JWTSecret)
+	if err != nil {
+		t.Fatalf("sign ticket: %v", err)
+	}
+
+	_, err = harness.service.Download(context.Background(), "doc-1", token)
+
+	if err != ErrInvalidToken {
+		t.Fatalf("expected ErrInvalidToken, got %v", err)
 	}
 }
 
@@ -257,4 +306,17 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
+}
+
+func tokenFromURL(t *testing.T, value string) string {
+	t.Helper()
+	parsed, err := url.Parse(value)
+	if err != nil {
+		t.Fatalf("parse url: %v", err)
+	}
+	token := parsed.Query().Get("token")
+	if token == "" {
+		t.Fatalf("missing token in %q", value)
+	}
+	return token
 }

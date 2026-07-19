@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 
 	"online-colab-document/backend/internal/api"
@@ -46,6 +49,25 @@ func (h Handler) Config(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, cfg)
 }
 
+func (h Handler) Download(w http.ResponseWriter, r *http.Request) {
+	download, err := h.service.Download(r.Context(), r.PathValue("documentId"), r.URL.Query().Get("token"))
+	if err != nil {
+		h.writeError(w, "onlyoffice download failed", err)
+		return
+	}
+	defer download.Reader.Close()
+	w.Header().Set("Content-Type", download.Document.MimeType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", download.Document.SizeBytes))
+	w.Header().Set(
+		"Content-Disposition",
+		mime.FormatMediaType("attachment", map[string]string{"filename": download.Document.OriginalFilename}),
+	)
+	w.WriteHeader(http.StatusOK)
+	if _, err := io.Copy(w, download.Reader); err != nil {
+		h.logger.Error("stream onlyoffice document failed", "error", err)
+	}
+}
+
 func (h Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	var req CallbackRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -81,6 +103,8 @@ func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error)
 		api.WriteError(w, http.StatusNotFound, "document not found")
 	case errors.Is(err, ErrUnsupportedFile):
 		api.WriteError(w, http.StatusBadRequest, "unsupported office document")
+	case errors.Is(err, ErrInvalidToken):
+		api.WriteError(w, http.StatusUnauthorized, "invalid onlyoffice token")
 	default:
 		h.logger.Error(logMessage, "error", err)
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")

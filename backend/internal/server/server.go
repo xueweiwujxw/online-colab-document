@@ -155,6 +155,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.HandleFunc("GET /api/share/{token}/download", shareHandler.Download)
 			mux.HandleFunc("PUT /api/share/{token}/markdown", shareHandler.SaveMarkdown)
 			mux.Handle("GET /api/documents/{id}/onlyoffice/config", requireAuth(onlyOfficeHandler.Config))
+			mux.HandleFunc("GET /api/onlyoffice/download/{documentId}", onlyOfficeHandler.Download)
 			mux.HandleFunc("POST /api/onlyoffice/callback/{documentId}", onlyOfficeHandler.Callback)
 		}
 	}

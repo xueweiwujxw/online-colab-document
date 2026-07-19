@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -94,6 +95,18 @@ type CallbackResponse struct {
 	Error int `json:"error"`
 }
 
+type Download struct {
+	Document document.Document
+	Reader   io.ReadCloser
+}
+
+type downloadTicket struct {
+	DocumentID string `json:"documentId"`
+	Key        string `json:"key"`
+	StorageKey string `json:"storageKey"`
+	ExpiresAt  int64  `json:"exp"`
+}
+
 func NewService(cfg Config, documents DocumentRepository, permissions PermissionService, objectStorage storage.Storage) *Service {
 	if cfg.MaxDownloadBytes <= 0 {
 		cfg.MaxDownloadBytes = 50 << 20
@@ -141,7 +154,7 @@ func (s *Service) Config(ctx context.Context, currentUser user.User, documentID 
 	if canEdit {
 		mode = "edit"
 	}
-	downloadURL, err := s.storage.PresignedGetURL(ctx, doc.StorageKey, s.cfg.PresignedURLTTL)
+	downloadURL, err := s.downloadURL(doc)
 	if err != nil {
 		return EditorConfig{}, err
 	}
@@ -172,6 +185,37 @@ func (s *Service) Config(ctx context.Context, currentUser user.User, documentID 
 		cfg.Token = token
 	}
 	return cfg, nil
+}
+
+func (s *Service) Download(ctx context.Context, documentID string, token string) (Download, error) {
+	if !s.cfg.Enabled {
+		return Download{}, ErrDisabled
+	}
+	if token == "" || s.cfg.JWTSecret == "" {
+		return Download{}, ErrInvalidToken
+	}
+	var ticket downloadTicket
+	if err := verifyJWT(token, s.cfg.JWTSecret, &ticket); err != nil {
+		return Download{}, err
+	}
+	if ticket.ExpiresAt <= s.now().Unix() || ticket.DocumentID != documentID {
+		return Download{}, ErrInvalidToken
+	}
+	doc, err := s.documents.FindByID(ctx, documentID)
+	if err != nil {
+		return Download{}, err
+	}
+	if !isOfficeDocument(doc.FileExt) {
+		return Download{}, ErrUnsupportedFile
+	}
+	if ticket.Key != documentKey(doc) || ticket.StorageKey != doc.StorageKey {
+		return Download{}, ErrInvalidToken
+	}
+	reader, err := s.storage.GetObject(ctx, doc.StorageKey)
+	if err != nil {
+		return Download{}, err
+	}
+	return Download{Document: doc, Reader: reader}, nil
 }
 
 func (s *Service) Callback(ctx context.Context, documentID string, callback CallbackRequest, bearerToken string) (CallbackResponse, error) {
@@ -290,6 +334,37 @@ func (s *Service) callbackURL(documentID string) string {
 		base = strings.TrimRight(s.cfg.PublicAPIURL, "/")
 	}
 	return base + "/api/onlyoffice/callback/" + documentID
+}
+
+func (s *Service) downloadURL(doc document.Document) (string, error) {
+	if s.cfg.JWTSecret == "" {
+		return "", ErrInvalidToken
+	}
+	base := strings.TrimRight(s.cfg.CallbackBaseURL, "/")
+	if base == "" {
+		base = strings.TrimRight(s.cfg.PublicAPIURL, "/")
+	}
+	if base == "" {
+		return "", ErrInvalidToken
+	}
+	ticket := downloadTicket{
+		DocumentID: doc.ID,
+		Key:        documentKey(doc),
+		StorageKey: doc.StorageKey,
+		ExpiresAt:  s.now().Add(s.cfg.PresignedURLTTL).Unix(),
+	}
+	token, err := signJWT(ticket, s.cfg.JWTSecret)
+	if err != nil {
+		return "", err
+	}
+	downloadURL, err := url.Parse(base + "/api/onlyoffice/download/" + doc.ID)
+	if err != nil {
+		return "", err
+	}
+	query := downloadURL.Query()
+	query.Set("token", token)
+	downloadURL.RawQuery = query.Encode()
+	return downloadURL.String(), nil
 }
 
 func documentKey(doc document.Document) string {
