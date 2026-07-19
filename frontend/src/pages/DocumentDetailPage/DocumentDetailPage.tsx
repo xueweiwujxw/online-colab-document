@@ -98,6 +98,11 @@ export function DocumentDetailPage({ id }: { id: string }) {
               Permissions
             </a>
           ) : null}
+          {state.document.canManage ? (
+            <a className="secondary-button" href={`/documents/${state.document.id}/share`}>
+              Share
+            </a>
+          ) : null}
           {isOfficeDocument(state.document.fileExt) ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/edit`}>
               Open editor

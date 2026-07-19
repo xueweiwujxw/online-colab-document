@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"online-colab-document/backend/internal/auth/local"
@@ -19,6 +20,7 @@ import (
 	"online-colab-document/backend/internal/middleware"
 	"online-colab-document/backend/internal/onlyoffice"
 	"online-colab-document/backend/internal/permission"
+	"online-colab-document/backend/internal/share"
 	"online-colab-document/backend/internal/storage"
 )
 
@@ -88,6 +90,14 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			documentRepo := document.NewPostgresRepository(db)
 			documentService := document.NewService(documentRepo, objectStorage, permissionService, cfg.DocumentMaxUploadBytes)
 			documentHandler := document.NewHandler(documentService, logger)
+			shareService := share.NewService(
+				share.NewPostgresRepository(db),
+				documentRepo,
+				permissionService,
+				objectStorage,
+				cfg.PublicAppURL,
+			)
+			shareHandler := share.NewHandler(shareService, logger)
 			markdownCollabService := markdowncollab.NewService(
 				markdowncollab.NewPostgresRepository(db),
 				documentRepo,
@@ -132,6 +142,12 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /api/documents/{id}/permissions", requireAuth(permissionHandler.List))
 			mux.Handle("POST /api/documents/{id}/permissions", requireAuth(permissionHandler.Grant))
 			mux.Handle("DELETE /api/documents/{id}/permissions/{permissionId}", requireAuth(permissionHandler.Delete))
+			mux.Handle("POST /api/documents/{id}/share-links", requireAuth(shareHandler.Create))
+			mux.Handle("GET /api/documents/{id}/share-links", requireAuth(shareHandler.List))
+			mux.Handle("DELETE /api/share-links/{id}", requireAuth(shareHandler.Disable))
+			mux.HandleFunc("GET /api/share/{token}", shareHandler.Access)
+			mux.HandleFunc("GET /api/share/{token}/download", shareHandler.Download)
+			mux.HandleFunc("PUT /api/share/{token}/markdown", shareHandler.SaveMarkdown)
 			mux.Handle("GET /api/documents/{id}/onlyoffice/config", requireAuth(onlyOfficeHandler.Config))
 			mux.HandleFunc("POST /api/onlyoffice/callback/{documentId}", onlyOfficeHandler.Callback)
 		}
@@ -169,11 +185,22 @@ func withLogging(logger *slog.Logger, next http.Handler) http.Handler {
 		logger.Info(
 			"http request",
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", logPath(r.URL.Path),
 			"status", recorder.status,
 			"duration_ms", time.Since(started).Milliseconds(),
 		)
 	})
+}
+
+func logPath(path string) string {
+	if strings.HasPrefix(path, "/api/share/") {
+		parts := strings.Split(path, "/")
+		if len(parts) >= 4 {
+			parts[3] = "<redacted>"
+			return strings.Join(parts, "/")
+		}
+	}
+	return path
 }
 
 func withCORS(cfg config.Config, next http.Handler) http.Handler {

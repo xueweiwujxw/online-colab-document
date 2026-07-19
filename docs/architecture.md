@@ -16,6 +16,7 @@ Go backend
   |-- Redis: sessions, cache, realtime coordination
   |-- MinIO / S3: uploaded document objects
   |-- ONLYOFFICE Document Server: Word / Excel preview and editing
+  |-- Share links: token-hash based public access
   `-- Markdown collaboration service: Yjs / WebSocket snapshots
 ```
 
@@ -53,3 +54,7 @@ Word / Excel 的格式兼容、渲染、编辑和多人协同复杂度很高。�
 Markdown 是文本格式，服务端保存和前端编辑成本较低。普通编辑阶段实现源码编辑、预览、保存和下载；协同阶段基于 Yjs、WebSocket 和 PostgreSQL snapshot/update 持久化实现多人协同、presence 和断线重连。
 
 当前 Markdown 协同第一版只支持单 backend 实例内的实时广播。多 backend 实例部署时，需要增加 Redis pub/sub 或其他跨实例消息总线来同步 update 与 presence。
+
+## 分享链接
+
+分享链接由 owner 创建，数据库只保存 token hash。创建响应会返回一次明文 token 和完整 URL；后续列表只显示链接元数据。公开分享访问不要求登录，viewer 链接只读，editor 链接可以保存 Markdown。

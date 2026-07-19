@@ -286,6 +286,36 @@ h1 {
   grid-template-columns: minmax(180px, 1fr) 120px 120px auto;
 }
 
+.share-row {
+  grid-template-columns: 120px 120px 180px 180px auto;
+}
+
+.share-token-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.share-token-panel input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #cbd3df;
+  border-radius: 6px;
+  color: #172033;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.share-copy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
 .editor-shell {
   min-height: 100vh;
   display: grid;
@@ -535,6 +565,14 @@ h1 {
     align-items: stretch;
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .share-row {
+    grid-template-columns: 1fr;
+  }
+
+  .share-copy-row {
+    grid-template-columns: 1fr;
   }
 
   .markdown-editor-grid {

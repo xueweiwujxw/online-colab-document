@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M6 Markdown 普通编辑。尚未实现 Markdown 协同。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M8 分享链接。尚未实现版本恢复和审计日志。
 
 ## 技术栈
 
@@ -91,7 +91,7 @@ make lint
 
 ## 当前里程碑
 
-M7 Markdown 协同编辑：
+M8 分享链接：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -121,11 +121,20 @@ M7 Markdown 协同编辑：
 - viewer 可以连接和接收更新，但不能提交编辑
 - Markdown update 和周期 snapshot 持久化到 PostgreSQL
 - presence 显示当前在线用户和只读/可编辑状态
+- share_links 数据库 migration
+- owner 可以创建、查看、禁用分享链接
+- 分享 token 只明文返回一次，数据库只保存 hash
+- 未登录用户可以通过 `/share/:token` 访问有效链接
+- 过期或禁用链接不可访问
+- viewer 分享链接只读，editor 分享链接可以保存 Markdown
+- 前端 `/documents/:id/share` 分享管理页
+- 前端 `/share/:token` 分享访问页
 
 ## 当前限制
 
 - Markdown 协同第一版只支持单 backend 实例内实时广播；多实例部署需要 Redis pub/sub 或其他跨实例消息总线。
+- 分享链接访问审计将在 M10 审计日志里统一落表。
 
 ## 下一步开发计划
 
-M8 将实现分享链接。
+M9 将实现版本管理。
