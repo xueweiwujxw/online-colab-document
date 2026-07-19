@@ -313,6 +313,116 @@ h1 {
   background: #ffffff;
 }
 
+.markdown-shell {
+  min-height: 100vh;
+}
+
+.markdown-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.markdown-save-button {
+  width: auto;
+}
+
+.markdown-save-error {
+  margin: 12px 18px 0;
+}
+
+.markdown-editor-grid {
+  min-height: calc(100vh - 58px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+}
+
+.markdown-pane {
+  min-height: calc(100vh - 58px);
+  display: grid;
+  grid-template-rows: 42px 1fr;
+  border-right: 1px solid #d9dee7;
+  background: #ffffff;
+  color: #354257;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.markdown-pane > span {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #e1e6ee;
+  padding: 0 18px;
+}
+
+.markdown-pane textarea {
+  width: 100%;
+  min-height: 100%;
+  resize: none;
+  border: 0;
+  color: #172033;
+  font: 15px/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  padding: 18px;
+}
+
+.markdown-pane textarea:focus {
+  outline: 3px solid rgb(30 111 203 / 18%);
+  outline-offset: -3px;
+}
+
+.markdown-pane textarea:read-only {
+  background: #f6f7f9;
+}
+
+.markdown-preview-pane {
+  border-right: 0;
+}
+
+.markdown-preview {
+  overflow: auto;
+  padding: 18px;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview pre {
+  margin-top: 0;
+}
+
+.markdown-preview h1 {
+  margin-bottom: 18px;
+  font-size: 30px;
+}
+
+.markdown-preview h2 {
+  margin-bottom: 14px;
+  font-size: 24px;
+}
+
+.markdown-preview h3 {
+  margin-bottom: 12px;
+  font-size: 19px;
+}
+
+.markdown-preview pre {
+  overflow: auto;
+  border: 1px solid #d9dee7;
+  border-radius: 6px;
+  background: #f6f7f9;
+  padding: 14px;
+  font: 14px/1.5 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
 .version-list {
   margin-top: 28px;
 }
@@ -370,5 +480,24 @@ h1 {
     align-items: stretch;
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .markdown-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .markdown-pane {
+    min-height: 48vh;
+    border-right: 0;
+    border-bottom: 1px solid #d9dee7;
+  }
+
+  .editor-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .markdown-toolbar {
+    justify-content: flex-start;
   }
 }

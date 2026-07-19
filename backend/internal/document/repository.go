@@ -19,6 +19,7 @@ type Repository interface {
 	ListVersions(ctx context.Context, documentID string) ([]Version, error)
 	HasOnlyOfficeSave(ctx context.Context, documentID string, documentKey string) (bool, error)
 	AddVersion(ctx context.Context, documentID string, version Version, documentKey string, updatedAt time.Time) (bool, error)
+	AddDocumentVersion(ctx context.Context, documentID string, version Version, updatedAt time.Time) error
 }
 
 type PostgresRepository struct {
@@ -291,6 +292,69 @@ func (r *PostgresRepository) AddVersion(ctx context.Context, documentID string, 
 		return false, fmt.Errorf("commit add version tx: %w", err)
 	}
 	return true, nil
+}
+
+func (r *PostgresRepository) AddDocumentVersion(ctx context.Context, documentID string, version Version, updatedAt time.Time) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin add document version tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var versionNo int64
+	err = tx.QueryRowContext(
+		ctx,
+		`SELECT COALESCE(MAX(version_no), 0) + 1 FROM document_versions WHERE document_id = $1`,
+		documentID,
+	).Scan(&versionNo)
+	if err != nil {
+		return fmt.Errorf("next document version: %w", err)
+	}
+	version.VersionNo = versionNo
+
+	_, err = tx.ExecContext(
+		ctx,
+		`INSERT INTO document_versions (
+			id, document_id, version_no, storage_key, size_bytes, created_by, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		version.ID,
+		version.DocumentID,
+		version.VersionNo,
+		version.StorageKey,
+		version.SizeBytes,
+		version.CreatedBy,
+		version.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert document version: %w", err)
+	}
+
+	result, err := tx.ExecContext(
+		ctx,
+		`UPDATE documents
+		SET current_version_id = $1, storage_key = $2, size_bytes = $3, updated_at = $4
+		WHERE id = $5 AND deleted_at IS NULL`,
+		version.ID,
+		version.StorageKey,
+		version.SizeBytes,
+		updatedAt,
+		documentID,
+	)
+	if err != nil {
+		return fmt.Errorf("update document current version: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update document current version rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit add document version tx: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresRepository) HasOnlyOfficeSave(ctx context.Context, documentID string, documentKey string) (bool, error) {

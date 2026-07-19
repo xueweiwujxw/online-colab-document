@@ -190,6 +190,121 @@ func TestEditorCanDownloadThroughPermissionService(t *testing.T) {
 	_ = download.Reader.Close()
 }
 
+func TestViewerCanOpenMarkdownReadOnly(t *testing.T) {
+	repo := newMemoryRepo()
+	objectStorage := newMemoryStorage()
+	permissions := newFakePermissionService()
+	service := NewService(repo, objectStorage, permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        7,
+		Reader:           strings.NewReader("# hello"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	permissions.view[doc.ID+":viewer-1"] = true
+
+	markdown, err := service.GetMarkdown(context.Background(), "viewer-1", doc.ID)
+
+	if err != nil {
+		t.Fatalf("get markdown: %v", err)
+	}
+	if markdown.Content != "# hello" {
+		t.Fatalf("expected markdown content, got %q", markdown.Content)
+	}
+	if markdown.CanEdit {
+		t.Fatalf("expected viewer markdown to be readonly")
+	}
+}
+
+func TestEditorCanSaveMarkdownCreatesVersionAndDownloadReturnsLatest(t *testing.T) {
+	repo := newMemoryRepo()
+	objectStorage := newMemoryStorage()
+	permissions := newFakePermissionService()
+	service := NewService(repo, objectStorage, permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("draft"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	permissions.edit[doc.ID+":editor-1"] = true
+
+	markdown, err := service.SaveMarkdown(context.Background(), "editor-1", doc.ID, "published")
+
+	if err != nil {
+		t.Fatalf("save markdown: %v", err)
+	}
+	if !markdown.CanEdit {
+		t.Fatalf("expected editor can edit")
+	}
+	if repo.versionCount() != 2 {
+		t.Fatalf("expected a new version, got %d versions", repo.versionCount())
+	}
+	download, err := service.Download(context.Background(), "editor-1", doc.ID)
+	if err != nil {
+		t.Fatalf("download latest markdown: %v", err)
+	}
+	defer download.Reader.Close()
+	data, err := io.ReadAll(download.Reader)
+	if err != nil {
+		t.Fatalf("read download: %v", err)
+	}
+	if string(data) != "published" {
+		t.Fatalf("expected latest markdown content, got %q", string(data))
+	}
+}
+
+func TestViewerCannotSaveMarkdown(t *testing.T) {
+	repo := newMemoryRepo()
+	permissions := newFakePermissionService()
+	service := NewService(repo, newMemoryStorage(), permissions, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.md",
+		HeaderMimeType:   "text/markdown",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("hello"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	permissions.view[doc.ID+":viewer-1"] = true
+
+	_, err = service.SaveMarkdown(context.Background(), "viewer-1", doc.ID, "updated")
+
+	if err != ErrForbidden {
+		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+}
+
+func TestNonMarkdownDocumentReturnsUnsupportedType(t *testing.T) {
+	service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024)
+	doc, err := service.Upload(context.Background(), UploadInput{
+		OwnerID:          "owner-1",
+		OriginalFilename: "example.docx",
+		HeaderMimeType:   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		SizeBytes:        5,
+		Reader:           strings.NewReader("hello"),
+	})
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+
+	_, err = service.GetMarkdown(context.Background(), "owner-1", doc.ID)
+
+	if err != ErrUnsupportedType {
+		t.Fatalf("expected ErrUnsupportedType, got %v", err)
+	}
+}
+
 func TestViewerCannotDeleteThroughPermissionService(t *testing.T) {
 	repo := newMemoryRepo()
 	permissions := newFakePermissionService()
@@ -369,6 +484,23 @@ func (r *memoryRepo) AddVersion(_ context.Context, documentID string, version Ve
 	return true, nil
 }
 
+func (r *memoryRepo) AddDocumentVersion(_ context.Context, documentID string, version Version, updatedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	doc, ok := r.documents[documentID]
+	if !ok || doc.DeletedAt != nil {
+		return ErrNotFound
+	}
+	version.VersionNo = int64(len(r.versions[documentID]) + 1)
+	r.versions[documentID] = append(r.versions[documentID], version)
+	doc.CurrentVersionID = &version.ID
+	doc.StorageKey = version.StorageKey
+	doc.SizeBytes = version.SizeBytes
+	doc.UpdatedAt = updatedAt
+	r.documents[documentID] = doc
+	return nil
+}
+
 func (r *memoryRepo) documentCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -421,6 +553,7 @@ func (s *memoryStorage) PresignedGetURL(context.Context, string, time.Duration) 
 
 type fakePermissionService struct {
 	view   map[string]bool
+	edit   map[string]bool
 	manage map[string]bool
 	delete map[string]bool
 }
@@ -428,13 +561,20 @@ type fakePermissionService struct {
 func newFakePermissionService() *fakePermissionService {
 	return &fakePermissionService{
 		view:   map[string]bool{},
+		edit:   map[string]bool{},
 		manage: map[string]bool{},
 		delete: map[string]bool{},
 	}
 }
 
 func (s *fakePermissionService) CanView(_ context.Context, userID string, documentID string) (bool, error) {
-	return s.view[documentID+":"+userID], nil
+	key := documentID + ":" + userID
+	return s.view[key] || s.edit[key] || s.manage[key] || s.delete[key], nil
+}
+
+func (s *fakePermissionService) CanEdit(_ context.Context, userID string, documentID string) (bool, error) {
+	key := documentID + ":" + userID
+	return s.edit[key] || s.manage[key], nil
 }
 
 func (s *fakePermissionService) CanManage(_ context.Context, userID string, documentID string) (bool, error) {

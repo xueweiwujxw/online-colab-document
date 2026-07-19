@@ -103,6 +103,11 @@ export function DocumentDetailPage({ id }: { id: string }) {
               Open editor
             </a>
           ) : null}
+          {isMarkdownDocument(state.document.fileExt) ? (
+            <a className="secondary-button" href={`/documents/${state.document.id}/markdown`}>
+              Open editor
+            </a>
+          ) : null}
           <a className="primary-link" href={documentDownloadURL(state.document.id)}>
             Download
           </a>
@@ -145,4 +150,8 @@ function formatSize(value: number): string {
 
 function isOfficeDocument(fileExt: string): boolean {
   return ['doc', 'docx', 'xls', 'xlsx'].includes(fileExt.toLowerCase());
+}
+
+function isMarkdownDocument(fileExt: string): boolean {
+  return ['md', 'markdown'].includes(fileExt.toLowerCase());
 }

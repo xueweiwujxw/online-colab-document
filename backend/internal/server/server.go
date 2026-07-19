@@ -106,6 +106,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("POST /api/documents/upload", requireAuth(documentHandler.Upload))
 			mux.Handle("GET /api/documents/{id}", requireAuth(documentHandler.Get))
 			mux.Handle("GET /api/documents/{id}/download", requireAuth(documentHandler.Download))
+			mux.Handle("GET /api/documents/{id}/markdown", requireAuth(documentHandler.GetMarkdown))
+			mux.Handle("PUT /api/documents/{id}/markdown", requireAuth(documentHandler.UpdateMarkdown))
 			mux.Handle("DELETE /api/documents/{id}", requireAuth(documentHandler.Delete))
 			mux.Handle("GET /api/documents/{id}/versions", requireAuth(documentHandler.Versions))
 			mux.Handle("GET /api/documents/{id}/permissions", requireAuth(permissionHandler.List))
@@ -162,7 +164,7 @@ func withCORS(cfg config.Config, next http.Handler) http.Handler {
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

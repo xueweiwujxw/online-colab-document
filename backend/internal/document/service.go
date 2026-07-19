@@ -37,6 +37,7 @@ type Service struct {
 
 type PermissionService interface {
 	CanView(ctx context.Context, userID string, documentID string) (bool, error)
+	CanEdit(ctx context.Context, userID string, documentID string) (bool, error)
 	CanManage(ctx context.Context, userID string, documentID string) (bool, error)
 	CanDelete(ctx context.Context, userID string, documentID string) (bool, error)
 }
@@ -52,6 +53,12 @@ type UploadInput struct {
 type Download struct {
 	Document Document
 	Reader   io.ReadCloser
+}
+
+type MarkdownDocument struct {
+	Document Document
+	Content  string
+	CanEdit  bool
 }
 
 func NewService(repo Repository, objectStorage storage.Storage, permissions PermissionService, maxUploadBytes int64) *Service {
@@ -164,6 +171,88 @@ func (s *Service) Download(ctx context.Context, userID string, id string) (Downl
 	return Download{Document: doc, Reader: reader}, nil
 }
 
+func (s *Service) GetMarkdown(ctx context.Context, userID string, id string) (MarkdownDocument, error) {
+	doc, err := s.Get(ctx, userID, id)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	if !isMarkdownDocument(doc.FileExt) {
+		return MarkdownDocument{}, ErrUnsupportedType
+	}
+	reader, err := s.storage.GetObject(ctx, doc.StorageKey)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	canEdit, err := s.CanEdit(ctx, userID, id)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	return MarkdownDocument{
+		Document: doc,
+		Content:  string(data),
+		CanEdit:  canEdit,
+	}, nil
+}
+
+func (s *Service) SaveMarkdown(ctx context.Context, userID string, id string, content string) (MarkdownDocument, error) {
+	if userID == "" || id == "" {
+		return MarkdownDocument{}, ErrForbidden
+	}
+	canEdit, err := s.CanEdit(ctx, userID, id)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	if !canEdit {
+		return MarkdownDocument{}, ErrForbidden
+	}
+	doc, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	if !isMarkdownDocument(doc.FileExt) {
+		return MarkdownDocument{}, ErrUnsupportedType
+	}
+
+	versionID, err := s.newID()
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	data := []byte(content)
+	storageKey := storageKey(doc.ID, versionID, doc.OriginalFilename)
+	if err := s.storage.PutObject(ctx, storageKey, bytes.NewReader(data), int64(len(data)), doc.MimeType); err != nil {
+		return MarkdownDocument{}, err
+	}
+
+	now := s.now().UTC()
+	createdBy := userID
+	version := Version{
+		ID:         versionID,
+		DocumentID: doc.ID,
+		StorageKey: storageKey,
+		SizeBytes:  int64(len(data)),
+		CreatedBy:  &createdBy,
+		CreatedAt:  now,
+	}
+	if err := s.repo.AddDocumentVersion(ctx, doc.ID, version, now); err != nil {
+		_ = s.storage.DeleteObject(ctx, storageKey)
+		return MarkdownDocument{}, err
+	}
+	updated, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
+	return MarkdownDocument{
+		Document: updated,
+		Content:  content,
+		CanEdit:  true,
+	}, nil
+}
+
 func (s *Service) Delete(ctx context.Context, userID string, id string) error {
 	if userID == "" || id == "" {
 		return ErrForbidden
@@ -206,6 +295,17 @@ func (s *Service) CanManage(ctx context.Context, userID string, id string) (bool
 		return doc.OwnerID == userID, nil
 	}
 	return s.permissions.CanManage(ctx, userID, id)
+}
+
+func (s *Service) CanEdit(ctx context.Context, userID string, id string) (bool, error) {
+	if s.permissions == nil {
+		doc, err := s.repo.FindByID(ctx, id)
+		if err != nil {
+			return false, err
+		}
+		return doc.OwnerID == userID, nil
+	}
+	return s.permissions.CanEdit(ctx, userID, id)
 }
 
 func (s *Service) requireView(ctx context.Context, userID string, id string) error {
@@ -329,6 +429,11 @@ func storageKey(documentID string, versionID string, filename string) string {
 		safe = "document"
 	}
 	return fmt.Sprintf("documents/%s/versions/%s/%s", documentID, versionID, safe)
+}
+
+func isMarkdownDocument(fileExt string) bool {
+	ext := strings.ToLower(strings.TrimPrefix(fileExt, "."))
+	return ext == "md" || ext == "markdown"
 }
 
 func newUUID() (string, error) {

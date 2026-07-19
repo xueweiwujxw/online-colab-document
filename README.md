@@ -1,6 +1,6 @@
 # Docs Collab Service
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M5 ONLYOFFICE 集成。尚未实现 Markdown 协同。
+Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M6 Markdown 普通编辑。尚未实现 Markdown 协同。
 
 ## 技术栈
 
@@ -90,7 +90,7 @@ make lint
 
 ## 当前里程碑
 
-M5 ONLYOFFICE 集成：
+M6 Markdown 普通编辑：
 
 - users / sessions 数据库 migration
 - 本地用户注册、登录、登出、当前用户接口
@@ -109,7 +109,12 @@ M5 ONLYOFFICE 集成：
 - doc/docx/xls/xlsx 编辑器 config 生成
 - viewer 只读、editor/owner 可编辑
 - ONLYOFFICE 保存回调生成新版本
+- Markdown 文档读取接口 `GET /api/documents/:id/markdown`
+- Markdown 文档保存接口 `PUT /api/documents/:id/markdown`
+- Markdown 保存生成新版本并更新当前下载内容
+- 前端 `/documents/:id/markdown` 源码编辑和预览页面
+- viewer 只读打开 Markdown，editor/owner 可以保存
 
 ## 下一步开发计划
 
-M6 将实现 Markdown 普通在线编辑。
+M7 将实现 Markdown 多人协同编辑。

@@ -1,6 +1,7 @@
 package document
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,16 @@ import (
 type Handler struct {
 	service *Service
 	logger  *slog.Logger
+}
+
+type markdownResponse struct {
+	Document PublicDocument `json:"document"`
+	Content  string         `json:"content"`
+	CanEdit  bool           `json:"canEdit"`
+}
+
+type updateMarkdownRequest struct {
+	Content string `json:"content"`
 }
 
 func NewHandler(service *Service, logger *slog.Logger) Handler {
@@ -118,6 +129,57 @@ func (h Handler) Download(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(w, download.Reader); err != nil {
 		h.logger.Error("stream document failed", "error", err)
 	}
+}
+
+func (h Handler) GetMarkdown(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	markdown, err := h.service.GetMarkdown(r.Context(), currentUser.ID, r.PathValue("id"))
+	if err != nil {
+		h.writeError(w, "get markdown document failed", err)
+		return
+	}
+	canManage, err := h.service.CanManage(r.Context(), currentUser.ID, markdown.Document.ID)
+	if err != nil {
+		h.writeError(w, "check document manage permission failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, markdownResponse{
+		Document: ToPublic(markdown.Document, canManage),
+		Content:  markdown.Content,
+		CanEdit:  markdown.CanEdit,
+	})
+}
+
+func (h Handler) UpdateMarkdown(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	var input updateMarkdownRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	markdown, err := h.service.SaveMarkdown(r.Context(), currentUser.ID, r.PathValue("id"), input.Content)
+	if err != nil {
+		h.writeError(w, "save markdown document failed", err)
+		return
+	}
+	canManage, err := h.service.CanManage(r.Context(), currentUser.ID, markdown.Document.ID)
+	if err != nil {
+		h.writeError(w, "check document manage permission failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, markdownResponse{
+		Document: ToPublic(markdown.Document, canManage),
+		Content:  markdown.Content,
+		CanEdit:  markdown.CanEdit,
+	})
 }
 
 func (h Handler) Delete(w http.ResponseWriter, r *http.Request) {

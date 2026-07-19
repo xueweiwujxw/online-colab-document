@@ -19,6 +19,12 @@ export type DocumentVersion = {
   createdAt: string;
 };
 
+export type MarkdownDocument = {
+  document: DocumentItem;
+  content: string;
+  canEdit: boolean;
+};
+
 export async function listDocuments(): Promise<DocumentItem[]> {
   const response = await getJSON<{ items: DocumentItem[] }>('/api/documents');
   return response.items;
@@ -58,4 +64,16 @@ export async function uploadDocument(file: File): Promise<DocumentItem> {
 
 export function documentDownloadURL(id: string): string {
   return `${apiBaseUrl}/api/documents/${id}/download`;
+}
+
+export function getMarkdownDocument(id: string): Promise<MarkdownDocument> {
+  return getJSON<MarkdownDocument>(`/api/documents/${id}/markdown`);
+}
+
+export function saveMarkdownDocument(id: string, content: string): Promise<MarkdownDocument> {
+  return sendJSON<MarkdownDocument>(
+    `/api/documents/${id}/markdown`,
+    { content },
+    { method: 'PUT' },
+  );
 }
