@@ -419,6 +419,26 @@ h1 {
   font-size: 13px;
 }
 
+.user-permission-badge,
+.user-permission-empty {
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.user-permission-badge {
+  background: var(--accent-soft);
+  color: #0f766e;
+}
+
+.user-permission-empty {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
 .share-row {
   grid-template-columns: 120px 120px 180px 180px auto;
 }

@@ -84,6 +84,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       setSubjectId('');
       setSelectedUser(null);
       await refreshPermissions();
+      await refreshUsers();
     } catch (error) {
       setActionError(errorMessage(error, '授权失败'));
     }
@@ -97,6 +98,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
     try {
       await deletePermission(documentId, permissionId);
       await refreshPermissions();
+      await refreshUsers();
     } catch (error) {
       setActionError(errorMessage(error, '删除失败'));
     }
@@ -114,6 +116,9 @@ export function PermissionPage({ documentId }: { documentId: string }) {
     window.location.replace('/login');
     return null;
   }
+
+  const currentUserId = auth.user.id;
+  const visibleUsers = userSearch.items.filter((item) => item.id !== currentUserId);
 
   return (
     <main className="app-shell">
@@ -170,23 +175,32 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       <section className="user-picker">
         {userSearch.status === 'loading' ? <span className="empty-inline">加载用户中</span> : null}
         {userSearch.status === 'error' ? <span className="form-error">{userSearch.error}</span> : null}
-        {userSearch.status !== 'loading' && userSearch.items.length === 0 ? (
+        {userSearch.status !== 'loading' && visibleUsers.length === 0 ? (
           <span className="empty-inline">暂无匹配用户。</span>
         ) : null}
-        {userSearch.items.map((item) => (
-          <button
-            className={`user-result ${item.id === subjectId ? 'user-result-selected' : ''}`}
-            key={item.id}
-            onClick={() => {
-              setSubjectId(item.id);
-              setSelectedUser(item);
-            }}
-            type="button"
-          >
-            <strong>{item.displayName}</strong>
-            <span>{item.email}</span>
-          </button>
-        ))}
+        {visibleUsers.map((item) => {
+          const existingPermission = permissionForUser(state.items, item.id);
+          return (
+            <button
+              className={`user-result ${item.id === subjectId ? 'user-result-selected' : ''}`}
+              key={item.id}
+              onClick={() => {
+                setSubjectId(item.id);
+                setSelectedUser(item);
+                if (existingPermission === 'viewer' || existingPermission === 'editor') {
+                  setPermission(existingPermission);
+                }
+              }}
+              type="button"
+            >
+              <strong>{item.displayName}</strong>
+              <span>{item.email}</span>
+              <small className={existingPermission ? 'user-permission-badge' : 'user-permission-empty'}>
+                {existingPermission ? `已有：${permissionLabel(existingPermission)}` : '未授权'}
+              </small>
+            </button>
+          );
+        })}
       </section>
       {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
@@ -213,6 +227,10 @@ export function PermissionPage({ documentId }: { documentId: string }) {
       ) : null}
     </main>
   );
+}
+
+function permissionForUser(items: DocumentPermission[], userId: string): string | null {
+  return items.find((item) => item.subjectType === 'user' && item.subjectId === userId)?.permission ?? null;
 }
 
 function permissionLabel(permission: string): string {
