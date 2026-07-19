@@ -2151,6 +2151,19 @@ viewer 只能只读打开
 记录是否建议进入正式替换计划
 ```
 
+当前 POC 结果：
+
+- 已新增 Casual Office iframe 方式的 docx / xlsx 最小接入。
+- 已验证 docx / xlsx 可以获取 Casual session、下载内容、保存回后端并生成新版本。
+- 已验证未登录用户不能获取 Office session。
+- 已验证前端构建和后端测试通过。
+
+当前限制：
+
+- 还没有完成浏览器内真实编辑 UI 的人工验证。
+- 还没有支持旧格式 doc / xls 的 Casual 打开链路。
+- 还没有删除 ONLYOFFICE，正式替换前继续保留回退路径。
+
 ---
 
 # 6. 每个 Milestone 的 Codex Goal 用法
