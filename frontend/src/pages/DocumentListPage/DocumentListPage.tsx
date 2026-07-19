@@ -3,6 +3,7 @@ import { ChangeEvent, useEffect, useState } from 'react';
 import {
   deleteDocument,
   documentDownloadURL,
+  documentOpenURL,
   listDocuments,
   uploadDocument,
   type DocumentItem,
@@ -124,13 +125,16 @@ export function DocumentListPage() {
         <section className="document-list">
           {documents.items.map((document) => (
             <article className="document-row" key={document.id}>
-              <a className="document-title" href={`/documents/${document.id}`}>
+              <a className="document-title" href={documentOpenURL(document)}>
                 {document.title}
               </a>
               <span className="file-badge">{document.fileExt}</span>
               <span className="document-meta">{formatDate(document.updatedAt)}</span>
               <span className="document-meta">{formatSize(document.sizeBytes)}</span>
               <div className="document-actions">
+                <a className="primary-link compact-link" href={documentOpenURL(document)}>
+                  打开
+                </a>
                 <a className="secondary-button" href={documentDownloadURL(document.id)}>
                   下载
                 </a>

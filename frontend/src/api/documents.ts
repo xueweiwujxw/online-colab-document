@@ -82,6 +82,20 @@ export function documentDownloadURL(id: string): string {
   return `${apiBaseUrl}/api/documents/${id}/download`;
 }
 
+export function documentEditorURL(document: Pick<DocumentItem, 'id' | 'fileExt'>): string | null {
+  if (isOfficeDocument(document.fileExt)) {
+    return `/documents/${document.id}/edit`;
+  }
+  if (isMarkdownDocument(document.fileExt)) {
+    return `/documents/${document.id}/markdown`;
+  }
+  return null;
+}
+
+export function documentOpenURL(document: Pick<DocumentItem, 'id' | 'fileExt'>): string {
+  return documentEditorURL(document) ?? `/documents/${document.id}`;
+}
+
 export function documentVersionDownloadURL(id: string, versionId: string): string {
   return `${apiBaseUrl}/api/documents/${id}/versions/${versionId}/download`;
 }
@@ -112,4 +126,12 @@ export function markdownWebSocketURL(id: string): string {
       ? window.location.origin
       : apiBaseUrl;
   return `${base.replace(/^http/, 'ws')}/api/documents/${id}/markdown/ws`;
+}
+
+function isOfficeDocument(fileExt: string): boolean {
+  return ['doc', 'docx', 'xls', 'xlsx'].includes(fileExt.toLowerCase());
+}
+
+function isMarkdownDocument(fileExt: string): boolean {
+  return ['md', 'markdown'].includes(fileExt.toLowerCase());
 }

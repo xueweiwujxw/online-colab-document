@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import {
   documentDownloadURL,
+  documentEditorURL,
   documentVersionDownloadURL,
   getDocument,
   listDocumentVersions,
@@ -105,6 +106,8 @@ export function DocumentDetailPage({ id }: { id: string }) {
     );
   }
 
+  const editorURL = documentEditorURL(state.document);
+
   return (
     <main className="app-shell">
       <a className="back-link" href="/documents">
@@ -130,17 +133,12 @@ export function DocumentDetailPage({ id }: { id: string }) {
           <a className="secondary-button" href={`/documents/${state.document.id}/versions`}>
             版本
           </a>
-          {isOfficeDocument(state.document.fileExt) ? (
-            <a className="secondary-button" href={`/documents/${state.document.id}/edit`}>
-              打开编辑器
+          {editorURL ? (
+            <a className="primary-link" href={editorURL}>
+              打开文档
             </a>
           ) : null}
-          {isMarkdownDocument(state.document.fileExt) ? (
-            <a className="secondary-button" href={`/documents/${state.document.id}/markdown`}>
-              打开编辑器
-            </a>
-          ) : null}
-          <a className="primary-link" href={documentDownloadURL(state.document.id)}>
+          <a className="secondary-button" href={documentDownloadURL(state.document.id)}>
             下载
           </a>
         </div>
@@ -198,12 +196,4 @@ function formatSize(value: number): string {
     return `${(value / 1024).toFixed(1)} KB`;
   }
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function isOfficeDocument(fileExt: string): boolean {
-  return ['doc', 'docx', 'xls', 'xlsx'].includes(fileExt.toLowerCase());
-}
-
-function isMarkdownDocument(fileExt: string): boolean {
-  return ['md', 'markdown'].includes(fileExt.toLowerCase());
 }
