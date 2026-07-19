@@ -7,7 +7,7 @@ import {
   saveOfficeContent,
   type OfficeSession,
 } from '../../api/office';
-import { errorMessage } from '../../api/client';
+import { ApiError, errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 type EditorState =
@@ -60,7 +60,10 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
             status: 'error',
             session: null,
             buffer: null,
-            error: errorMessage(error, '加载编辑器失败'),
+            error:
+              error instanceof ApiError && error.status === 400
+                ? '当前 Casual Office POC 仅支持 docx / xlsx 在线编辑；doc / xls 需要转换或后续接入兼容提供商。'
+                : errorMessage(error, '加载编辑器失败'),
           });
         }
       });
@@ -85,10 +88,21 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
   return (
     <main className="editor-shell">
       <header className="editor-topbar">
-        <a className="back-link" href={`/documents/${documentId}`}>
-          返回文档
-        </a>
+        <div className="office-title">
+          <a className="back-link" href={`/documents/${documentId}`}>
+            返回文档
+          </a>
+          <div>
+            <strong>{state.status === 'success' ? providerName(state.session.fileExt) : 'Casual Office'}</strong>
+            <span>
+              {state.status === 'success'
+                ? `${state.session.fileExt.toUpperCase()} 在线编辑器`
+                : '正在加载新编辑器'}
+            </span>
+          </div>
+        </div>
         <div className="office-toolbar">
+          <span className="office-provider-badge">新编辑器</span>
           {state.status === 'success' ? (
             <span className="connection-pill">{state.session.mode === 'edit' ? '可编辑' : '只读'}</span>
           ) : null}
@@ -109,7 +123,9 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
           ) : null}
         </div>
       </header>
-      {state.status === 'loading' ? <section className="empty-state editor-state">加载中</section> : null}
+      {state.status === 'loading' ? (
+        <section className="empty-state editor-state">正在加载 Casual Office 编辑器</section>
+      ) : null}
       {state.status === 'error' ? <section className="empty-state editor-state">{state.error}</section> : null}
       {state.status === 'success' ? (
         <CasualIframeHost
@@ -217,4 +233,8 @@ function CasualIframeHost({
 
 function embedBasePath(fileExt: string): string {
   return fileExt === 'xlsx' ? '/casual-sheets' : '/casual-docs';
+}
+
+function providerName(fileExt: string): string {
+  return fileExt === 'xlsx' ? 'Casual Sheets' : 'Casual Docs';
 }

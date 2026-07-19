@@ -2157,6 +2157,7 @@ viewer 只能只读打开
 - 已验证 docx / xlsx 可以获取 Casual session、下载内容、保存回后端并生成新版本。
 - 已验证未登录用户不能获取 Office session。
 - 已验证前端构建和后端测试通过。
+- 已在编辑页增加 Casual Docs / Casual Sheets 可见标识，并明确提示 doc / xls 暂不支持 Casual POC。
 
 当前限制：
 
