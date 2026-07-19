@@ -5,6 +5,8 @@ import {
 } from '@casualoffice/sheets/sheets';
 import { EmbedHostTransport, type SaveRequestData } from '@casualoffice/sheets/embed';
 import '@casualoffice/sheets/styles';
+import '@univerjs/sheets/facade';
+import '@univerjs/sheets-ui/facade';
 import {
   workbookDataToXlsx,
   xlsxToWorkbookData,
@@ -21,6 +23,7 @@ import {
 } from '../../api/office';
 import { ApiError, errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import { SHEETS_LOCALE, SHEETS_LOCALES } from './sheetsLocale';
 
 type EditorState =
   | { status: 'loading'; session: null; buffer: null; error: null }
@@ -179,7 +182,9 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
       ) : null}
       {state.status === 'error' ? <section className="empty-state editor-state">{state.error}</section> : null}
       {state.status === 'success' ? (
-        state.session.fileExt === 'xlsx' ? (
+        state.session.fileExt === 'xlsx' && collabState.status === 'loading' ? (
+          <section className="empty-state editor-state">正在连接表格协同服务</section>
+        ) : state.session.fileExt === 'xlsx' ? (
           <DirectSheetsHost
             buffer={state.buffer}
             collabSession={collabState.status === 'success' ? collabState.session : null}
@@ -296,7 +301,7 @@ function DirectSheetsHost({
       <CasualSheets
         key={`${session.documentId}:${session.mode}`}
         appearance="light"
-        chrome={session.mode === 'edit' ? 'full' : 'none'}
+        chrome="none"
         collab={
           collabSession?.enabled
             ? {
@@ -309,7 +314,9 @@ function DirectSheetsHost({
         }
         documentMode={session.mode === 'edit' ? 'editing' : 'viewing'}
         initialData={sheetState.workbook}
-        lazyPlugins={true}
+        lazyPlugins={false}
+        locale={SHEETS_LOCALE}
+        locales={SHEETS_LOCALES}
         onError={(error) => onSaveError(error.message)}
         onReady={(api) => {
           apiRef.current = api;
@@ -419,7 +426,7 @@ function embedBasePath(fileExt: string): string {
 }
 
 function providerName(fileExt: string): string {
-  return fileExt === 'xlsx' ? 'Casual Sheets' : 'Casual Docs';
+  return fileExt === 'xlsx' ? '表格编辑器' : '文档编辑器';
 }
 
 function collabLabel(state: CollabState): string {
@@ -436,7 +443,7 @@ function collabLabel(state: CollabState): string {
     if (state.connectionStatus === 'offline') {
       return '协同离线';
     }
-    return state.session.role === 'write' ? '协同可编辑' : '协同只读';
+    return state.session.role === 'write' ? '实时协同已连接' : '协同只读在线';
   }
   return '单人编辑';
 }

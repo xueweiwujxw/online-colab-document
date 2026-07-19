@@ -2171,18 +2171,19 @@ viewer 只能只读打开
 - 已验证 docx / xlsx 可以获取 Casual session、下载内容、保存回后端并生成新版本。
 - 已验证未登录用户不能获取 Office session。
 - 已验证前端构建和后端测试通过。
-- 已在编辑页增加 Casual Docs / Casual Sheets 可见标识，并明确提示 doc / xls 暂不支持 Casual POC。
+- 已在编辑页增加中文 Office 编辑器标识，并明确提示 doc / xls 暂不支持 Casual POC。
 - 已新增 xlsx 协同 session 权限接口，返回 view/write role、room 和协同服务配置状态。
-- 已将 xlsx 编辑页从 iframe embed 切到 React 直渲染 CasualSheets，为 collab prop 接入做准备。
+- 已将 xlsx 编辑页从 iframe embed 切到 React 直渲染 CasualSheets，并等待协同 session 后再挂载编辑器，确保 collab prop 首次挂载生效。
 - 已新增自托管 office-collab Hocuspocus/Yjs WebSocket 服务，并通过 cookie 转发到后端校验 xlsx view/write 权限。
 - 开发 compose 已启用 `ws://localhost:1234`，xlsx session 可返回 `enabled: true`。
+- 已验证 xlsx 编辑页浏览器烟测：表格 canvas 正常渲染、无英文菜单栏、协同 WebSocket 返回 101。
 
 当前限制：
 
-- Excel 当前 Casual React POC 已连接 Hocuspocus/Yjs 服务，但还没有完成浏览器双窗口真实协同编辑人工验证。
+- Excel 当前 Casual React POC 已连接 Hocuspocus/Yjs 服务，但还没有完成浏览器双窗口真实单元格编辑同步验证。
 - office-collab 当前为单实例内存协同状态；重启会丢失实时 Yjs 状态，最终保存仍走后端 office/content 版本链路。
 - Word 当前仍走 Casual iframe POC，只支持单人编辑保存，不支持多人实时共享编辑。
-- 还没有完成浏览器内真实编辑 UI 的人工验证。
+- CasualSheets 的 `lazyPlugins` 暂时关闭以避开缺失的 `@univerjs/docs-mention-ui` 懒加载白屏问题；后续需要恢复高级表格能力时单独修复插件清单或升级依赖。
 - 还没有支持旧格式 doc / xls 的 Casual 打开链路。
 - 还没有删除 ONLYOFFICE，正式替换前继续保留回退路径。
 
