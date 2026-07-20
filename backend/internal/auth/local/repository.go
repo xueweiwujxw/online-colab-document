@@ -24,6 +24,7 @@ type UserRepository interface {
 	FindByID(ctx context.Context, id string) (user.User, error)
 	FindByOIDCSubject(ctx context.Context, subject string) (user.User, error)
 	SetOIDCSubject(ctx context.Context, id string, subject string) (user.User, error)
+	UpdatePasswordHash(ctx context.Context, id string, passwordHash string) error
 }
 
 type PostgresRepository struct {
@@ -85,6 +86,26 @@ func (r *PostgresRepository) SetOIDCSubject(ctx context.Context, id string, subj
 		return user.User{}, fmt.Errorf("set oidc subject: %w", err)
 	}
 	return r.FindByID(ctx, id)
+}
+
+func (r *PostgresRepository) UpdatePasswordHash(ctx context.Context, id string, passwordHash string) error {
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+		passwordHash,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("update password hash: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update password hash rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) scanUser(ctx context.Context, query string, args ...any) (user.User, error) {

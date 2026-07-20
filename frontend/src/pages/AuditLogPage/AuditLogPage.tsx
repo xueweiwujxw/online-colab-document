@@ -77,6 +77,9 @@ export function AuditLogPage() {
           <h1>审计日志</h1>
         </div>
         <div className="user-actions">
+          <a className="secondary-button" href="/profile">
+            用户中心
+          </a>
           <a className="secondary-button" href="/documents">
             文档
           </a>
@@ -159,6 +162,7 @@ function actionLabel(action: string): string {
   const labels: Record<string, string> = {
     'auth.login': '登录',
     'auth.logout': '登出',
+    'auth.password_change': '修改密码',
     'document.upload': '上传文档',
     'document.download': '下载文档',
     'document.delete': '删除文档',

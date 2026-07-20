@@ -10,6 +10,7 @@ import (
 	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/session"
+	"online-colab-document/backend/internal/middleware"
 	"online-colab-document/backend/internal/user"
 )
 
@@ -135,6 +136,51 @@ func (h Handler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	api.WriteJSON(w, http.StatusOK, user.ToPublic(u))
+}
+
+func (h Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	err := h.service.ChangePassword(r.Context(), ChangePasswordInput{
+		UserID:          currentUser.ID,
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidInput):
+			api.WriteError(w, http.StatusBadRequest, "invalid password input")
+		case errors.Is(err, ErrInvalidCredentials):
+			api.WriteError(w, http.StatusUnauthorized, "invalid current password")
+		case errors.Is(err, ErrPasswordUnsupported):
+			api.WriteError(w, http.StatusBadRequest, "password change unsupported")
+		case errors.Is(err, ErrUnauthenticated):
+			api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		default:
+			h.logger.Error("change password failed", "error", err)
+			api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionPasswordChange,
+		TargetType:  "user",
+		TargetID:    currentUser.ID,
+	})
+	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h Handler) tokenFromCookie(r *http.Request) string {

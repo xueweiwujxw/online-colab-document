@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	ErrInvalidInput       = errors.New("invalid input")
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrUnauthenticated    = errors.New("unauthenticated")
+	ErrInvalidInput        = errors.New("invalid input")
+	ErrInvalidCredentials  = errors.New("invalid email or password")
+	ErrUnauthenticated     = errors.New("unauthenticated")
+	ErrPasswordUnsupported = errors.New("password change unsupported for this account")
 )
 
 type SessionRepository interface {
@@ -58,6 +59,12 @@ type RegisterInput struct {
 type LoginInput struct {
 	Email    string
 	Password string
+}
+
+type ChangePasswordInput struct {
+	UserID          string
+	CurrentPassword string
+	NewPassword     string
 }
 
 type AuthSession struct {
@@ -137,6 +144,33 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (AuthSession, err
 		return AuthSession{}, err
 	}
 	return AuthSession{User: u, Token: token, ExpiresAt: expiresAt}, nil
+}
+
+func (s *Service) ChangePassword(ctx context.Context, input ChangePasswordInput) error {
+	if input.UserID == "" || input.CurrentPassword == "" || len(input.NewPassword) < 8 {
+		return ErrInvalidInput
+	}
+	u, err := s.users.FindByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return ErrUnauthenticated
+		}
+		return err
+	}
+	if u.Disabled {
+		return ErrUnauthenticated
+	}
+	if u.AuthSource != "local" || u.PasswordHash == nil {
+		return ErrPasswordUnsupported
+	}
+	if !s.verifyPassword(input.CurrentPassword, s.pepper, *u.PasswordHash) {
+		return ErrInvalidCredentials
+	}
+	nextHash, err := s.hashPassword(input.NewPassword, s.pepper)
+	if err != nil {
+		return err
+	}
+	return s.users.UpdatePasswordHash(ctx, u.ID, nextHash)
 }
 
 func (s *Service) CurrentUser(ctx context.Context, token string) (user.User, error) {

@@ -341,6 +341,66 @@ h1 {
   padding: 22px;
 }
 
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.profile-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: 0 12px 28px rgb(37 99 235 / 7%);
+  padding: 22px;
+}
+
+.profile-panel h2 {
+  margin: 0 0 18px;
+  font-size: 22px;
+}
+
+.profile-details {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.profile-details div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-details dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.profile-details dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.profile-form {
+  max-width: 520px;
+}
+
+.profile-submit {
+  width: auto;
+}
+
+.form-success {
+  margin: 0 0 18px;
+  color: var(--success-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .primary-link {
   min-height: 42px;
   display: inline-flex;
@@ -1005,6 +1065,10 @@ h1 {
 
   .detail-header {
     flex-direction: column;
+  }
+
+  .profile-layout {
+    grid-template-columns: 1fr;
   }
 
   .detail-actions,

@@ -5,6 +5,7 @@ import "time"
 const (
 	ActionLogin             = "auth.login"
 	ActionLogout            = "auth.logout"
+	ActionPasswordChange    = "auth.password_change"
 	ActionDocumentUpload    = "document.upload"
 	ActionDocumentDownload  = "document.download"
 	ActionDocumentDelete    = "document.delete"

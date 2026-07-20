@@ -6,6 +6,7 @@ import { LoginPage } from '../pages/LoginPage/LoginPage';
 import { MarkdownEditorPage } from '../pages/MarkdownEditorPage/MarkdownEditorPage';
 import { OfficeEditorPage } from '../pages/OfficeEditorPage/OfficeEditorPage';
 import { PermissionPage } from '../pages/PermissionPage/PermissionPage';
+import { ProfilePage } from '../pages/ProfilePage/ProfilePage';
 import { RegisterPage } from '../pages/RegisterPage/RegisterPage';
 import { ShareAccessPage } from '../pages/ShareAccessPage/ShareAccessPage';
 import { ShareManagementPage } from '../pages/ShareManagementPage/ShareManagementPage';
@@ -27,6 +28,7 @@ export function App() {
       {path === '/admin/audit-logs' ? <AuditLogPage /> : null}
       {path === '/login' ? <LoginPage /> : null}
       {path === '/register' ? <RegisterPage /> : null}
+      {path === '/profile' ? <ProfilePage /> : null}
       {path === '/documents' || path === '/' ? <DocumentListPage /> : null}
       {editorMatch ? <OfficeEditorPage documentId={editorMatch[1]} /> : null}
       {markdownMatch ? <MarkdownEditorPage documentId={markdownMatch[1]} /> : null}
@@ -43,6 +45,7 @@ export function App() {
       ) : null}
       {path !== '/login' &&
       path !== '/register' &&
+      path !== '/profile' &&
       path !== '/documents' &&
       path !== '/' &&
       path !== '/admin/audit-logs' &&

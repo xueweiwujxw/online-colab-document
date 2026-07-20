@@ -112,7 +112,9 @@ export function DocumentListPage() {
             />
             {uploading ? '上传中' : '上传'}
           </label>
-          <span>{auth.user.displayName}</span>
+          <a className="secondary-button" href="/profile">
+            {auth.user.displayName}
+          </a>
           <button className="secondary-button" onClick={() => void auth.logout()} type="button">
             退出登录
           </button>

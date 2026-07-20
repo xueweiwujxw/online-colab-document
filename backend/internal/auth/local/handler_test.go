@@ -13,6 +13,7 @@ import (
 
 	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/session"
+	"online-colab-document/backend/internal/middleware"
 	"online-colab-document/backend/internal/user"
 )
 
@@ -207,6 +208,88 @@ func TestMeAuthenticatedReturnsOIDCUser(t *testing.T) {
 	}
 }
 
+func TestChangePasswordSuccess(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	loginRec := loginUser(t, handler, "user@example.com", "password123")
+
+	rec := performPasswordChange(handler, loginRec.Result().Cookies()[0], `{
+		"currentPassword":"password123",
+		"newPassword":"new-password-123"
+	}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	oldPasswordRec := httptest.NewRecorder()
+	handler.Login(oldPasswordRec, httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{
+		"email":"user@example.com",
+		"password":"password123"
+	}`)))
+	if oldPasswordRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected old password login to fail, got %d", oldPasswordRec.Code)
+	}
+	newPasswordRec := httptest.NewRecorder()
+	handler.Login(newPasswordRec, httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{
+		"email":"user@example.com",
+		"password":"new-password-123"
+	}`)))
+	if newPasswordRec.Code != http.StatusOK {
+		t.Fatalf("expected new password login to succeed, got %d: %s", newPasswordRec.Code, newPasswordRec.Body.String())
+	}
+}
+
+func TestChangePasswordWrongCurrentPasswordFails(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	loginRec := loginUser(t, handler, "user@example.com", "password123")
+
+	rec := performPasswordChange(handler, loginRec.Result().Cookies()[0], `{
+		"currentPassword":"wrong-password",
+		"newPassword":"new-password-123"
+	}`)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestChangePasswordOIDCUserFails(t *testing.T) {
+	handler, repo := newTestHandler()
+	subject := "oidc-subject"
+	oidcUser := user.User{
+		ID:          "oidc-user-1",
+		Email:       "oidc@example.com",
+		DisplayName: "OIDC User",
+		AuthSource:  "oidc",
+		OIDCSubject: &subject,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	if err := repo.Create(context.Background(), oidcUser); err != nil {
+		t.Fatalf("create oidc user: %v", err)
+	}
+	token := "oidc-session-token"
+	if err := repo.CreateSession(context.Background(), session.Record{
+		ID:        "session-1",
+		UserID:    oidcUser.ID,
+		TokenHash: session.HashToken(token),
+		ExpiresAt: time.Now().Add(time.Hour),
+		CreatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("create oidc session: %v", err)
+	}
+
+	rec := performPasswordChange(handler, &http.Cookie{Name: "docs_session", Value: token}, `{
+		"currentPassword":"password123",
+		"newPassword":"new-password-123"
+	}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func newTestHandler() (Handler, *memoryRepo) {
 	repo := newMemoryRepo()
 	service := NewService(repo, repo, "", time.Hour)
@@ -224,6 +307,31 @@ func registerUser(t *testing.T, handler Handler, email string) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("register user: status %d, body %s", rec.Code, rec.Body.String())
 	}
+}
+
+func loginUser(t *testing.T, handler Handler, email string, password string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	handler.Login(rec, httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{
+		"email":"`+email+`",
+		"password":"`+password+`"
+	}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login user: status %d, body %s", rec.Code, rec.Body.String())
+	}
+	return rec
+}
+
+func performPasswordChange(handler Handler, cookie *http.Cookie, body string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/auth/password", strings.NewReader(body))
+	req.AddCookie(cookie)
+	middleware.RequireAuth(
+		handler.service,
+		"docs_session",
+		http.HandlerFunc(handler.ChangePassword),
+	).ServeHTTP(rec, req)
+	return rec
 }
 
 type memoryRepo struct {
@@ -294,6 +402,19 @@ func (r *memoryRepo) SetOIDCSubject(_ context.Context, id string, subject string
 	u.UpdatedAt = time.Now()
 	r.usersByID[id] = u
 	return u, nil
+}
+
+func (r *memoryRepo) UpdatePasswordHash(_ context.Context, id string, passwordHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.usersByID[id]
+	if !ok {
+		return ErrUserNotFound
+	}
+	u.PasswordHash = &passwordHash
+	u.UpdatedAt = time.Now()
+	r.usersByID[id] = u
+	return nil
 }
 
 func (r *memoryRepo) CreateSession(_ context.Context, record session.Record) error {
