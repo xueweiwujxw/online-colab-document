@@ -679,6 +679,10 @@ h1 {
   gap: 0;
 }
 
+.rich-markdown-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+}
+
 .markdown-pane {
   min-height: calc(100vh - 112px);
   display: grid;
@@ -716,6 +720,129 @@ h1 {
   background: #f6f7f9;
 }
 
+.rich-markdown-pane {
+  grid-template-rows: auto 1fr;
+}
+
+.rich-markdown-toolbar {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-bottom: 1px solid #e1e6ee;
+  background: #fbfdff;
+  padding: 8px 12px;
+}
+
+.rich-toolbar-button {
+  min-width: 34px;
+  min-height: 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 9px;
+}
+
+.rich-toolbar-button:hover {
+  border-color: var(--primary);
+  background: #f1f7ff;
+}
+
+.rich-toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #dfe7f0;
+  margin: 0 2px;
+}
+
+.rich-markdown-editor {
+  min-height: 100%;
+  overflow: auto;
+  padding: 18px 22px 48px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.68;
+}
+
+.rich-markdown-editor.is-readonly {
+  background: #f6f7f9;
+}
+
+.rich-markdown-editor .ProseMirror {
+  min-height: calc(100vh - 230px);
+  outline: none;
+}
+
+.rich-markdown-editor .ProseMirror p {
+  margin: 0 0 12px;
+}
+
+.rich-markdown-editor .ProseMirror h1,
+.rich-markdown-editor .ProseMirror h2,
+.rich-markdown-editor .ProseMirror h3 {
+  margin: 18px 0 10px;
+  line-height: 1.25;
+}
+
+.rich-markdown-editor .ProseMirror blockquote {
+  margin: 14px 0;
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 10px 14px;
+}
+
+.rich-markdown-editor .ProseMirror pre {
+  overflow: auto;
+  border: 1px solid #dce5ef;
+  border-radius: 6px;
+  background: #101828;
+  color: #f8fbff;
+  padding: 14px;
+}
+
+.rich-markdown-editor .ProseMirror code {
+  border-radius: 4px;
+  background: #eef4fb;
+  color: #9f2723;
+  padding: 1px 4px;
+}
+
+.rich-markdown-editor .ProseMirror pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.rich-markdown-editor .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+}
+
+.rich-markdown-editor .ProseMirror td,
+.rich-markdown-editor .ProseMirror th {
+  min-width: 92px;
+  border: 1px solid #c9d7e6;
+  padding: 8px;
+  vertical-align: top;
+}
+
+.rich-markdown-editor .ProseMirror .selectedCell {
+  background: #e8f1ff;
+}
+
 .markdown-preview-pane {
   border-right: 0;
 }
@@ -727,6 +854,17 @@ h1 {
   font-size: 16px;
   font-weight: 400;
   line-height: 1.65;
+}
+
+.markdown-source-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 14px/1.62 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.compact-action {
+  width: auto;
 }
 
 .markdown-preview h1,

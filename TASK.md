@@ -2238,7 +2238,7 @@ editor/owner 以 write role 加入，可以广播修改
 
 ## Plan 10：Markdown 富文本协同编辑
 
-状态：待开始。
+状态：进行中。
 
 方向：
 
@@ -2273,6 +2273,15 @@ viewer 只读并能实时看到更新
 下载 md 文件内容可读
 前端构建和相关后端测试通过
 ```
+
+当前记录：
+
+- 已将 Markdown 编辑页从源码 textarea 升级为 ProseMirror 富文本编辑器。
+- 已支持标题、正文、引用、代码块、粗体、斜体、删除线、行内代码、链接、无序列表、有序列表和表格的基础编辑。
+- 富文本内容会序列化为 Markdown 字符串，继续复用现有 Markdown WebSocket、权限校验、presence 和快照持久化链路。
+- viewer 打开时编辑器只读，editor / owner 可以编辑并向同文档在线用户广播更新。
+- 已新增显式保存按钮，保存当前 Markdown 内容到后端并生成文档版本。
+- 当前仍是 Markdown 字符串快照级协同，不是 ProseMirror step / Yjs XML fragment 级 CRDT 合并；并发编辑同一段落时以后到达的内容为准。
 
 ---
 
