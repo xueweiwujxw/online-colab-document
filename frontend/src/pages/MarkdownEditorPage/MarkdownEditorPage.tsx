@@ -361,7 +361,7 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
   );
 }
 
-function RichMarkdownEditor({
+export function RichMarkdownEditor({
   content,
   disabled,
   onChange,

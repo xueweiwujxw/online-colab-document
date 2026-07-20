@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   getShareAccess,
@@ -7,6 +7,7 @@ import {
   type ShareAccess,
 } from '../../api/share';
 import { errorMessage } from '../../api/client';
+import { RichMarkdownEditor } from '../MarkdownEditorPage/MarkdownEditorPage';
 
 type ShareAccessState =
   | { status: 'loading'; access: null; error: null }
@@ -45,8 +46,6 @@ export function ShareAccessPage({ token }: { token: string }) {
       mounted = false;
     };
   }, [token]);
-
-  const preview = useMemo(() => renderMarkdownPreview(draft), [draft]);
 
   async function onSave() {
     if (state.status !== 'success' || !state.access.canEdit || saveState === 'saving') {
@@ -110,21 +109,21 @@ export function ShareAccessPage({ token }: { token: string }) {
       </header>
       {saveError ? <p className="form-error markdown-save-error">{saveError}</p> : null}
       {isMarkdown ? (
-        <section className="markdown-editor-grid">
-          <label className="markdown-pane">
-            <span>Markdown 源码</span>
-            <textarea
-              readOnly={!state.access.canEdit}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                setSaveState('idle');
-              }}
-              value={draft}
-            />
-          </label>
+        <section className="markdown-editor-grid rich-markdown-grid">
+          <RichMarkdownEditor
+            content={draft}
+            disabled={false}
+            onChange={(content) => {
+              setDraft(content);
+              setSaveState('idle');
+            }}
+            readOnly={!state.access.canEdit}
+          />
           <section className="markdown-pane markdown-preview-pane">
-            <span>预览</span>
-            <div className="markdown-preview">{preview}</div>
+            <span>Markdown 源码</span>
+            <div className="markdown-preview markdown-source-preview">
+              <pre>{draft.trim() === '' ? '暂无 Markdown 内容。' : draft}</pre>
+            </div>
           </section>
         </section>
       ) : (
@@ -132,38 +131,4 @@ export function ShareAccessPage({ token }: { token: string }) {
       )}
     </main>
   );
-}
-
-function renderMarkdownPreview(content: string) {
-  if (content.trim() === '') {
-    return <p className="empty-inline">暂无可预览内容。</p>;
-  }
-  return content.split(/\n{2,}/).map((block, index) => {
-    const trimmed = block.trim();
-    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
-    if (heading) {
-      const level = heading[1].length;
-      const text = heading[2];
-      if (level === 1) {
-        return <h1 key={index}>{text}</h1>;
-      }
-      if (level === 2) {
-        return <h2 key={index}>{text}</h2>;
-      }
-      return <h3 key={index}>{text}</h3>;
-    }
-    if (trimmed.startsWith('- ')) {
-      return (
-        <ul key={index}>
-          {trimmed.split('\n').map((line, itemIndex) => (
-            <li key={itemIndex}>{line.replace(/^-\s+/, '')}</li>
-          ))}
-        </ul>
-      );
-    }
-    if (trimmed.startsWith('```')) {
-      return <pre key={index}>{trimmed.replace(/^```\w*\n?/, '').replace(/```$/, '')}</pre>;
-    }
-    return <p key={index}>{trimmed}</p>;
-  });
 }

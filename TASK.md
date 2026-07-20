@@ -2281,6 +2281,7 @@ viewer 只读并能实时看到更新
 - 富文本内容会序列化为 Markdown 字符串，继续复用现有 Markdown WebSocket、权限校验、presence 和快照持久化链路。
 - viewer 打开时编辑器只读，editor / owner 可以编辑并向同文档在线用户广播更新。
 - 已新增显式保存按钮，保存当前 Markdown 内容到后端并生成文档版本。
+- 分享链接访问 Markdown 时也复用同一富文本编辑器，viewer 链接只读，editor 链接可保存并继续生成版本。
 - 当前仍是 Markdown 字符串快照级协同，不是 ProseMirror step / Yjs XML fragment 级 CRDT 合并；并发编辑同一段落时以后到达的内容为准。
 
 ---
