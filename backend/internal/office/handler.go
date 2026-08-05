@@ -3,8 +3,11 @@ package office
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 
 	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
@@ -81,6 +84,49 @@ func (h Handler) Save(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	api.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "etag": doc.ID})
+}
+
+func (h Handler) WOPIInfo(w http.ResponseWriter, r *http.Request) {
+	doc, canEdit, version, err := h.service.WOPIInfo(r.Context(), r.URL.Query().Get("access_token"), r.PathValue("id"))
+	if err != nil {
+		h.writeError(w, "wopi info failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, map[string]any{
+		"BaseFileName": doc.OriginalFilename,
+		"Size":         doc.SizeBytes,
+		"Version":      version,
+		"UserCanWrite": canEdit,
+		"ReadOnly":     !canEdit,
+	})
+}
+
+func (h Handler) WOPIContent(w http.ResponseWriter, r *http.Request) {
+	doc, reader, version, err := h.service.WOPIContent(r.Context(), r.URL.Query().Get("access_token"), r.PathValue("id"))
+	if err != nil {
+		h.writeError(w, "wopi content failed", err)
+		return
+	}
+	defer reader.Close()
+	w.Header().Set("Content-Type", doc.MimeType)
+	w.Header().Set("X-WOPI-ItemVersion", version)
+	_, _ = io.Copy(w, reader)
+}
+
+func (h Handler) WOPISave(w http.ResponseWriter, r *http.Request) {
+	doc, size, err := h.service.WOPISave(r.Context(), r.URL.Query().Get("access_token"), r.PathValue("id"), r.Body)
+	if err != nil {
+		h.writeError(w, "wopi save failed", err)
+		return
+	}
+	h.recordAudit(r, audit.RecordInput{
+		Action:     audit.ActionOfficeSave,
+		TargetType: "document",
+		TargetID:   doc.ID,
+		Metadata:   map[string]any{"fileExt": doc.FileExt, "size": size, "via": "wopi"},
+	})
+	w.Header().Set("X-WOPI-ItemVersion", strconv.FormatInt(time.Now().UnixNano(), 10))
+	api.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error) {

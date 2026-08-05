@@ -3,7 +3,11 @@ package office
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +30,8 @@ type Config struct {
 	PublicAPIURL    string
 	CollabPublicURL string
 	CollabEnabled   bool
+	JWTSecret       string
+	EditorBaseURL   string
 	MaxUploadBytes  int64
 }
 
@@ -56,6 +62,17 @@ type Session struct {
 	Mode        string `json:"mode"`
 	DownloadURL string `json:"downloadUrl"`
 	SaveURL     string `json:"saveUrl"`
+	EditorURL   string `json:"editorUrl"`
+}
+
+type wopiClaims struct {
+	Subject     string   `json:"sub"`
+	DisplayName string   `json:"display_name"`
+	FileID      string   `json:"file_id"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
+	Kind        string   `json:"kind"`
+	ExpiresAt   int64    `json:"exp"`
 }
 
 type CollabSession struct {
@@ -90,7 +107,7 @@ func (s *Service) Session(ctx context.Context, currentUser user.User, documentID
 	if err != nil {
 		return Session{}, err
 	}
-	if !isCasualSupported(doc.FileExt) {
+	if !isCasualSupported(doc.FileExt) || s.cfg.JWTSecret == "" {
 		return Session{}, ErrUnsupportedFile
 	}
 	canView, err := s.permissions.CanView(ctx, currentUser.ID, documentID)
@@ -109,6 +126,14 @@ func (s *Service) Session(ctx context.Context, currentUser user.User, documentID
 		mode = "edit"
 	}
 	base := strings.TrimRight(s.cfg.PublicAPIURL, "/")
+	role := "viewer"
+	if canEdit {
+		role = "editor"
+	}
+	token, err := s.mintWOPIToken(currentUser, doc.ID, role, editorKind(doc.FileExt))
+	if err != nil {
+		return Session{}, err
+	}
 	return Session{
 		Provider:    s.cfg.Provider,
 		DocumentID:  doc.ID,
@@ -117,6 +142,7 @@ func (s *Service) Session(ctx context.Context, currentUser user.User, documentID
 		Mode:        mode,
 		DownloadURL: base + "/api/documents/" + doc.ID + "/download",
 		SaveURL:     base + "/api/documents/" + doc.ID + "/office/content",
+		EditorURL:   editorURL(strings.TrimRight(s.cfg.EditorBaseURL, "/"), doc, token),
 	}, nil
 }
 
@@ -206,6 +232,63 @@ func (s *Service) Save(ctx context.Context, currentUser user.User, documentID st
 	return doc, int64(len(data)), nil
 }
 
+// WOPIInfo validates the short-lived token and then checks the live document
+// permission. The second check is intentional: removing access revokes an
+// already-issued editor session immediately instead of waiting for token expiry.
+func (s *Service) WOPIInfo(ctx context.Context, token, documentID string) (document.Document, bool, string, error) {
+	claims, err := s.verifyWOPIToken(token, documentID)
+	if err != nil {
+		return document.Document{}, false, "", err
+	}
+	doc, err := s.documents.FindByID(ctx, documentID)
+	if err != nil {
+		return document.Document{}, false, "", err
+	}
+	canView, err := s.permissions.CanView(ctx, claims.Subject, documentID)
+	if err != nil {
+		return document.Document{}, false, "", err
+	}
+	if !canView {
+		return document.Document{}, false, "", ErrForbidden
+	}
+	canEdit, err := s.permissions.CanEdit(ctx, claims.Subject, documentID)
+	if err != nil {
+		return document.Document{}, false, "", err
+	}
+	version := doc.UpdatedAt.UTC().Format(time.RFC3339Nano)
+	if doc.CurrentVersionID != nil {
+		version = *doc.CurrentVersionID
+	}
+	return doc, canEdit, version, nil
+}
+
+func (s *Service) WOPIContent(ctx context.Context, token, documentID string) (document.Document, io.ReadCloser, string, error) {
+	doc, _, version, err := s.WOPIInfo(ctx, token, documentID)
+	if err != nil {
+		return document.Document{}, nil, "", err
+	}
+	reader, err := s.storage.GetObject(ctx, doc.StorageKey)
+	if err != nil {
+		return document.Document{}, nil, "", err
+	}
+	return doc, reader, version, nil
+}
+
+func (s *Service) WOPISave(ctx context.Context, token, documentID string, body io.Reader) (document.Document, int64, error) {
+	claims, err := s.verifyWOPIToken(token, documentID)
+	if err != nil {
+		return document.Document{}, 0, err
+	}
+	canEdit, err := s.permissions.CanEdit(ctx, claims.Subject, documentID)
+	if err != nil {
+		return document.Document{}, 0, err
+	}
+	if !canEdit {
+		return document.Document{}, 0, ErrForbidden
+	}
+	return s.Save(ctx, user.User{ID: claims.Subject, DisplayName: claims.DisplayName}, documentID, body)
+}
+
 type limitedReader struct {
 	reader    io.Reader
 	remaining int64
@@ -227,9 +310,84 @@ func isCasualSupported(ext string) bool {
 	switch strings.ToLower(ext) {
 	case "docx", "xlsx":
 		return true
+	case "md":
+		return true
 	default:
 		return false
 	}
+}
+
+func editorKind(ext string) string {
+	if strings.EqualFold(ext, "xlsx") {
+		return "sheets"
+	}
+	return "docs"
+}
+
+func editorURL(base string, doc document.Document, token string) string {
+	if editorKind(doc.FileExt) == "sheets" {
+		return base + "/casual-sheets/?access_token=" + token
+	}
+	id := base64.RawURLEncoding.EncodeToString([]byte(doc.ID))
+	return base + "/casual-docs/doc/" + id + "?access_token=" + token
+}
+
+func (s *Service) mintWOPIToken(currentUser user.User, fileID, role, kind string) (string, error) {
+	if len(s.cfg.JWTSecret) < 16 {
+		return "", ErrUnsupportedFile
+	}
+	permissions := []string{"read"}
+	if role == "editor" {
+		permissions = append(permissions, "write")
+	}
+	claims := wopiClaims{Subject: currentUser.ID, DisplayName: currentUser.DisplayName, FileID: fileID, Role: role, Permissions: permissions, Kind: kind, ExpiresAt: s.now().Add(15 * time.Minute).Unix()}
+	return signJWT(s.cfg.JWTSecret, claims)
+}
+
+func (s *Service) verifyWOPIToken(token, fileID string) (wopiClaims, error) {
+	claims, err := verifyJWT(s.cfg.JWTSecret, token)
+	if err != nil || claims.FileID != fileID || claims.ExpiresAt <= s.now().Unix() {
+		return wopiClaims{}, ErrForbidden
+	}
+	return claims, nil
+}
+
+func signJWT(secret string, claims wopiClaims) (string, error) {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadBytes, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+	payload := base64.RawURLEncoding.EncodeToString(payloadBytes)
+	signing := header + "." + payload
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(signing))
+	return signing + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
+}
+
+func verifyJWT(secret, token string) (wopiClaims, error) {
+	var claims wopiClaims
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || len(secret) < 16 {
+		return claims, ErrForbidden
+	}
+	got, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return claims, ErrForbidden
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(parts[0] + "." + parts[1]))
+	if !hmac.Equal(got, mac.Sum(nil)) {
+		return claims, ErrForbidden
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return claims, ErrForbidden
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil || claims.Subject == "" || claims.FileID == "" {
+		return wopiClaims{}, ErrForbidden
+	}
+	return claims, nil
 }
 
 func newUUID() (string, error) {

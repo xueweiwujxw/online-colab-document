@@ -31,6 +31,7 @@ type Config struct {
 	DocumentMaxUploadBytes         int64
 	OfficeCollabPublicURL          string
 	OfficeCollabEnabled            bool
+	CasualJWTSecret                string
 	PublicAppURL                   string
 	PublicAPIURL                   string
 	BackendInternalURL             string
@@ -62,6 +63,7 @@ func Load() Config {
 		DocumentMaxUploadBytes:         getInt64EnvAny([]string{"DOCUMENT_MAX_UPLOAD_BYTES", "MAX_UPLOAD_BYTES"}, 50<<20),
 		OfficeCollabPublicURL:          getEnv("OFFICE_COLLAB_PUBLIC_URL", ""),
 		OfficeCollabEnabled:            getBoolEnv("OFFICE_COLLAB_ENABLED", false),
+		CasualJWTSecret:                getEnv("CASUAL_JWT_SECRET", ""),
 		PublicAppURL:                   getEnv("PUBLIC_APP_URL", "http://localhost:3000"),
 		PublicAPIURL:                   getEnv("PUBLIC_API_URL", "http://localhost:8080"),
 		BackendInternalURL:             getEnv("BACKEND_INTERNAL_URL", "http://backend:8080"),

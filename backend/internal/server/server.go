@@ -157,6 +157,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 					PublicAPIURL:    cfg.PublicAPIURL,
 					CollabPublicURL: cfg.OfficeCollabPublicURL,
 					CollabEnabled:   cfg.OfficeCollabEnabled,
+					JWTSecret:       cfg.CasualJWTSecret,
+					EditorBaseURL:   cfg.PublicAppURL,
 					MaxUploadBytes:  cfg.DocumentMaxUploadBytes,
 				},
 				documentRepo,
@@ -188,6 +190,9 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /api/documents/{id}/office/session", requireAuth(officeHandler.Session))
 			mux.Handle("GET /api/documents/{id}/office/collab/session", requireAuth(officeHandler.CollabSession))
 			mux.Handle("PUT /api/documents/{id}/office/content", requireAuth(officeHandler.Save))
+			mux.HandleFunc("GET /wopi/files/{id}", officeHandler.WOPIInfo)
+			mux.HandleFunc("GET /wopi/files/{id}/contents", officeHandler.WOPIContent)
+			mux.HandleFunc("POST /wopi/files/{id}/contents", officeHandler.WOPISave)
 		}
 	}
 

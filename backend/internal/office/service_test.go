@@ -29,6 +29,9 @@ func TestSessionAllowsViewerAndReturnsReadOnlyMode(t *testing.T) {
 	if session.DownloadURL != "http://api.example.test/api/documents/doc-1/download" {
 		t.Fatalf("download url = %q", session.DownloadURL)
 	}
+	if session.EditorURL == "" {
+		t.Fatal("editor URL is empty")
+	}
 }
 
 func TestSessionRejectsUnsupportedFile(t *testing.T) {
@@ -147,6 +150,31 @@ func TestSaveStoresNewVersion(t *testing.T) {
 	}
 }
 
+func TestWOPIRechecksPermissionAfterTokenWasIssued(t *testing.T) {
+	h := newHarness()
+	token, err := h.service.mintWOPIToken(testUser(), "doc-1", "editor", "docs")
+	if err != nil {
+		t.Fatalf("mint token: %v", err)
+	}
+	h.permissions.canEdit = false
+	_, _, err = h.service.WOPISave(context.Background(), token, "doc-1", bytes.NewReader([]byte("blocked")))
+	if err != ErrForbidden {
+		t.Fatalf("WOPISave error = %v, want ErrForbidden", err)
+	}
+}
+
+func TestWOPIRejectsTokenForAnotherDocument(t *testing.T) {
+	h := newHarness()
+	token, err := h.service.mintWOPIToken(testUser(), "doc-1", "editor", "docs")
+	if err != nil {
+		t.Fatalf("mint token: %v", err)
+	}
+	_, _, _, err = h.service.WOPIInfo(context.Background(), token, "another-doc")
+	if err != ErrForbidden {
+		t.Fatalf("WOPIInfo error = %v, want ErrForbidden", err)
+	}
+}
+
 type harness struct {
 	repo        *fakeRepo
 	permissions *fakePermissions
@@ -168,6 +196,8 @@ func newHarness() harness {
 		Config{
 			Provider:       "casual",
 			PublicAPIURL:   "http://api.example.test",
+			EditorBaseURL:  "http://app.example.test",
+			JWTSecret:      "test-casual-secret-at-least-16",
 			MaxUploadBytes: 1024,
 		},
 		repo,
