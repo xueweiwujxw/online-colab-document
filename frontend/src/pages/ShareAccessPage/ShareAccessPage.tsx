@@ -117,7 +117,9 @@ export function ShareAccessPage({ token }: { token: string }) {
               setDraft(content);
               setSaveState('idle');
             }}
+            onCursorChange={() => undefined}
             readOnly={!state.access.canEdit}
+            remoteCursors={[]}
           />
           <section className="markdown-pane markdown-preview-pane">
             <span>Markdown 源码</span>

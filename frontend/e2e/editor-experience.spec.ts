@@ -74,6 +74,37 @@ test.describe('编辑器体验回归', () => {
 
     await viewerContext.close();
   });
+
+  test('Markdown 协同显示远程光标与用户名称', async ({ browser, page }) => {
+    const owner = account('cursor-owner');
+    await register(page, owner);
+    const documentId = await upload(page, markdownFile());
+    const editor = account('cursor-editor');
+    const editorContext = await browser.newContext();
+    const editorPage = await editorContext.newPage();
+    await register(editorPage, editor);
+
+    await page.goto(`/documents/${documentId}/permissions`);
+    await page.getByLabel('搜索用户').fill(editor.email);
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
+    await page.getByRole('button', { name: new RegExp(editor.email) }).click();
+    await page.getByLabel('权限').selectOption('editor');
+    await page.getByRole('button', { name: '授权', exact: true }).click();
+
+    await page.goto(`/documents/${documentId}/markdown`);
+    await editorPage.goto(`/documents/${documentId}/markdown`);
+    const remoteEditor = editorPage.locator('.ProseMirror');
+    await expect(editorPage.getByText('已连接', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(remoteEditor).toHaveAttribute('contenteditable', 'true');
+    await remoteEditor.click();
+    await editorPage.keyboard.press('Control+End');
+    await editorPage.keyboard.press('ArrowLeft');
+
+    const remoteCursor = page.locator('.remote-cursor-label', { hasText: editor.displayName });
+    await expect(remoteCursor).toBeVisible({ timeout: 10_000 });
+    await expect(remoteCursor).toHaveCSS('pointer-events', 'none');
+    await editorContext.close();
+  });
 });
 
 async function register(page: Page, user: Account): Promise<void> {

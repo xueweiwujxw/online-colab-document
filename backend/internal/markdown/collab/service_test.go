@@ -80,6 +80,42 @@ func TestEditorUpdatePersistsAndBroadcastsToOtherClients(t *testing.T) {
 	}
 }
 
+func TestCursorBroadcastsWithoutPersisting(t *testing.T) {
+	fixture := newTestService(100)
+	fixture.permissions.edit["doc-1:editor-1"] = true
+	fixture.permissions.view["doc-1:viewer-1"] = true
+	editor, err := fixture.service.Join(context.Background(), testUser("editor-1", "编辑者"), "doc-1")
+	if err != nil {
+		t.Fatalf("join editor: %v", err)
+	}
+	defer fixture.service.Leave(editor)
+	viewer, err := fixture.service.Join(context.Background(), testUser("viewer-1", "查看者"), "doc-1")
+	if err != nil {
+		t.Fatalf("join viewer: %v", err)
+	}
+	defer fixture.service.Leave(viewer)
+	drainMessages(t, editor.Receive)
+	drainMessages(t, viewer.Receive)
+
+	if err := fixture.service.ApplyClientMessage(context.Background(), editor, ClientUpdate{
+		Type:   "cursor",
+		Cursor: &Cursor{From: 3, To: 3},
+	}); err != nil {
+		t.Fatalf("broadcast cursor: %v", err)
+	}
+
+	message := receiveMessage(t, viewer.Receive)
+	if message.Type != "cursor" || message.UserID != "editor-1" || message.DisplayName != "编辑者" {
+		t.Fatalf("unexpected cursor message: %#v", message)
+	}
+	if message.Cursor == nil || message.Cursor.From != 3 || message.Cursor.To != 3 {
+		t.Fatalf("unexpected cursor: %#v", message.Cursor)
+	}
+	if fixture.repo.updateCount() != 0 {
+		t.Fatalf("cursor must not be persisted, got %d updates", fixture.repo.updateCount())
+	}
+}
+
 func TestSnapshotRecoveryReplaysUpdates(t *testing.T) {
 	fixture := newTestService(100)
 	createdBy := "editor-1"

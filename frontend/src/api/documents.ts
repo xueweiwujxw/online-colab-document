@@ -33,6 +33,11 @@ export type PresenceUser = {
   canEdit: boolean;
 };
 
+export type MarkdownCursor = {
+  from: number;
+  to: number;
+};
+
 export type MarkdownSnapshot = {
   documentId: string;
   content: string;

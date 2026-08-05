@@ -33,3 +33,8 @@ type PresenceUser struct {
 	DisplayName string `json:"displayName"`
 	CanEdit     bool   `json:"canEdit"`
 }
+
+type Cursor struct {
+	From int `json:"from"`
+	To   int `json:"to"`
+}

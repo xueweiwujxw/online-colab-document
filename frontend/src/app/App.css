@@ -1127,11 +1127,40 @@ h1 {
 .rich-markdown-editor {
   min-height: 100%;
   overflow: auto;
+  position: relative;
   padding: 18px 22px 48px;
   color: var(--text);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.68;
+}
+
+.remote-cursor {
+  background: var(--remote-cursor-color);
+  height: 1.45em;
+  pointer-events: none;
+  position: absolute;
+  width: 2px;
+  z-index: 3;
+}
+
+.remote-cursor-label {
+  background: var(--remote-cursor-color);
+  border-radius: 4px 4px 4px 0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  left: 0;
+  line-height: 1.4;
+  max-width: 140px;
+  overflow: hidden;
+  padding: 2px 6px;
+  pointer-events: none;
+  position: absolute;
+  text-overflow: ellipsis;
+  top: -4px;
+  transform: translateY(-100%);
+  white-space: nowrap;
 }
 
 .rich-markdown-editor.is-readonly {

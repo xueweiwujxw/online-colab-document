@@ -53,8 +53,9 @@ type ClientSession struct {
 }
 
 type ClientUpdate struct {
-	Type    string `json:"type"`
-	Content string `json:"content,omitempty"`
+	Type    string  `json:"type"`
+	Content string  `json:"content,omitempty"`
+	Cursor  *Cursor `json:"cursor,omitempty"`
 }
 
 type ServerMessage struct {
@@ -65,6 +66,7 @@ type ServerMessage struct {
 	UserID      string         `json:"userId,omitempty"`
 	DisplayName string         `json:"displayName,omitempty"`
 	Users       []PresenceUser `json:"users,omitempty"`
+	Cursor      *Cursor        `json:"cursor,omitempty"`
 	Error       string         `json:"error,omitempty"`
 }
 
@@ -171,8 +173,32 @@ func (s *Service) ApplyClientMessage(ctx context.Context, session *ClientSession
 			return ErrForbidden
 		}
 		return s.applyContentUpdate(ctx, session, update.Content)
+	case "cursor":
+		if update.Cursor == nil || update.Cursor.From < 0 || update.Cursor.To < 0 {
+			return nil
+		}
+		s.broadcastCursor(session, *update.Cursor)
+		return nil
 	default:
 		return nil
+	}
+}
+
+func (s *Service) broadcastCursor(session *ClientSession, cursor Cursor) {
+	r := session.room
+	r.mu.Lock()
+	receivers := r.clientsSnapshotLocked()
+	r.mu.Unlock()
+	message := ServerMessage{
+		Type:        "cursor",
+		UserID:      session.User.ID,
+		DisplayName: session.User.DisplayName,
+		Cursor:      &cursor,
+	}
+	for _, receiver := range receivers {
+		if receiver != session {
+			receiver.enqueue(message)
+		}
 	}
 }
 

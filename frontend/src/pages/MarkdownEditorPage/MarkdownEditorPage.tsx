@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, type CSSProperties, useEffect, useRef, useState } from 'react';
 import {
   baseKeymap,
   chainCommands,
@@ -29,6 +29,7 @@ import {
   documentDownloadURL,
   getMarkdownSnapshot,
   markdownWebSocketURL,
+  type MarkdownCursor,
   saveMarkdownDocument,
   type PresenceUser,
 } from '../../api/documents';
@@ -39,11 +40,14 @@ type ConnectionState = 'loading' | 'connected' | 'disconnected' | 'reconnecting'
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 type ServerMessage = {
-  type: 'init' | 'update' | 'presence' | 'error';
+  type: 'init' | 'update' | 'presence' | 'cursor' | 'error';
   content?: string;
   canEdit?: boolean;
   updateSeq?: number;
   users?: PresenceUser[];
+  userId?: string;
+  displayName?: string;
+  cursor?: MarkdownCursor;
   error?: string;
 };
 
@@ -151,6 +155,7 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
   const [draft, setDraft] = useState('');
   const [canEdit, setCanEdit] = useState(false);
   const [users, setUsers] = useState<PresenceUser[]>([]);
+  const [remoteCursors, setRemoteCursors] = useState<Record<string, MarkdownCursor & Pick<PresenceUser, 'displayName'>>>({});
   const [connection, setConnection] = useState<ConnectionState>('loading');
   const [error, setError] = useState<string | null>(null);
   const [lastSavedSeq, setLastSavedSeq] = useState<number | null>(null);
@@ -202,6 +207,18 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
         }
         if (message.type === 'presence') {
           setUsers(message.users ?? []);
+          const activeIDs = new Set((message.users ?? []).map((user) => user.userId));
+          setRemoteCursors((current) => Object.fromEntries(Object.entries(current).filter(([userID]) => activeIDs.has(userID))));
+          return;
+        }
+        if (message.type === 'cursor' && message.userId && message.displayName && message.cursor) {
+          const userId = message.userId;
+          const displayName = message.displayName;
+          const cursor = message.cursor;
+          setRemoteCursors((current) => ({
+            ...current,
+            [userId]: { ...cursor, displayName },
+          }));
           return;
         }
         if (message.type === 'error') {
@@ -264,6 +281,12 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
     setSaveState('idle');
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: 'update', content }));
+    }
+  }
+
+  function onCursorChange(cursor: MarkdownCursor) {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'cursor', cursor }));
     }
   }
 
@@ -352,7 +375,11 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           content={draft}
           disabled={connection === 'loading'}
           onChange={onDraftChange}
+          onCursorChange={onCursorChange}
           readOnly={readonly}
+          remoteCursors={Object.entries(remoteCursors)
+            .filter(([userID]) => userID !== auth.user.id)
+            .map(([userId, cursor]) => ({ userId, ...cursor }))}
         />
         <section className="markdown-pane markdown-preview-pane">
           <span>Markdown 源码</span>
@@ -369,16 +396,22 @@ export function RichMarkdownEditor({
   content,
   disabled,
   onChange,
+  onCursorChange,
   readOnly,
+  remoteCursors,
 }: {
   content: string;
   disabled: boolean;
   onChange: (content: string) => void;
+  onCursorChange: (cursor: MarkdownCursor) => void;
   readOnly: boolean;
+  remoteCursors: Array<MarkdownCursor & { userId: string; displayName: string }>;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const cursorLayerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
+  const onCursorChangeRef = useRef(onCursorChange);
   const readonlyRef = useRef(readOnly || disabled);
   const [view, setView] = useState<EditorView | null>(null);
   const [editorVersion, setEditorVersion] = useState(0);
@@ -386,6 +419,7 @@ export function RichMarkdownEditor({
   const [tableDialog, setTableDialog] = useState<{ rows: number; columns: number } | null>(null);
 
   onChangeRef.current = onChange;
+  onCursorChangeRef.current = onCursorChange;
   readonlyRef.current = readOnly || disabled;
 
   useEffect(() => {
@@ -400,6 +434,9 @@ export function RichMarkdownEditor({
         const nextState = view.state.apply(transaction);
         view.updateState(nextState);
         setEditorVersion((version) => version + 1);
+        if (transaction.selectionSet) {
+          onCursorChangeRef.current({ from: nextState.selection.from, to: nextState.selection.to });
+        }
         if (transaction.docChanged) {
           onChangeRef.current(serializeMarkdown(nextState.doc));
         }
@@ -441,6 +478,22 @@ export function RichMarkdownEditor({
   const selectedText = currentSelection
     ? view.state.doc.textBetween(currentSelection.from, currentSelection.to, ' ')
     : '';
+  const cursorMarkers = remoteCursors.flatMap((cursor, index) => {
+    if (!view || !cursorLayerRef.current) return [];
+    try {
+      const position = Math.min(Math.max(1, cursor.to), view.state.doc.content.size);
+      const coordinates = view.coordsAtPos(position);
+      const hostBounds = cursorLayerRef.current.getBoundingClientRect();
+      return [{
+        ...cursor,
+        color: cursorColor(index),
+        left: coordinates.left - hostBounds.left + cursorLayerRef.current.scrollLeft,
+        top: coordinates.top - hostBounds.top + cursorLayerRef.current.scrollTop,
+      }];
+    } catch {
+      return [];
+    }
+  });
 
   return (
     <section className="markdown-pane rich-markdown-pane">
@@ -577,9 +630,25 @@ export function RichMarkdownEditor({
           <button className="secondary-button" onClick={() => setTableDialog(null)} type="button">取消</button>
         </form>
       ) : null}
-      <div className={`rich-markdown-editor ${isReadOnly ? 'is-readonly' : ''}`} ref={hostRef} />
+      <div className={`rich-markdown-editor ${isReadOnly ? 'is-readonly' : ''}`} ref={cursorLayerRef}>
+        <div className="rich-markdown-editor-surface" ref={hostRef} />
+        {cursorMarkers.map((cursor) => (
+          <span
+            className="remote-cursor"
+            data-testid={`remote-cursor-${cursor.userId}`}
+            key={cursor.userId}
+            style={{ '--remote-cursor-color': cursor.color, left: cursor.left, top: cursor.top } as CSSProperties}
+          >
+            <span className="remote-cursor-label">{cursor.displayName}</span>
+          </span>
+        ))}
+      </div>
     </section>
   );
+}
+
+function cursorColor(index: number): string {
+  return ['#2563eb', '#db2777', '#059669', '#9333ea', '#ea580c'][index % 5];
 }
 
 function EditorButton({
