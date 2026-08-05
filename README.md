@@ -42,6 +42,19 @@ compose 前端容器也提供同源代理：
 
 开发时优先访问 `http://localhost:3000` 或 `http://127.0.0.1:3000` 的前端入口，不要直接让浏览器访问 `8080` 或 `1234`。Office 编辑器会把本地 backend / collab 绝对地址改写为同源代理地址，避免 `localhost` 和 `127.0.0.1` 混用导致 cookie 不发送，从而出现登录成功但 Office 下载 `401`、`Failed to fetch`、协作 WebSocket 认证失败或只读不可编辑的问题。
 
+### 本地前端端口约束
+
+`FRONTEND_ORIGIN` 默认固定为 `http://localhost:3000`，Markdown/TXT 协作 WebSocket 会校验该 Origin。因此 Vite 已启用 `strictPort: true`：`3000` 被占用时启动会直接失败，**不会自动改用 3001、3002 或其他端口**。这是安全约束，不应绕过。
+
+出现端口占用时：
+
+1. 停止占用 `3000` 的旧前端进程或容器；
+2. 重新执行 `cd frontend && corepack pnpm run dev`；
+3. 仅通过 `http://localhost:3000` 打开页面；
+4. 修改 `frontend/vite.config.ts` 后必须重启 Vite，特别是 xlsx 解析依赖的 `optimizeDeps.exclude` 配置。
+
+不要把自动回退端口的开发服务器地址提供给用户。它会绕过既定 Origin，导致协作连接被后端以 `403` 拒绝；同时容易加载与 Compose 容器不同版本的前端资源，使 xlsx 解析问题难以复现。
+
 Casual Sheets 的 xlsx 解析依赖包内 `parser.worker.js`。Vite dev server 必须在 `frontend/vite.config.ts` 里把 `@casualoffice/sheets/xlsx` 加入 `optimizeDeps.exclude`，否则浏览器会请求不存在的 `node_modules/.vite/deps/parser.worker.js?worker_file&type=module`，页面表现为表格编辑器一直加载、协作状态异常，或报 `xlsx parser worker ran out of memory parsing this file`。修改 `vite.config.ts` 后必须重启 Vite。
 
 服务地址：

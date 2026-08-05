@@ -9,6 +9,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
+    // WebSocket Origin validation on the backend intentionally only accepts
+    // FRONTEND_ORIGIN. Do not silently fall back to another Vite port.
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
