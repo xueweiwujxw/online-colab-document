@@ -58,6 +58,10 @@ export async function saveOfficeContent(url: string, buffer: ArrayBuffer): Promi
 }
 
 function resolveApiUrl(url: string): string {
+  if (/^https?:\/\/(localhost|127\.0\.0\.1):8080\/api\//i.test(url)) {
+    const parsed = new URL(url);
+    return `${parsed.pathname}${parsed.search}`;
+  }
   if (/^https?:\/\//i.test(url)) {
     return url;
   }

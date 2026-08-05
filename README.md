@@ -23,6 +23,20 @@ Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服
 make dev
 ```
 
+开发调试前端时，也可以只用 compose 启动后端依赖，然后在宿主机启动 Vite：
+
+```bash
+podman compose -f deploy/docker-compose.yml up --build -d backend office-collab
+cd frontend && corepack pnpm run dev -- --host 0.0.0.0 --port 3000
+```
+
+前端 dev server 已配置代理：
+
+- `/api` -> `http://localhost:8080`
+- `/office-collab` -> `ws://localhost:1234`
+
+开发时优先访问 `http://localhost:3000` 或 `http://127.0.0.1:3000` 的前端入口，不要直接让浏览器访问 `8080` 或 `1234`。Office 编辑器会把本地 backend / collab 绝对地址改写为同源代理地址，避免 `localhost` 和 `127.0.0.1` 混用导致 cookie 不发送，从而出现登录成功但 Office 下载 `401`、`Failed to fetch`、协作 WebSocket 认证失败或只读不可编辑的问题。
+
 服务地址：
 
 - Frontend: http://localhost:3000

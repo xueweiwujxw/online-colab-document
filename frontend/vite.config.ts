@@ -11,6 +11,12 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/office-collab': {
+        target: 'ws://localhost:1234',
+        changeOrigin: true,
+        rewriteWsOrigin: true,
+        ws: true,
+      },
     },
   },
 });

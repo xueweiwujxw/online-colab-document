@@ -430,8 +430,17 @@ function createClientId(): string {
 }
 
 function officeCollabURL(serverURL: string, room: string, role: string): string {
-  const separator = serverURL.includes('?') ? '&' : '?';
-  return `${serverURL}${separator}room=${encodeURIComponent(room)}&role=${role === 'view' ? 'view' : 'write'}`;
+  const normalizedServerURL = normalizeOfficeCollabURL(serverURL);
+  const separator = normalizedServerURL.includes('?') ? '&' : '?';
+  return `${normalizedServerURL}${separator}room=${encodeURIComponent(room)}&role=${role === 'view' ? 'view' : 'write'}`;
+}
+
+function normalizeOfficeCollabURL(serverURL: string): string {
+  if (/^wss?:\/\/(localhost|127\.0\.0\.1):1234\/?$/i.test(serverURL)) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/office-collab`;
+  }
+  return serverURL;
 }
 
 function CasualIframeHost({
