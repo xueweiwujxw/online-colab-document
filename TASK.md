@@ -2414,6 +2414,12 @@ xlsx 可输入单元格、应用常用格式、撤销/重做、保存并生成�
 - 使用受权限保护的 host integration / JWT API 提供初始 xlsx、保存回调和 editor/viewer 角色；前端通过同源代理打开对应房间。
 - 验收：两个 editor 在同一 `.xlsx` 中可实时看到单元格值、格式、远程选区和名称；viewer 能看到更新但不能写入；断线重连后内容不丢失；保存生成版本与审计日志。
 
+POC 记录（2026-08-06）：
+
+- 已拉取并启动官方镜像：`casualoffice/sheets:0.3.4`（Web、Hocuspocus、Fastify，`/yjs`）和 `casualoffice/docs:0.0.5`（`/yjs`）；两者容器内 `/health` 均返回 200。
+- Casual Sheets 官方 SDK 的 `attachCollab` 是所需的单元格 mutation bridge，但当前 npm 发布的 `@casualoffice/sheets@0.20.0` 在直挂页面时动态依赖 `@univerjs/docs-mention-ui`；该包在 npm registry 不存在，导致画布不挂载。因此不能以这个不完整 SDK 发行物作为正式集成。
+- 后续 POC 必须使用官方 Docker 应用的完整前端构建，并补齐本系统的受权限保护 room/seed/save host adapter；在两个真实用户完成单元格与光标同步、viewer 拒写、版本保存前，禁止宣称 xlsx 协同通过。
+
 ### 17.4 端到端与部署验收
 
 - 新增 Playwright 双用户回归：权限用户列表、Markdown、DOCX、XLSX 的内容同步、远程光标/名称、viewer 只读、保存和版本链路。

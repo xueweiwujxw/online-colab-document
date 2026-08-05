@@ -44,7 +44,7 @@ services:
     environment:
       API_PROXY_TARGET: http://backend:8080
       OFFICE_COLLAB_PROXY_HOST: office-collab
-      OFFICE_COLLAB_PROXY_PORT: "1234"
+      OFFICE_COLLAB_PROXY_PORT: "3000"
     ports:
       - "3000:3000"
     depends_on:
@@ -52,15 +52,15 @@ services:
       - office-collab
 
   office-collab:
-    build:
-      context: ../office-collab
+    image: docker.io/casualoffice/sheets:0.3.4
     environment:
-      PORT: "1234"
-      BACKEND_INTERNAL_URL: http://backend:8080
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+      CASUAL_REDIS_PREFIX: "online-colab-document:"
     ports:
-      - "1234:1234"
+      - "1234:3000"
     depends_on:
-      - backend
+      - redis
 
   postgres:
     image: docker.io/library/postgres:17-alpine

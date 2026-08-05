@@ -43,13 +43,13 @@ services:
     restart: unless-stopped
 
   office-collab:
-    build:
-      context: ../office-collab
+    image: docker.io/casualoffice/sheets:0.3.4
     environment:
-      PORT: "1234"
-      BACKEND_INTERNAL_URL: http://backend:8080
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+      CASUAL_REDIS_PREFIX: "online-colab-document:"
     depends_on:
-      - backend
+      - redis
     restart: unless-stopped
 
   nginx:
