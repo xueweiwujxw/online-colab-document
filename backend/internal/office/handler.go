@@ -6,8 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/websocket"
 
 	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
@@ -19,6 +22,74 @@ type Handler struct {
 	service *Service
 	logger  *slog.Logger
 	audit   AuditRecorder
+}
+
+var collabUpgrader = websocket.Upgrader{
+	CheckOrigin: func(*http.Request) bool { return true },
+}
+
+// SheetsWebSocket is a security boundary, not a replacement collaboration
+// implementation. It authenticates a native Casual client, re-checks the
+// current project permission, then proxies the binary Yjs protocol to the
+// official Hocuspocus service with a server-selected role.
+func (h Handler) SheetsWebSocket(w http.ResponseWriter, r *http.Request) {
+	h.proxyCollab(w, r, "sheets", h.service.cfg.SheetsInternalWSURL)
+}
+
+func (h Handler) DocsWebSocket(w http.ResponseWriter, r *http.Request) {
+	h.proxyCollab(w, r, "docs", h.service.cfg.DocsInternalWSURL)
+}
+
+func (h Handler) proxyCollab(w http.ResponseWriter, r *http.Request, kind, upstream string) {
+	room := r.URL.Query().Get("room")
+	token := r.URL.Query().Get("share")
+	if room == "" || token == "" || upstream == "" {
+		api.WriteError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	role, err := h.service.AuthorizeCollab(r.Context(), token, room, kind)
+	if err != nil {
+		h.writeError(w, "casual websocket authorization failed", err)
+		return
+	}
+	target, err := url.Parse(upstream)
+	if err != nil {
+		h.logger.Error("casual websocket URL invalid", "error", err)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	query := target.Query()
+	query.Set("room", room)
+	query.Set("role", role)
+	target.RawQuery = query.Encode()
+	upstreamConn, _, err := websocket.DefaultDialer.DialContext(r.Context(), target.String(), nil)
+	if err != nil {
+		h.logger.Error("casual websocket upstream failed", "error", err)
+		api.WriteError(w, http.StatusBadGateway, "collaboration service unavailable")
+		return
+	}
+	defer upstreamConn.Close()
+	clientConn, err := collabUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer clientConn.Close()
+	done := make(chan struct{}, 2)
+	copyFrames := func(dst, src *websocket.Conn) {
+		defer func() { done <- struct{}{} }()
+		for {
+			messageType, payload, readErr := src.ReadMessage()
+			if readErr != nil {
+				return
+			}
+			if writeErr := dst.WriteMessage(messageType, payload); writeErr != nil {
+				return
+			}
+		}
+	}
+	go copyFrames(upstreamConn, clientConn)
+	go copyFrames(clientConn, upstreamConn)
+	<-done
 }
 
 type AuditRecorder interface {

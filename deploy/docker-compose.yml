@@ -28,6 +28,8 @@ services:
       CASUAL_JWT_SECRET: ${CASUAL_JWT_SECRET:?set CASUAL_JWT_SECRET in an ignored env file}
       CASUAL_DOCS_EDITOR_URL: ${CASUAL_DOCS_EDITOR_URL:-http://localhost:1235}
       CASUAL_SHEETS_EDITOR_URL: ${CASUAL_SHEETS_EDITOR_URL:-http://localhost:1234}
+      CASUAL_SHEETS_INTERNAL_WS_URL: ws://office-collab:3000/yjs
+      CASUAL_DOCS_INTERNAL_WS_URL: ws://casual-docs:3000/yjs
       PUBLIC_APP_URL: http://localhost:3000
       PUBLIC_API_URL: http://localhost:8080
       BACKEND_INTERNAL_URL: http://backend:8080

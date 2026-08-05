@@ -34,6 +34,8 @@ type Config struct {
 	CasualJWTSecret                string
 	CasualDocsEditorURL            string
 	CasualSheetsEditorURL          string
+	CasualSheetsInternalWSURL      string
+	CasualDocsInternalWSURL        string
 	PublicAppURL                   string
 	PublicAPIURL                   string
 	BackendInternalURL             string
@@ -68,6 +70,8 @@ func Load() Config {
 		CasualJWTSecret:                getEnv("CASUAL_JWT_SECRET", ""),
 		CasualDocsEditorURL:            getEnv("CASUAL_DOCS_EDITOR_URL", ""),
 		CasualSheetsEditorURL:          getEnv("CASUAL_SHEETS_EDITOR_URL", ""),
+		CasualSheetsInternalWSURL:      getEnv("CASUAL_SHEETS_INTERNAL_WS_URL", ""),
+		CasualDocsInternalWSURL:        getEnv("CASUAL_DOCS_INTERNAL_WS_URL", ""),
 		PublicAppURL:                   getEnv("PUBLIC_APP_URL", "http://localhost:3000"),
 		PublicAPIURL:                   getEnv("PUBLIC_API_URL", "http://localhost:8080"),
 		BackendInternalURL:             getEnv("BACKEND_INTERNAL_URL", "http://backend:8080"),

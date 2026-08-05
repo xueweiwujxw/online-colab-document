@@ -26,14 +26,16 @@ var (
 )
 
 type Config struct {
-	Provider        string
-	PublicAPIURL    string
-	CollabPublicURL string
-	CollabEnabled   bool
-	JWTSecret       string
-	DocsEditorURL   string
-	SheetsEditorURL string
-	MaxUploadBytes  int64
+	Provider            string
+	PublicAPIURL        string
+	CollabPublicURL     string
+	CollabEnabled       bool
+	JWTSecret           string
+	DocsEditorURL       string
+	SheetsEditorURL     string
+	SheetsInternalWSURL string
+	DocsInternalWSURL   string
+	MaxUploadBytes      int64
 }
 
 type DocumentRepository interface {
@@ -327,10 +329,51 @@ func editorKind(ext string) string {
 
 func editorURL(cfg Config, doc document.Document, token string) string {
 	if editorKind(doc.FileExt) == "sheets" {
-		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/?access_token=" + token
+		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/r/" + doc.ID + "?access_token=" + token + "&share=" + token + "&role=" + roleForDocument(doc, token)
 	}
 	id := base64.RawURLEncoding.EncodeToString([]byte(doc.ID))
 	return strings.TrimRight(cfg.DocsEditorURL, "/") + "/doc/" + id + "?access_token=" + token
+}
+
+func roleForDocument(doc document.Document, token string) string {
+	// The role remains present for Casual's local read-only UI. It is not an
+	// authority: the Go WebSocket proxy recalculates it from the signed token
+	// and current permissions before it reaches Hocuspocus.
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "view"
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "view"
+	}
+	var claims wopiClaims
+	if json.Unmarshal(payload, &claims) != nil || claims.FileID != doc.ID || claims.Role != "editor" {
+		return "view"
+	}
+	return "write"
+}
+
+func (s *Service) AuthorizeCollab(ctx context.Context, token, documentID, kind string) (string, error) {
+	claims, err := s.verifyWOPIToken(token, documentID)
+	if err != nil || claims.Kind != kind {
+		return "", ErrForbidden
+	}
+	canView, err := s.permissions.CanView(ctx, claims.Subject, documentID)
+	if err != nil || !canView {
+		if err != nil {
+			return "", err
+		}
+		return "", ErrForbidden
+	}
+	canEdit, err := s.permissions.CanEdit(ctx, claims.Subject, documentID)
+	if err != nil {
+		return "", err
+	}
+	if canEdit {
+		return "write", nil
+	}
+	return "view", nil
 }
 
 func (s *Service) mintWOPIToken(currentUser user.User, fileID, role, kind string) (string, error) {

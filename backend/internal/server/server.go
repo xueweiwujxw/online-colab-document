@@ -153,14 +153,16 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			)
 			officeService := office.NewService(
 				office.Config{
-					Provider:        "casual",
-					PublicAPIURL:    cfg.PublicAPIURL,
-					CollabPublicURL: cfg.OfficeCollabPublicURL,
-					CollabEnabled:   cfg.OfficeCollabEnabled,
-					JWTSecret:       cfg.CasualJWTSecret,
-					DocsEditorURL:   cfg.CasualDocsEditorURL,
-					SheetsEditorURL: cfg.CasualSheetsEditorURL,
-					MaxUploadBytes:  cfg.DocumentMaxUploadBytes,
+					Provider:            "casual",
+					PublicAPIURL:        cfg.PublicAPIURL,
+					CollabPublicURL:     cfg.OfficeCollabPublicURL,
+					CollabEnabled:       cfg.OfficeCollabEnabled,
+					JWTSecret:           cfg.CasualJWTSecret,
+					DocsEditorURL:       cfg.CasualDocsEditorURL,
+					SheetsEditorURL:     cfg.CasualSheetsEditorURL,
+					SheetsInternalWSURL: cfg.CasualSheetsInternalWSURL,
+					DocsInternalWSURL:   cfg.CasualDocsInternalWSURL,
+					MaxUploadBytes:      cfg.DocumentMaxUploadBytes,
 				},
 				documentRepo,
 				permissionService,
@@ -194,6 +196,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.HandleFunc("GET /wopi/files/{id}", officeHandler.WOPIInfo)
 			mux.HandleFunc("GET /wopi/files/{id}/contents", officeHandler.WOPIContent)
 			mux.HandleFunc("POST /wopi/files/{id}/contents", officeHandler.WOPISave)
+			mux.HandleFunc("GET /casual/sheets/yjs", officeHandler.SheetsWebSocket)
+			mux.HandleFunc("GET /casual/docs/yjs", officeHandler.DocsWebSocket)
 		}
 	}
 

@@ -175,6 +175,27 @@ func TestWOPIRejectsTokenForAnotherDocument(t *testing.T) {
 	}
 }
 
+func TestAuthorizeCollabUsesLivePermissionAndTokenKind(t *testing.T) {
+	h := newHarness()
+	token, err := h.service.mintWOPIToken(testUser(), "doc-1", "editor", "sheets")
+	if err != nil {
+		t.Fatalf("mint token: %v", err)
+	}
+	role, err := h.service.AuthorizeCollab(context.Background(), token, "doc-1", "sheets")
+	if err != nil || role != "write" {
+		t.Fatalf("AuthorizeCollab = %q, %v; want write, nil", role, err)
+	}
+	h.permissions.canEdit = false
+	role, err = h.service.AuthorizeCollab(context.Background(), token, "doc-1", "sheets")
+	if err != nil || role != "view" {
+		t.Fatalf("AuthorizeCollab after revoke = %q, %v; want view, nil", role, err)
+	}
+	_, err = h.service.AuthorizeCollab(context.Background(), token, "doc-1", "docs")
+	if err != ErrForbidden {
+		t.Fatalf("AuthorizeCollab wrong kind error = %v, want ErrForbidden", err)
+	}
+}
+
 type harness struct {
 	repo        *fakeRepo
 	permissions *fakePermissions
