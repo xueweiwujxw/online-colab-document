@@ -43,6 +43,9 @@ func (h Handler) DocsWebSocket(w http.ResponseWriter, r *http.Request) {
 func (h Handler) proxyCollab(w http.ResponseWriter, r *http.Request, kind, upstream string) {
 	room := r.URL.Query().Get("room")
 	token := r.URL.Query().Get("share")
+	if token == "" {
+		token = r.URL.Query().Get("access_token")
+	}
 	if room == "" || token == "" || upstream == "" {
 		api.WriteError(w, http.StatusForbidden, "forbidden")
 		return

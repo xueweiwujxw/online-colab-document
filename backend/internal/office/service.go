@@ -328,11 +328,16 @@ func editorKind(ext string) string {
 }
 
 func editorURL(cfg Config, doc document.Document, token string) string {
+	role := roleForDocument(doc, token)
 	if editorKind(doc.FileExt) == "sheets" {
-		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/r/" + doc.ID + "?access_token=" + token + "&share=" + token + "&role=" + roleForDocument(doc, token)
+		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/r/" + doc.ID + "?access_token=" + token + "&share=" + token + "&role=" + role
 	}
 	id := base64.RawURLEncoding.EncodeToString([]byte(doc.ID))
-	return strings.TrimRight(cfg.DocsEditorURL, "/") + "/doc/" + id + "?access_token=" + token
+	kind := "docx"
+	if strings.EqualFold(doc.FileExt, "md") {
+		kind = "markdown"
+	}
+	return strings.TrimRight(cfg.DocsEditorURL, "/") + "/doc/" + id + "?access_token=" + token + "&room=" + doc.ID + "&kind=" + kind + "&role=" + role
 }
 
 func roleForDocument(doc document.Document, token string) string {
