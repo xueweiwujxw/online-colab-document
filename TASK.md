@@ -2398,6 +2398,42 @@ OIDC 账号不显示本地修改密码表单
 
 ---
 
+## Plan 14：用户中心会话管理
+
+状态：已完成。
+
+范围：
+
+- 用户中心展示当前用户有效登录 session。
+- 会话列表只返回 session id、创建时间、过期时间和是否当前会话。
+- 当前用户可以撤销自己的其他登录 session。
+- 禁止撤销当前 session。
+- session token 和 token hash 不返回前端、不写审计 metadata。
+
+不做：
+
+- 不新增 session IP、User-Agent、设备名字段。
+- 不支持管理员代用户撤销 session。
+- 不支持一键退出全部其他设备。
+
+验收标准：
+
+```text
+用户中心可以看到当前会话和其他会话
+撤销其他会话后该 session 不能继续访问接口
+撤销当前会话失败
+后端测试和前端构建通过
+```
+
+当前记录：
+
+- 已新增 `GET /api/auth/sessions`。
+- 已新增 `DELETE /api/auth/sessions/:id`。
+- 已新增审计动作 `auth.session_revoke`，仅记录 session id。
+- 已在用户中心增加会话管理面板。
+
+---
+
 # 6. 每个 Milestone 的 Codex Goal 用法
 
 ## Goal：M0

@@ -185,6 +185,58 @@ func (r *PostgresRepository) FindSessionByTokenHash(ctx context.Context, tokenHa
 	return record, nil
 }
 
+func (r *PostgresRepository) FindSessionByID(ctx context.Context, id string) (session.Record, error) {
+	var record session.Record
+	err := r.db.QueryRowContext(
+		ctx,
+		`SELECT id, user_id, token_hash, expires_at, created_at FROM sessions WHERE id = $1`,
+		id,
+	).Scan(&record.ID, &record.UserID, &record.TokenHash, &record.ExpiresAt, &record.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return session.Record{}, ErrSessionNotFound
+	}
+	if err != nil {
+		return session.Record{}, fmt.Errorf("find session by id: %w", err)
+	}
+	return record, nil
+}
+
+func (r *PostgresRepository) ListSessionsByUserID(ctx context.Context, userID string) ([]session.Record, error) {
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT id, user_id, token_hash, expires_at, created_at
+		FROM sessions
+		WHERE user_id = $1 AND expires_at > NOW()
+		ORDER BY created_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var records []session.Record
+	for rows.Next() {
+		var record session.Record
+		if err := rows.Scan(&record.ID, &record.UserID, &record.TokenHash, &record.ExpiresAt, &record.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan session: %w", err)
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list sessions rows: %w", err)
+	}
+	return records, nil
+}
+
+func (r *PostgresRepository) DeleteSessionByID(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete session by id: %w", err)
+	}
+	return nil
+}
+
 func (r *PostgresRepository) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE token_hash = $1`, tokenHash)
 	if err != nil {

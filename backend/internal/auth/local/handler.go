@@ -222,6 +222,57 @@ func (h Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, user.ToPublic(updatedUser))
 }
 
+func (h Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	items, err := h.service.ListSessions(r.Context(), currentUser.ID, h.tokenFromCookie(r))
+	if err != nil {
+		if errors.Is(err, ErrUnauthenticated) {
+			api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+			return
+		}
+		h.logger.Error("list sessions failed", "error", err)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, map[string][]PublicSession{"items": items})
+}
+
+func (h Handler) RevokeSession(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	sessionID := r.PathValue("id")
+	err := h.service.RevokeSession(r.Context(), currentUser.ID, sessionID, h.tokenFromCookie(r))
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidInput):
+			api.WriteError(w, http.StatusBadRequest, "invalid session")
+		case errors.Is(err, ErrCurrentSession):
+			api.WriteError(w, http.StatusBadRequest, "cannot revoke current session")
+		case errors.Is(err, ErrSessionForbidden):
+			api.WriteError(w, http.StatusNotFound, "session not found")
+		default:
+			h.logger.Error("revoke session failed", "error", err)
+			api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionSessionRevoke,
+		TargetType:  "session",
+		TargetID:    sessionID,
+	})
+	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (h Handler) tokenFromCookie(r *http.Request) string {
 	cookie, err := r.Cookie(h.cookieName)
 	if err != nil {

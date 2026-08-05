@@ -18,11 +18,16 @@ var (
 	ErrInvalidCredentials  = errors.New("invalid email or password")
 	ErrUnauthenticated     = errors.New("unauthenticated")
 	ErrPasswordUnsupported = errors.New("password change unsupported for this account")
+	ErrSessionForbidden    = errors.New("session forbidden")
+	ErrCurrentSession      = errors.New("cannot revoke current session")
 )
 
 type SessionRepository interface {
 	CreateSession(ctx context.Context, record session.Record) error
 	FindSessionByTokenHash(ctx context.Context, tokenHash string) (session.Record, error)
+	FindSessionByID(ctx context.Context, id string) (session.Record, error)
+	ListSessionsByUserID(ctx context.Context, userID string) ([]session.Record, error)
+	DeleteSessionByID(ctx context.Context, id string) error
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 }
 
@@ -76,6 +81,13 @@ type AuthSession struct {
 	User      user.User
 	Token     string
 	ExpiresAt time.Time
+}
+
+type PublicSession struct {
+	ID        string    `json:"id"`
+	Current   bool      `json:"current"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 func (s *Service) Register(ctx context.Context, input RegisterInput) (user.User, error) {
@@ -194,6 +206,47 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 		return user.User{}, ErrUnauthenticated
 	}
 	return s.users.UpdateDisplayName(ctx, u.ID, displayName)
+}
+
+func (s *Service) ListSessions(ctx context.Context, userID string, currentToken string) ([]PublicSession, error) {
+	if userID == "" || currentToken == "" {
+		return nil, ErrUnauthenticated
+	}
+	records, err := s.sessions.ListSessionsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	currentHash := session.HashToken(currentToken)
+	items := make([]PublicSession, 0, len(records))
+	for _, record := range records {
+		items = append(items, PublicSession{
+			ID:        record.ID,
+			Current:   record.TokenHash == currentHash,
+			ExpiresAt: record.ExpiresAt,
+			CreatedAt: record.CreatedAt,
+		})
+	}
+	return items, nil
+}
+
+func (s *Service) RevokeSession(ctx context.Context, userID string, sessionID string, currentToken string) error {
+	if userID == "" || sessionID == "" || currentToken == "" {
+		return ErrInvalidInput
+	}
+	record, err := s.sessions.FindSessionByID(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return ErrSessionForbidden
+		}
+		return err
+	}
+	if record.UserID != userID {
+		return ErrSessionForbidden
+	}
+	if record.TokenHash == session.HashToken(currentToken) {
+		return ErrCurrentSession
+	}
+	return s.sessions.DeleteSessionByID(ctx, sessionID)
 }
 
 func (s *Service) CurrentUser(ctx context.Context, token string) (user.User, error) {

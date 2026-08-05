@@ -1,6 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react';
 
-import { changePassword, updateProfile } from '../../api/auth';
+import {
+  changePassword,
+  listSessions,
+  revokeSession,
+  updateProfile,
+  type AuthSession,
+} from '../../api/auth';
 import { ApiError, errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -16,12 +22,29 @@ export function ProfilePage() {
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [sessionState, setSessionState] = useState<{
+    status: 'idle' | 'loading' | 'success' | 'error';
+    items: AuthSession[];
+    error: string | null;
+  }>({ status: 'idle', items: [], error: null });
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (auth.status === 'authenticated') {
       setDisplayName(auth.user.displayName);
+      void refreshSessions();
     }
   }, [auth.status, auth.status === 'authenticated' ? auth.user.displayName : null]);
+
+  async function refreshSessions() {
+    setSessionState((current) => ({ status: 'loading', items: current.items, error: null }));
+    try {
+      const items = await listSessions();
+      setSessionState({ status: 'success', items, error: null });
+    } catch (caught) {
+      setSessionState({ status: 'error', items: [], error: errorMessage(caught, '加载会话失败') });
+    }
+  }
 
   async function onProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +97,24 @@ export function ProfilePage() {
       }
     } finally {
       setPasswordSubmitting(false);
+    }
+  }
+
+  async function onRevokeSession(session: AuthSession) {
+    if (session.current) {
+      return;
+    }
+    if (!window.confirm('确认撤销这个登录会话？')) {
+      return;
+    }
+    setRevokingSessionId(session.id);
+    try {
+      await revokeSession(session.id);
+      await refreshSessions();
+    } catch (caught) {
+      setSessionState({ status: 'error', items: sessionState.items, error: errorMessage(caught, '撤销会话失败') });
+    } finally {
+      setRevokingSessionId(null);
     }
   }
 
@@ -199,9 +240,47 @@ export function ProfilePage() {
             </form>
           )}
         </article>
+
+        <article className="profile-panel">
+          <p className="eyebrow">登录</p>
+          <h2>会话管理</h2>
+          {sessionState.status === 'loading' ? <p className="empty-inline">加载中</p> : null}
+          {sessionState.status === 'error' ? <p className="form-error">{sessionState.error}</p> : null}
+          {sessionState.status === 'success' && sessionState.items.length === 0 ? (
+            <p className="empty-inline">暂无登录会话。</p>
+          ) : null}
+          {sessionState.items.length > 0 ? (
+            <div className="session-list">
+              {sessionState.items.map((session) => (
+                <div className="session-row" key={session.id}>
+                  <div>
+                    <strong>{session.current ? '当前会话' : '其他会话'}</strong>
+                    <span className="document-meta">创建于 {formatDate(session.createdAt)}</span>
+                    <span className="document-meta">过期于 {formatDate(session.expiresAt)}</span>
+                  </div>
+                  <button
+                    className="secondary-button danger-button"
+                    disabled={session.current || revokingSessionId === session.id}
+                    onClick={() => void onRevokeSession(session)}
+                    type="button"
+                  >
+                    {revokingSessionId === session.id ? '撤销中' : '撤销'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </article>
       </section>
     </main>
   );
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
 }
 
 function authSourceLabel(authSource: string): string {

@@ -163,6 +163,8 @@ function actionLabel(action: string): string {
     'auth.login': '登录',
     'auth.logout': '登出',
     'auth.password_change': '修改密码',
+    'auth.profile_update': '修改资料',
+    'auth.session_revoke': '撤销会话',
     'document.upload': '上传文档',
     'document.download': '下载文档',
     'document.delete': '删除文档',
@@ -188,6 +190,7 @@ function targetTypeLabel(targetType: string): string {
     share: '分享',
     permission: '权限',
     version: '版本',
+    session: '会话',
   };
   return labels[targetType] ?? targetType;
 }

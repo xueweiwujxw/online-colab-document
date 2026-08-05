@@ -26,6 +26,13 @@ export type UpdateProfileInput = {
   displayName: string;
 };
 
+export type AuthSession = {
+  id: string;
+  current: boolean;
+  expiresAt: string;
+  createdAt: string;
+};
+
 export function login(input: LoginInput): Promise<CurrentUser> {
   return sendJSON<CurrentUser>('/api/auth/local/login', input);
 }
@@ -51,6 +58,17 @@ export function changePassword(input: ChangePasswordInput): Promise<{ status: st
 export function updateProfile(input: UpdateProfileInput): Promise<CurrentUser> {
   return sendJSON<CurrentUser>('/api/auth/profile', input, {
     method: 'PUT',
+  });
+}
+
+export async function listSessions(): Promise<AuthSession[]> {
+  const response = await getJSON<{ items: AuthSession[] }>('/api/auth/sessions');
+  return response.items;
+}
+
+export function revokeSession(id: string): Promise<{ status: string }> {
+  return sendJSON<{ status: string }>(`/api/auth/sessions/${id}`, undefined, {
+    method: 'DELETE',
   });
 }
 

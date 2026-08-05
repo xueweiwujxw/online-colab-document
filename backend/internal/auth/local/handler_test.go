@@ -340,6 +340,71 @@ func TestUpdateProfileBlankDisplayNameFails(t *testing.T) {
 	}
 }
 
+func TestListSessionsMarksCurrentSession(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	firstLogin := loginUser(t, handler, "user@example.com", "password123")
+	loginUser(t, handler, "user@example.com", "password123")
+
+	rec := performSessionList(handler, firstLogin.Result().Cookies()[0])
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Items []PublicSession `json:"items"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(body.Items) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(body.Items))
+	}
+	currentCount := 0
+	for _, item := range body.Items {
+		if item.Current {
+			currentCount++
+		}
+	}
+	if currentCount != 1 {
+		t.Fatalf("expected exactly one current session, got %d in %#v", currentCount, body.Items)
+	}
+}
+
+func TestRevokeOtherSessionSuccess(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	currentLogin := loginUser(t, handler, "user@example.com", "password123")
+	otherLogin := loginUser(t, handler, "user@example.com", "password123")
+	otherSessionID := sessionIDForCookie(t, handler, otherLogin.Result().Cookies()[0])
+
+	rec := performSessionRevoke(handler, currentLogin.Result().Cookies()[0], otherSessionID)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	meRec := httptest.NewRecorder()
+	meReq := httptest.NewRequest(http.MethodGet, "/me", nil)
+	meReq.AddCookie(otherLogin.Result().Cookies()[0])
+	handler.Me(meRec, meReq)
+	if meRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected revoked session to fail, got %d", meRec.Code)
+	}
+}
+
+func TestRevokeCurrentSessionFails(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	currentLogin := loginUser(t, handler, "user@example.com", "password123")
+	currentSessionID := sessionIDForCookie(t, handler, currentLogin.Result().Cookies()[0])
+
+	rec := performSessionRevoke(handler, currentLogin.Result().Cookies()[0], currentSessionID)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func newTestHandler() (Handler, *memoryRepo) {
 	repo := newMemoryRepo()
 	service := NewService(repo, repo, "", time.Hour)
@@ -394,6 +459,40 @@ func performProfileUpdate(handler Handler, cookie *http.Cookie, body string) *ht
 		http.HandlerFunc(handler.UpdateProfile),
 	).ServeHTTP(rec, req)
 	return rec
+}
+
+func performSessionList(handler Handler, cookie *http.Cookie) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/sessions", nil)
+	req.AddCookie(cookie)
+	middleware.RequireAuth(
+		handler.service,
+		"docs_session",
+		http.HandlerFunc(handler.ListSessions),
+	).ServeHTTP(rec, req)
+	return rec
+}
+
+func performSessionRevoke(handler Handler, cookie *http.Cookie, sessionID string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/auth/sessions/"+sessionID, nil)
+	req.SetPathValue("id", sessionID)
+	req.AddCookie(cookie)
+	middleware.RequireAuth(
+		handler.service,
+		"docs_session",
+		http.HandlerFunc(handler.RevokeSession),
+	).ServeHTTP(rec, req)
+	return rec
+}
+
+func sessionIDForCookie(t *testing.T, handler Handler, cookie *http.Cookie) string {
+	t.Helper()
+	record, err := handler.service.sessions.FindSessionByTokenHash(context.Background(), session.HashToken(cookie.Value))
+	if err != nil {
+		t.Fatalf("find session for cookie: %v", err)
+	}
+	return record.ID
 }
 
 type memoryRepo struct {
@@ -507,6 +606,42 @@ func (r *memoryRepo) FindSessionByTokenHash(_ context.Context, tokenHash string)
 		return session.Record{}, ErrSessionNotFound
 	}
 	return record, nil
+}
+
+func (r *memoryRepo) FindSessionByID(_ context.Context, id string) (session.Record, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, record := range r.sessionsByHash {
+		if record.ID == id {
+			return record, nil
+		}
+	}
+	return session.Record{}, ErrSessionNotFound
+}
+
+func (r *memoryRepo) ListSessionsByUserID(_ context.Context, userID string) ([]session.Record, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	records := []session.Record{}
+	now := time.Now()
+	for _, record := range r.sessionsByHash {
+		if record.UserID == userID && record.ExpiresAt.After(now) {
+			records = append(records, record)
+		}
+	}
+	return records, nil
+}
+
+func (r *memoryRepo) DeleteSessionByID(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for tokenHash, record := range r.sessionsByHash {
+		if record.ID == id {
+			delete(r.sessionsByHash, tokenHash)
+			return nil
+		}
+	}
+	return nil
 }
 
 func (r *memoryRepo) DeleteSessionByTokenHash(_ context.Context, tokenHash string) error {
