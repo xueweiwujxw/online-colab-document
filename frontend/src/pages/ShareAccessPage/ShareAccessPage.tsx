@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react';
 
 import {
   getShareAccess,
-  saveSharedMarkdown,
   sharedDownloadURL,
   type ShareAccess,
 } from '../../api/share';
 import { errorMessage } from '../../api/client';
-import { RichMarkdownEditor } from '../MarkdownEditorPage/MarkdownEditorPage';
 
 type ShareAccessState =
   | { status: 'loading'; access: null; error: null }
@@ -20,9 +18,6 @@ export function ShareAccessPage({ token }: { token: string }) {
     access: null,
     error: null,
   });
-  const [draft, setDraft] = useState('');
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -30,7 +25,6 @@ export function ShareAccessPage({ token }: { token: string }) {
       .then((access) => {
         if (mounted) {
           setState({ status: 'success', access, error: null });
-          setDraft(access.content ?? '');
         }
       })
       .catch((error: unknown) => {
@@ -46,23 +40,6 @@ export function ShareAccessPage({ token }: { token: string }) {
       mounted = false;
     };
   }, [token]);
-
-  async function onSave() {
-    if (state.status !== 'success' || !state.access.canEdit || saveState === 'saving') {
-      return;
-    }
-    setSaveState('saving');
-    setSaveError(null);
-    try {
-      const access = await saveSharedMarkdown(token, draft);
-      setState({ status: 'success', access, error: null });
-      setDraft(access.content ?? '');
-      setSaveState('saved');
-    } catch (error) {
-      setSaveState('error');
-      setSaveError(errorMessage(error, '保存失败'));
-    }
-  }
 
   if (state.status === 'loading') {
     return (
@@ -80,9 +57,6 @@ export function ShareAccessPage({ token }: { token: string }) {
     );
   }
 
-  const isMarkdown = ['md', 'markdown'].includes(state.access.document.fileExt.toLowerCase());
-  const dirty = draft !== (state.access.content ?? '');
-
   return (
     <main className="editor-shell markdown-shell">
       <header className="editor-topbar">
@@ -95,42 +69,11 @@ export function ShareAccessPage({ token }: { token: string }) {
           <a className="secondary-button" href={sharedDownloadURL(token)}>
             下载
           </a>
-          {isMarkdown ? (
-            <button
-              className="primary-button markdown-save-button"
-              disabled={!state.access.canEdit || !dirty || saveState === 'saving'}
-              onClick={() => void onSave()}
-              type="button"
-            >
-              {saveState === 'saving' ? '保存中' : '保存'}
-            </button>
-          ) : null}
         </div>
       </header>
-      {saveError ? <p className="form-error markdown-save-error">{saveError}</p> : null}
-      {isMarkdown ? (
-        <section className="markdown-editor-grid rich-markdown-grid">
-          <RichMarkdownEditor
-            content={draft}
-            disabled={false}
-            onChange={(content) => {
-              setDraft(content);
-              setSaveState('idle');
-            }}
-            onCursorChange={() => undefined}
-            readOnly={!state.access.canEdit}
-            remoteCursors={[]}
-          />
-          <section className="markdown-pane markdown-preview-pane">
-            <span>Markdown 源码</span>
-            <div className="markdown-preview markdown-source-preview">
-              <pre>{draft.trim() === '' ? '暂无 Markdown 内容。' : draft}</pre>
-            </div>
-          </section>
-        </section>
-      ) : (
-        <section className="empty-state">请下载后打开这个分享文档。</section>
-      )}
+      <section className="empty-state">
+        分享链接只提供下载；需要在线编辑或协同请使用已登录的 Casual Office 文档入口。
+      </section>
     </main>
   );
 }

@@ -194,11 +194,12 @@ func newHarness() harness {
 	storage := &fakeStorage{objects: map[string]string{}}
 	service := NewService(
 		Config{
-			Provider:       "casual",
-			PublicAPIURL:   "http://api.example.test",
-			EditorBaseURL:  "http://app.example.test",
-			JWTSecret:      "test-casual-secret-at-least-16",
-			MaxUploadBytes: 1024,
+			Provider:        "casual",
+			PublicAPIURL:    "http://api.example.test",
+			DocsEditorURL:   "http://docs.example.test",
+			SheetsEditorURL: "http://sheets.example.test",
+			JWTSecret:       "test-casual-secret-at-least-16",
+			MaxUploadBytes:  1024,
 		},
 		repo,
 		permissions,

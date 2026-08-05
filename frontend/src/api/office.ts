@@ -8,6 +8,7 @@ export type OfficeSession = {
   mode: 'view' | 'edit';
   downloadUrl: string;
   saveUrl: string;
+  editorUrl: string;
 };
 
 export type OfficeCollabSession = {

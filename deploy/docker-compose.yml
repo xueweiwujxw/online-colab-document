@@ -25,6 +25,9 @@ services:
       DOCUMENT_MAX_UPLOAD_BYTES: "52428800"
       OFFICE_COLLAB_ENABLED: ${OFFICE_COLLAB_ENABLED:-true}
       OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-ws://localhost:1234}
+      CASUAL_JWT_SECRET: ${CASUAL_JWT_SECRET:?set CASUAL_JWT_SECRET in an ignored env file}
+      CASUAL_DOCS_EDITOR_URL: ${CASUAL_DOCS_EDITOR_URL:-http://localhost:1235}
+      CASUAL_SHEETS_EDITOR_URL: ${CASUAL_SHEETS_EDITOR_URL:-http://localhost:1234}
       PUBLIC_APP_URL: http://localhost:3000
       PUBLIC_API_URL: http://localhost:8080
       BACKEND_INTERNAL_URL: http://backend:8080
@@ -57,10 +60,38 @@ services:
       PORT: "3000"
       REDIS_URL: redis://redis:6379
       CASUAL_REDIS_PREFIX: "online-colab-document:"
-    ports:
-      - "1234:3000"
     depends_on:
       - redis
+
+  casual-docs:
+    image: docker.io/casualoffice/docs:0.0.5
+    environment:
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+      CASUAL_REDIS_PREFIX: "online-colab-document:docs:"
+      CASUAL_FILE_EXT: ".docx"
+    depends_on:
+      - redis
+
+  casual-sheets-gateway:
+    image: docker.io/library/nginx:1.27-alpine
+    ports:
+      - "1234:80"
+    volumes:
+      - ./casual-gateway/sheets.conf:/etc/nginx/conf.d/default.conf:ro,Z
+    depends_on:
+      - backend
+      - office-collab
+
+  casual-docs-gateway:
+    image: docker.io/library/nginx:1.27-alpine
+    ports:
+      - "1235:80"
+    volumes:
+      - ./casual-gateway/docs.conf:/etc/nginx/conf.d/default.conf:ro,Z
+    depends_on:
+      - backend
+      - casual-docs
 
   postgres:
     image: docker.io/library/postgres:17-alpine

@@ -31,7 +31,8 @@ type Config struct {
 	CollabPublicURL string
 	CollabEnabled   bool
 	JWTSecret       string
-	EditorBaseURL   string
+	DocsEditorURL   string
+	SheetsEditorURL string
 	MaxUploadBytes  int64
 }
 
@@ -142,7 +143,7 @@ func (s *Service) Session(ctx context.Context, currentUser user.User, documentID
 		Mode:        mode,
 		DownloadURL: base + "/api/documents/" + doc.ID + "/download",
 		SaveURL:     base + "/api/documents/" + doc.ID + "/office/content",
-		EditorURL:   editorURL(strings.TrimRight(s.cfg.EditorBaseURL, "/"), doc, token),
+		EditorURL:   editorURL(s.cfg, doc, token),
 	}, nil
 }
 
@@ -324,12 +325,12 @@ func editorKind(ext string) string {
 	return "docs"
 }
 
-func editorURL(base string, doc document.Document, token string) string {
+func editorURL(cfg Config, doc document.Document, token string) string {
 	if editorKind(doc.FileExt) == "sheets" {
-		return base + "/casual-sheets/?access_token=" + token
+		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/?access_token=" + token
 	}
 	id := base64.RawURLEncoding.EncodeToString([]byte(doc.ID))
-	return base + "/casual-docs/doc/" + id + "?access_token=" + token
+	return strings.TrimRight(cfg.DocsEditorURL, "/") + "/doc/" + id + "?access_token=" + token
 }
 
 func (s *Service) mintWOPIToken(currentUser user.User, fileID, role, kind string) (string, error) {

@@ -32,6 +32,8 @@ type Config struct {
 	OfficeCollabPublicURL          string
 	OfficeCollabEnabled            bool
 	CasualJWTSecret                string
+	CasualDocsEditorURL            string
+	CasualSheetsEditorURL          string
 	PublicAppURL                   string
 	PublicAPIURL                   string
 	BackendInternalURL             string
@@ -64,6 +66,8 @@ func Load() Config {
 		OfficeCollabPublicURL:          getEnv("OFFICE_COLLAB_PUBLIC_URL", ""),
 		OfficeCollabEnabled:            getBoolEnv("OFFICE_COLLAB_ENABLED", false),
 		CasualJWTSecret:                getEnv("CASUAL_JWT_SECRET", ""),
+		CasualDocsEditorURL:            getEnv("CASUAL_DOCS_EDITOR_URL", ""),
+		CasualSheetsEditorURL:          getEnv("CASUAL_SHEETS_EDITOR_URL", ""),
 		PublicAppURL:                   getEnv("PUBLIC_APP_URL", "http://localhost:3000"),
 		PublicAPIURL:                   getEnv("PUBLIC_API_URL", "http://localhost:8080"),
 		BackendInternalURL:             getEnv("BACKEND_INTERNAL_URL", "http://backend:8080"),
