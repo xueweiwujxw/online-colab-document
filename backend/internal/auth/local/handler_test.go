@@ -290,6 +290,56 @@ func TestChangePasswordOIDCUserFails(t *testing.T) {
 	}
 }
 
+func TestUpdateProfileSuccess(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	loginRec := loginUser(t, handler, "user@example.com", "password123")
+
+	rec := performProfileUpdate(handler, loginRec.Result().Cookies()[0], `{
+		"displayName":"Updated User"
+	}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var body user.PublicUser
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.DisplayName != "Updated User" {
+		t.Fatalf("expected updated display name, got %q", body.DisplayName)
+	}
+
+	meRec := httptest.NewRecorder()
+	meReq := httptest.NewRequest(http.MethodGet, "/me", nil)
+	meReq.AddCookie(loginRec.Result().Cookies()[0])
+	handler.Me(meRec, meReq)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("expected me status 200, got %d: %s", meRec.Code, meRec.Body.String())
+	}
+	var meBody user.PublicUser
+	if err := json.NewDecoder(meRec.Body).Decode(&meBody); err != nil {
+		t.Fatalf("decode me response: %v", err)
+	}
+	if meBody.DisplayName != "Updated User" {
+		t.Fatalf("expected me display name to update, got %q", meBody.DisplayName)
+	}
+}
+
+func TestUpdateProfileBlankDisplayNameFails(t *testing.T) {
+	handler, _ := newTestHandler()
+	registerUser(t, handler, "user@example.com")
+	loginRec := loginUser(t, handler, "user@example.com", "password123")
+
+	rec := performProfileUpdate(handler, loginRec.Result().Cookies()[0], `{
+		"displayName":"   "
+	}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func newTestHandler() (Handler, *memoryRepo) {
 	repo := newMemoryRepo()
 	service := NewService(repo, repo, "", time.Hour)
@@ -330,6 +380,18 @@ func performPasswordChange(handler Handler, cookie *http.Cookie, body string) *h
 		handler.service,
 		"docs_session",
 		http.HandlerFunc(handler.ChangePassword),
+	).ServeHTTP(rec, req)
+	return rec
+}
+
+func performProfileUpdate(handler Handler, cookie *http.Cookie, body string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/auth/profile", strings.NewReader(body))
+	req.AddCookie(cookie)
+	middleware.RequireAuth(
+		handler.service,
+		"docs_session",
+		http.HandlerFunc(handler.UpdateProfile),
 	).ServeHTTP(rec, req)
 	return rec
 }
@@ -415,6 +477,19 @@ func (r *memoryRepo) UpdatePasswordHash(_ context.Context, id string, passwordHa
 	u.UpdatedAt = time.Now()
 	r.usersByID[id] = u
 	return nil
+}
+
+func (r *memoryRepo) UpdateDisplayName(_ context.Context, id string, displayName string) (user.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.usersByID[id]
+	if !ok {
+		return user.User{}, ErrUserNotFound
+	}
+	u.DisplayName = displayName
+	u.UpdatedAt = time.Now()
+	r.usersByID[id] = u
+	return u, nil
 }
 
 func (r *memoryRepo) CreateSession(_ context.Context, record session.Record) error {

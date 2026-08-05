@@ -161,6 +161,7 @@ M12 Docker 部署与安全加固：
 - 前端新增 `/documents/:id/versions` 独立版本管理页
 - 文档删除、权限删除、分享链接禁用、版本恢复等 destructive action 增加确认
 - 主要页面补齐 loading / error / empty / forbidden 处理
+- 用户中心 `/profile` 支持查看账户信息、修改本地账号密码和修改显示名
 - backend 启动时自动执行 `backend/migrations`
 - 生产 compose `deploy/docker-compose.prod.yml`
 - nginx 配置 `deploy/nginx/nginx.conf`，支持 `/api/`、`/onlyoffice/`、WebSocket upgrade、上传大小限制和 gzip

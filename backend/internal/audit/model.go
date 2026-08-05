@@ -6,6 +6,7 @@ const (
 	ActionLogin             = "auth.login"
 	ActionLogout            = "auth.logout"
 	ActionPasswordChange    = "auth.password_change"
+	ActionProfileUpdate     = "auth.profile_update"
 	ActionDocumentUpload    = "document.upload"
 	ActionDocumentDownload  = "document.download"
 	ActionDocumentDelete    = "document.delete"

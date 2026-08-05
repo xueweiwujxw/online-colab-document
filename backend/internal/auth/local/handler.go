@@ -183,6 +183,45 @@ func (h Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (h Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	var req struct {
+		DisplayName string `json:"displayName"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	updatedUser, err := h.service.UpdateProfile(r.Context(), UpdateProfileInput{
+		UserID:      currentUser.ID,
+		DisplayName: req.DisplayName,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidInput):
+			api.WriteError(w, http.StatusBadRequest, "invalid profile input")
+		case errors.Is(err, ErrUnauthenticated):
+			api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		default:
+			h.logger.Error("update profile failed", "error", err)
+			api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+	actorUserID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{
+		ActorUserID: &actorUserID,
+		Action:      audit.ActionProfileUpdate,
+		TargetType:  "user",
+		TargetID:    currentUser.ID,
+	})
+	api.WriteJSON(w, http.StatusOK, user.ToPublic(updatedUser))
+}
+
 func (h Handler) tokenFromCookie(r *http.Request) string {
 	cookie, err := r.Cookie(h.cookieName)
 	if err != nil {

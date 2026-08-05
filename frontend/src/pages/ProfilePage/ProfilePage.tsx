@@ -1,47 +1,79 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
-import { changePassword } from '../../api/auth';
+import { changePassword, updateProfile } from '../../api/auth';
 import { ApiError, errorMessage } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
 export function ProfilePage() {
   const auth = useAuth();
+  const [displayName, setDisplayName] = useState('');
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (auth.status === 'authenticated') {
+      setDisplayName(auth.user.displayName);
+    }
+  }, [auth.status, auth.status === 'authenticated' ? auth.user.displayName : null]);
+
+  async function onProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setSuccess(null);
+    setProfileError(null);
+    setProfileSuccess(null);
+    const nextDisplayName = displayName.trim();
+    if (!nextDisplayName) {
+      setProfileError('显示名不能为空。');
+      return;
+    }
+    setProfileSubmitting(true);
+    try {
+      await updateProfile({ displayName: nextDisplayName });
+      await auth.refresh();
+      setDisplayName(nextDisplayName);
+      setProfileSuccess('基本信息已更新。');
+    } catch (caught) {
+      setProfileError(errorMessage(caught, '更新基本信息失败'));
+    } finally {
+      setProfileSubmitting(false);
+    }
+  }
+
+  async function onPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
     if (newPassword.length < 8) {
-      setError('新密码至少需要 8 位。');
+      setPasswordError('新密码至少需要 8 位。');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('两次输入的新密码不一致。');
+      setPasswordError('两次输入的新密码不一致。');
       return;
     }
-    setSubmitting(true);
+    setPasswordSubmitting(true);
     try {
       await changePassword({ currentPassword, newPassword });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setSuccess('密码已更新。');
+      setPasswordSuccess('密码已更新。');
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
-        setError('当前密码不正确。');
+        setPasswordError('当前密码不正确。');
       } else if (caught instanceof ApiError && caught.status === 400) {
-        setError('当前账户不支持在这里修改密码。');
+        setPasswordError('当前账户不支持在这里修改密码。');
       } else {
-        setError(errorMessage(caught, '修改密码失败'));
+        setPasswordError(errorMessage(caught, '修改密码失败'));
       }
     } finally {
-      setSubmitting(false);
+      setPasswordSubmitting(false);
     }
   }
 
@@ -96,6 +128,25 @@ export function ProfilePage() {
               <dd>{auth.user.isAdmin ? '管理员' : '普通用户'}</dd>
             </div>
           </dl>
+          <form className="profile-form profile-edit-form" onSubmit={onProfileSubmit}>
+            <label className="field">
+              <span>修改显示名</span>
+              <input
+                autoComplete="name"
+                disabled={profileSubmitting}
+                maxLength={120}
+                onChange={(event) => setDisplayName(event.target.value)}
+                required
+                type="text"
+                value={displayName}
+              />
+            </label>
+            {profileError ? <p className="form-error">{profileError}</p> : null}
+            {profileSuccess ? <p className="form-success">{profileSuccess}</p> : null}
+            <button className="primary-button profile-submit" disabled={profileSubmitting} type="submit">
+              {profileSubmitting ? '保存中' : '保存基本信息'}
+            </button>
+          </form>
         </article>
 
         <article className="profile-panel">
@@ -104,12 +155,12 @@ export function ProfilePage() {
           {auth.user.authSource !== 'local' ? (
             <p className="empty-inline">OIDC 登录账户的密码由身份提供方管理。</p>
           ) : (
-            <form className="profile-form" onSubmit={onSubmit}>
+            <form className="profile-form" onSubmit={onPasswordSubmit}>
               <label className="field">
                 <span>当前密码</span>
                 <input
                   autoComplete="current-password"
-                  disabled={submitting}
+                  disabled={passwordSubmitting}
                   onChange={(event) => setCurrentPassword(event.target.value)}
                   required
                   type="password"
@@ -120,7 +171,7 @@ export function ProfilePage() {
                 <span>新密码</span>
                 <input
                   autoComplete="new-password"
-                  disabled={submitting}
+                  disabled={passwordSubmitting}
                   minLength={8}
                   onChange={(event) => setNewPassword(event.target.value)}
                   required
@@ -132,7 +183,7 @@ export function ProfilePage() {
                 <span>确认新密码</span>
                 <input
                   autoComplete="new-password"
-                  disabled={submitting}
+                  disabled={passwordSubmitting}
                   minLength={8}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   required
@@ -140,10 +191,10 @@ export function ProfilePage() {
                   value={confirmPassword}
                 />
               </label>
-              {error ? <p className="form-error">{error}</p> : null}
-              {success ? <p className="form-success">{success}</p> : null}
-              <button className="primary-button profile-submit" disabled={submitting} type="submit">
-                {submitting ? '保存中' : '保存新密码'}
+              {passwordError ? <p className="form-error">{passwordError}</p> : null}
+              {passwordSuccess ? <p className="form-success">{passwordSuccess}</p> : null}
+              <button className="primary-button profile-submit" disabled={passwordSubmitting} type="submit">
+                {passwordSubmitting ? '保存中' : '保存新密码'}
               </button>
             </form>
           )}

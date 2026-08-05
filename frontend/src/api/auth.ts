@@ -22,6 +22,10 @@ export type ChangePasswordInput = {
   newPassword: string;
 };
 
+export type UpdateProfileInput = {
+  displayName: string;
+};
+
 export function login(input: LoginInput): Promise<CurrentUser> {
   return sendJSON<CurrentUser>('/api/auth/local/login', input);
 }
@@ -40,6 +44,12 @@ export function getCurrentUser(): Promise<CurrentUser> {
 
 export function changePassword(input: ChangePasswordInput): Promise<{ status: string }> {
   return sendJSON<{ status: string }>('/api/auth/password', input, {
+    method: 'PUT',
+  });
+}
+
+export function updateProfile(input: UpdateProfileInput): Promise<CurrentUser> {
+  return sendJSON<CurrentUser>('/api/auth/profile', input, {
     method: 'PUT',
   });
 }

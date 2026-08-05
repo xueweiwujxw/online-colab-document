@@ -67,6 +67,11 @@ type ChangePasswordInput struct {
 	NewPassword     string
 }
 
+type UpdateProfileInput struct {
+	UserID      string
+	DisplayName string
+}
+
 type AuthSession struct {
 	User      user.User
 	Token     string
@@ -171,6 +176,24 @@ func (s *Service) ChangePassword(ctx context.Context, input ChangePasswordInput)
 		return err
 	}
 	return s.users.UpdatePasswordHash(ctx, u.ID, nextHash)
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (user.User, error) {
+	displayName := strings.TrimSpace(input.DisplayName)
+	if input.UserID == "" || displayName == "" || len(displayName) > 120 {
+		return user.User{}, ErrInvalidInput
+	}
+	u, err := s.users.FindByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return user.User{}, ErrUnauthenticated
+		}
+		return user.User{}, err
+	}
+	if u.Disabled {
+		return user.User{}, ErrUnauthenticated
+	}
+	return s.users.UpdateDisplayName(ctx, u.ID, displayName)
 }
 
 func (s *Service) CurrentUser(ctx context.Context, token string) (user.User, error) {

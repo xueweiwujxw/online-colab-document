@@ -82,6 +82,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
 		}
 		mux.Handle("PUT /api/auth/password", requireAuth(authHandler.ChangePassword))
+		mux.Handle("PUT /api/auth/profile", requireAuth(authHandler.UpdateProfile))
 		userService := appuser.NewService(appuser.NewPostgresRepository(db))
 		userHandler := appuser.NewHandler(userService, logger)
 		mux.Handle("GET /api/users", requireAuth(userHandler.Search))

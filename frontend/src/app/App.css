@@ -390,6 +390,12 @@ h1 {
   max-width: 520px;
 }
 
+.profile-edit-form {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
 .profile-submit {
   width: auto;
 }
