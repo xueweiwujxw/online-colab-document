@@ -383,6 +383,7 @@ export function RichMarkdownEditor({
   const [view, setView] = useState<EditorView | null>(null);
   const [editorVersion, setEditorVersion] = useState(0);
   const [linkDialog, setLinkDialog] = useState<{ href: string; text: string } | null>(null);
+  const [tableDialog, setTableDialog] = useState<{ rows: number; columns: number } | null>(null);
 
   onChangeRef.current = onChange;
   readonlyRef.current = readOnly || disabled;
@@ -497,9 +498,17 @@ export function RichMarkdownEditor({
         <EditorButton command={insertList('ordered_list')} disabled={isReadOnly} label="有序列表" view={view}>
           1.
         </EditorButton>
-        <EditorButton active={isNodeActive(view, 'table')} command={insertTable()} disabled={isReadOnly} label="插入表格" view={view}>
+        <button
+          aria-label="插入表格"
+          className="rich-toolbar-button"
+          disabled={isReadOnly || !view}
+          onClick={() => setTableDialog({ rows: 3, columns: 3 })}
+          onMouseDown={(event) => event.preventDefault()}
+          title="插入表格"
+          type="button"
+        >
           表格
-        </EditorButton>
+        </button>
         <span className="markdown-shortcuts">快捷键：Ctrl+B / Ctrl+I</span>
       </div>
       {linkDialog ? (
@@ -539,6 +548,33 @@ export function RichMarkdownEditor({
           </label>
           <button className="primary-button compact-action" type="submit">插入</button>
           <button className="secondary-button" onClick={() => setLinkDialog(null)} type="button">取消</button>
+        </form>
+      ) : null}
+      {tableDialog ? (
+        <form
+          aria-label="插入表格设置"
+          className="markdown-table-form"
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (!view) {
+              return;
+            }
+            insertTable(tableDialog.rows, tableDialog.columns)(view.state, view.dispatch, view);
+            setEditorVersion((version) => version + 1);
+            setTableDialog(null);
+            view.focus();
+          }}
+        >
+          <label>
+            行数
+            <input aria-label="行数" max={20} min={1} onChange={(event) => setTableDialog((current) => current ? { ...current, rows: Number(event.target.value) } : current)} required type="number" value={tableDialog.rows} />
+          </label>
+          <label>
+            列数
+            <input aria-label="列数" max={20} min={1} onChange={(event) => setTableDialog((current) => current ? { ...current, columns: Number(event.target.value) } : current)} required type="number" value={tableDialog.columns} />
+          </label>
+          <button className="primary-button compact-action" type="submit">插入</button>
+          <button className="secondary-button" onClick={() => setTableDialog(null)} type="button">取消</button>
         </form>
       ) : null}
       <div className={`rich-markdown-editor ${isReadOnly ? 'is-readonly' : ''}`} ref={hostRef} />
@@ -653,11 +689,13 @@ function insertList(type: 'bullet_list' | 'ordered_list'): Command {
   };
 }
 
-function insertTable(): Command {
+function insertTable(rows: number, columns: number): Command {
   return (state, dispatch) => {
+    const safeRows = Math.max(1, Math.min(20, Math.trunc(rows)));
+    const safeColumns = Math.max(1, Math.min(20, Math.trunc(columns)));
     const cell = () => markdownSchema.nodes.table_cell.create(null, markdownSchema.nodes.paragraph.create());
-    const row = () => markdownSchema.nodes.table_row.create(null, [cell(), cell(), cell()]);
-    const table = markdownSchema.nodes.table.create(null, [row(), row(), row()]);
+    const row = () => markdownSchema.nodes.table_row.create(null, Array.from({ length: safeColumns }, cell));
+    const table = markdownSchema.nodes.table.create(null, Array.from({ length: safeRows }, row));
     if (dispatch) {
       dispatch(state.tr.replaceSelectionWith(table).scrollIntoView());
     }

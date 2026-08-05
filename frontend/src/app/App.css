@@ -1066,6 +1066,40 @@ h1 {
   padding: 10px 12px;
 }
 
+.markdown-table-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: #f8fbff;
+  padding: 10px 12px;
+}
+
+.markdown-table-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.markdown-table-form input {
+  width: 88px;
+  min-height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.markdown-table-form .primary-button,
+.markdown-table-form .secondary-button {
+  min-height: 34px;
+}
+
 .markdown-link-form label {
   display: grid;
   gap: 4px;

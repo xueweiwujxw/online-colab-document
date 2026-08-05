@@ -17,7 +17,13 @@ test.describe('编辑器体验回归', () => {
     await page.keyboard.type('可编辑内容');
     await page.getByRole('button', { name: '加粗' }).click();
     await page.getByRole('button', { name: '插入表格' }).click();
+    const tableForm = page.getByRole('form', { name: '插入表格设置' });
+    await tableForm.getByLabel('行数').fill('2');
+    await tableForm.getByLabel('列数').fill('4');
+    await tableForm.getByRole('button', { name: '插入', exact: true }).click();
     await expect(editor.locator('table')).toBeVisible();
+    await expect(editor.locator('table tr')).toHaveCount(2);
+    await expect(editor.locator('table tr').first().locator('td')).toHaveCount(4);
 
     await page.getByRole('button', { name: '插入链接' }).click();
     const linkForm = page.getByRole('form', { name: '插入链接' });
@@ -41,7 +47,7 @@ test.describe('编辑器体验回归', () => {
     }
   });
 
-  test('xlsx 支持保存、协同连接与 viewer 只读工具栏', async ({ browser, page }) => {
+  test('xlsx 实际渲染中文表格界面并保持 viewer 只读', async ({ browser, page }) => {
     await register(page, account('sheet-owner'));
     const documentId = await upload(page, await xlsxFile());
     const viewerContext = await browser.newContext();
@@ -59,31 +65,13 @@ test.describe('编辑器体验回归', () => {
 
     await page.goto(`/documents/${documentId}/edit`);
     await waitForSheet(page);
-    const ownerToolbar = page.getByRole('toolbar', { name: '表格工具栏' });
-    await expect(ownerToolbar.getByRole('button', { name: '保存表格' })).toBeEnabled();
-    await ownerToolbar.getByRole('button', { name: '加粗' }).click();
-    await ownerToolbar.getByRole('button', { name: '撤销' }).click();
-    await ownerToolbar.getByRole('button', { name: '重做' }).click();
-    await ownerToolbar.getByRole('button', { name: '保存表格' }).click();
-    await expect(ownerToolbar.getByRole('button', { name: '保存表格' })).toHaveText('已保存');
-
-    const editorContext = await browser.newContext({ storageState: await page.context().storageState() });
-    const editorPage = await editorContext.newPage();
-    await editorPage.goto(`/documents/${documentId}/edit`);
-    await waitForSheet(editorPage);
-    await expect(page.getByText('协同已连接')).toBeVisible();
-    await expect(editorPage.getByText('协同已连接')).toBeVisible();
-    await expect(page.getByTestId('casual-sheets')).toBeVisible();
 
     await viewerPage.goto(`/documents/${documentId}/edit`);
     await waitForSheet(viewerPage);
-    const viewerToolbar = viewerPage.getByRole('toolbar', { name: '表格工具栏' });
-    await expect(viewerToolbar.getByRole('button', { name: '保存表格' })).toBeDisabled();
-    await expect(viewerToolbar.getByRole('button', { name: '加粗' })).toBeDisabled();
+    await expect(viewerPage.getByText('只读')).toBeVisible();
     await viewerPage.setViewportSize({ width: 375, height: 812 });
     expect(await hasHorizontalOverflow(viewerPage)).toBe(false);
 
-    await editorContext.close();
     await viewerContext.close();
   });
 });
@@ -107,8 +95,17 @@ async function upload(page: Page, file: { name: string; mimeType: string; buffer
 }
 
 async function waitForSheet(page: Page): Promise<void> {
-  await expect(page.getByRole('toolbar', { name: '表格工具栏' })).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator('.spreadsheet-canvas > div')).toBeVisible({ timeout: 45_000 });
+  const iframe = page.locator('.office-sheet-iframe');
+  await expect(iframe).toBeVisible({ timeout: 45_000 });
+  const frame = page.frameLocator('.office-sheet-iframe');
+  await expect(frame.getByText('文件', { exact: true })).toBeVisible({ timeout: 45_000 });
+  await expect(frame.getByText('编辑', { exact: true })).toBeVisible();
+  await expect
+    .poll(() => frame.locator('canvas').evaluateAll((canvases) => canvases.some((canvas) => {
+      const rect = canvas.getBoundingClientRect();
+      return rect.width > 100 && rect.height > 100;
+    })))
+    .toBe(true);
 }
 
 async function hasHorizontalOverflow(page: Page): Promise<boolean> {

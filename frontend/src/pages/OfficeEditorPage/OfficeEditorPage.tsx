@@ -191,14 +191,12 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
         state.session.fileExt === 'xlsx' && collabState.status === 'loading' ? (
           <section className="empty-state editor-state">正在连接表格协同服务</section>
         ) : state.session.fileExt === 'xlsx' ? (
-          <DirectSheetsHost
+          <CasualIframeHost
             buffer={state.buffer}
-            collabSession={collabState.status === 'success' ? collabState.session : null}
-            onCollabStatus={onCollabStatus}
             onSaveError={onSaveError}
             onSaveStart={onSaveStart}
             onSaveSuccess={onSaveSuccess}
-            saveState={saveState}
+            onTransport={onTransport}
             session={state.session}
           />
         ) : (
@@ -599,10 +597,15 @@ function CasualIframeHost({
       embedOrigin,
     });
     onTransport(transport);
+    let initialized = false;
     transport.on({
       onEditorReady: () => {
+        if (initialized) {
+          return;
+        }
+        initialized = true;
         transport.sendHostHello({ capabilities: ['load', 'save'] });
-        transport.sendSetLocale({ locale: 'zh-CN' });
+        transport.sendSetLocale({ locale: 'zhCN' });
         transport.sendSetTheme({ theme: 'light' });
         transport.sendSetViewMode({ viewMode });
         transport.sendSetReadOnly({ readOnly: session.mode !== 'edit' });

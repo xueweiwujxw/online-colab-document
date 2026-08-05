@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +10,14 @@ copyEmbedAssets('sheets', 'casual-sheets', [
   'formula.worker.js',
   'parser.worker.js',
 ]);
+copyFileSync(join(root, 'scripts', 'casual-sheets-zh-CN.js'), join(root, 'public', 'casual-sheets', 'zh-CN.js'));
+const sheetsEmbedPath = join(root, 'public', 'casual-sheets', 'embed.html');
+writeFileSync(
+  sheetsEmbedPath,
+  readFileSync(sheetsEmbedPath, 'utf8')
+    .replace('<html lang="en">', '<html lang="zh-CN">')
+    .replace('</body>', '    <script src="./zh-CN.js"></script>\n  </body>'),
+);
 copyEmbedAssets('docs', 'casual-docs', [
   'embed.html',
   { from: 'embed-runtime.mjs', to: 'embed-runtime.js' },
