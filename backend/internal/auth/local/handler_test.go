@@ -3,6 +3,7 @@ package local
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -287,6 +288,33 @@ func TestChangePasswordOIDCUserFails(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminResetPasswordOnlySupportsLocalAccounts(t *testing.T) {
+	_, repo := newTestHandler()
+	now := time.Now().UTC()
+	localHash, err := HashPassword("password123", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.usersByID["local-1"] = user.User{ID: "local-1", Email: "local@example.test", AuthSource: "local", PasswordHash: &localHash, CreatedAt: now, UpdatedAt: now}
+	service := NewService(repo, repo, "", time.Hour)
+	admin := user.User{ID: "admin-1", IsAdmin: true}
+	if err := service.AdminResetPassword(context.Background(), AdminResetPasswordInput{Actor: admin, TargetUserID: "local-1", NewPassword: "newpassword123"}); err != nil {
+		t.Fatalf("reset local password: %v", err)
+	}
+	updated, _ := repo.FindByID(context.Background(), "local-1")
+	if updated.PasswordHash == nil || !VerifyPassword("newpassword123", "", *updated.PasswordHash) {
+		t.Fatal("expected reset password hash")
+	}
+	oidc := user.User{ID: "oidc-1", AuthSource: "oidc", CreatedAt: now, UpdatedAt: now}
+	repo.usersByID[oidc.ID] = oidc
+	if err := service.AdminResetPassword(context.Background(), AdminResetPasswordInput{Actor: admin, TargetUserID: oidc.ID, NewPassword: "newpassword123"}); !errors.Is(err, ErrPasswordUnsupported) {
+		t.Fatalf("expected OIDC reset rejection, got %v", err)
+	}
+	if err := service.AdminResetPassword(context.Background(), AdminResetPasswordInput{Actor: user.User{}, TargetUserID: "local-1", NewPassword: "newpassword123"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected admin rejection, got %v", err)
 	}
 }
 
