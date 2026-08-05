@@ -12,6 +12,25 @@ const (
 
 type Repository interface {
 	Search(ctx context.Context, query string, limit int) ([]User, error)
+	ListAdmin(ctx context.Context, query string, limit int, offset int) ([]User, error)
+}
+
+func (s *Service) ListAdmin(ctx context.Context, query string, limit, offset int) ([]AdminUser, error) {
+	if limit <= 0 || limit > maxSearchLimit {
+		limit = maxSearchLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	users, err := s.repo.ListAdmin(ctx, strings.TrimSpace(query), limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]AdminUser, 0, len(users))
+	for _, u := range users {
+		items = append(items, ToAdmin(u))
+	}
+	return items, nil
 }
 
 type Service struct {

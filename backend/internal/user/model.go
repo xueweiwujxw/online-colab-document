@@ -27,6 +27,17 @@ type PublicUser struct {
 	IsAdmin     bool   `json:"isAdmin"`
 }
 
+type AdminUser struct {
+	ID          string    `json:"id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"displayName"`
+	AuthSource  string    `json:"authSource"`
+	IsAdmin     bool      `json:"isAdmin"`
+	Disabled    bool      `json:"disabled"`
+	CreatedAt   time.Time `json:"createdAt"`
+	AvatarURL   string    `json:"avatarUrl,omitempty"`
+}
+
 func ToPublic(u User) PublicUser {
 	avatarURL := ""
 	if u.AvatarKey != nil && *u.AvatarKey != "" {
@@ -40,4 +51,9 @@ func ToPublic(u User) PublicUser {
 		IsAdmin:     u.IsAdmin,
 		AvatarURL:   avatarURL,
 	}
+}
+
+func ToAdmin(u User) AdminUser {
+	public := ToPublic(u)
+	return AdminUser{ID: public.ID, Email: public.Email, DisplayName: public.DisplayName, AuthSource: public.AuthSource, IsAdmin: public.IsAdmin, Disabled: u.Disabled, CreatedAt: u.CreatedAt, AvatarURL: public.AvatarURL}
 }

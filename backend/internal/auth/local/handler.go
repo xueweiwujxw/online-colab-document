@@ -281,6 +281,46 @@ func (h Handler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, user.ToPublic(updated))
 }
 
+func (h Handler) AdminResetPassword(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if !currentUser.IsAdmin {
+		api.WriteError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	var req struct {
+		NewPassword string `json:"newPassword"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	err := h.service.AdminResetPassword(r.Context(), AdminResetPasswordInput{Actor: currentUser, TargetUserID: r.PathValue("id"), NewPassword: req.NewPassword})
+	if err != nil {
+		if errors.Is(err, ErrPasswordUnsupported) {
+			api.WriteError(w, http.StatusBadRequest, "password reset unsupported")
+			return
+		}
+		if errors.Is(err, ErrInvalidInput) {
+			api.WriteError(w, http.StatusBadRequest, "invalid password input")
+			return
+		}
+		if errors.Is(err, ErrUserNotFound) {
+			api.WriteError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		h.logger.Error("admin password reset failed", "error", err)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	actorID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{ActorUserID: &actorID, Action: "admin.password_reset", TargetType: "user", TargetID: r.PathValue("id")})
+	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (h Handler) Avatar(w http.ResponseWriter, r *http.Request) {
 	if _, ok := middleware.CurrentUser(r.Context()); !ok {
 		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")

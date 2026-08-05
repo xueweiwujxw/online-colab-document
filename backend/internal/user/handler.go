@@ -13,6 +13,18 @@ type Handler struct {
 	logger  *slog.Logger
 }
 
+func (h Handler) ListAdmin(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	items, err := h.service.ListAdmin(r.Context(), r.URL.Query().Get("q"), limit, offset)
+	if err != nil {
+		h.logger.Error("list admin users failed", "error", err)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 func NewHandler(service *Service, logger *slog.Logger) Handler {
 	return Handler{service: service, logger: logger}
 }

@@ -82,6 +82,12 @@ type UpdateAvatarInput struct {
 	AvatarKey string
 }
 
+type AdminResetPasswordInput struct {
+	Actor        user.User
+	TargetUserID string
+	NewPassword  string
+}
+
 type AuthSession struct {
 	User      user.User
 	Token     string
@@ -228,6 +234,24 @@ func (s *Service) UpdateAvatar(ctx context.Context, input UpdateAvatarInput) (us
 		return user.User{}, ErrUnauthenticated
 	}
 	return s.users.UpdateAvatarKey(ctx, u.ID, &input.AvatarKey)
+}
+
+func (s *Service) AdminResetPassword(ctx context.Context, input AdminResetPasswordInput) error {
+	if !input.Actor.IsAdmin || input.TargetUserID == "" || len(input.NewPassword) < 8 {
+		return ErrInvalidInput
+	}
+	target, err := s.users.FindByID(ctx, input.TargetUserID)
+	if err != nil {
+		return err
+	}
+	if target.AuthSource != "local" || target.PasswordHash == nil {
+		return ErrPasswordUnsupported
+	}
+	hash, err := s.hashPassword(input.NewPassword, s.pepper)
+	if err != nil {
+		return err
+	}
+	return s.users.UpdatePasswordHash(ctx, target.ID, hash)
 }
 
 func (s *Service) ListSessions(ctx context.Context, userID string, currentToken string) ([]PublicSession, error) {

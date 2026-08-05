@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/local"
 	oidcauth "online-colab-document/backend/internal/auth/oidc"
@@ -80,6 +81,20 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		requireAuth := func(next http.HandlerFunc) http.Handler {
 			return middleware.RequireAuth(authService, cfg.SessionCookieName, next)
 		}
+		requireAdmin := func(next http.HandlerFunc) http.Handler {
+			return requireAuth(func(w http.ResponseWriter, r *http.Request) {
+				currentUser, ok := middleware.CurrentUser(r.Context())
+				if !ok {
+					api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+					return
+				}
+				if !currentUser.IsAdmin {
+					api.WriteError(w, http.StatusForbidden, "forbidden")
+					return
+				}
+				next(w, r)
+			})
+		}
 		mux.Handle("PUT /api/auth/password", requireAuth(authHandler.ChangePassword))
 		mux.Handle("PUT /api/auth/profile", requireAuth(authHandler.UpdateProfile))
 		mux.Handle("GET /api/auth/sessions", requireAuth(authHandler.ListSessions))
@@ -87,6 +102,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		userService := appuser.NewService(appuser.NewPostgresRepository(db))
 		userHandler := appuser.NewHandler(userService, logger)
 		mux.Handle("GET /api/users", requireAuth(userHandler.Search))
+		mux.Handle("GET /api/admin/users", requireAdmin(userHandler.ListAdmin))
+		mux.Handle("PUT /api/admin/users/{id}/password", requireAdmin(authHandler.AdminResetPassword))
 		mux.Handle("GET /api/admin/audit-logs", requireAuth(auditHandler.List))
 
 		objectStorage, err := storage.NewMinIOStorage(storage.MinIOConfig{
