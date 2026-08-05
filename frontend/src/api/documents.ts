@@ -83,10 +83,13 @@ export function documentDownloadURL(id: string): string {
 }
 
 export function documentEditorURL(document: Pick<DocumentItem, 'id' | 'fileExt'>): string | null {
+  if (usesOnlyOffice(document.fileExt)) {
+    return `/documents/${document.id}/onlyoffice`;
+  }
   if (isOfficeDocument(document.fileExt)) {
     return `/documents/${document.id}/edit`;
   }
-  if (isMarkdownDocument(document.fileExt)) {
+  if (isTextDocument(document.fileExt)) {
     return `/documents/${document.id}/markdown`;
   }
   return null;
@@ -134,4 +137,12 @@ function isOfficeDocument(fileExt: string): boolean {
 
 function isMarkdownDocument(fileExt: string): boolean {
   return ['md', 'markdown'].includes(fileExt.toLowerCase());
+}
+
+function isTextDocument(fileExt: string): boolean {
+  return isMarkdownDocument(fileExt) || fileExt.toLowerCase() === 'txt';
+}
+
+function usesOnlyOffice(fileExt: string): boolean {
+  return ['doc', 'xls'].includes(fileExt.toLowerCase());
 }

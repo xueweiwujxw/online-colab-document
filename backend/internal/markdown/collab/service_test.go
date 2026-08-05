@@ -40,6 +40,25 @@ func TestViewerCanJoinButCannotSubmitUpdate(t *testing.T) {
 	}
 }
 
+func TestTextDocumentCanJoinAndPersistUpdate(t *testing.T) {
+	fixture := newTestService(100)
+	fixture.docs.doc.FileExt = "txt"
+	fixture.permissions.edit["doc-1:editor-1"] = true
+
+	session, err := fixture.service.Join(context.Background(), testUser("editor-1", "Editor"), "doc-1")
+	if err != nil {
+		t.Fatalf("join text document: %v", err)
+	}
+	defer fixture.service.Leave(session)
+
+	if err := fixture.service.ApplyClientMessage(context.Background(), session, ClientUpdate{Type: "update", Content: "plain text"}); err != nil {
+		t.Fatalf("update text document: %v", err)
+	}
+	if fixture.repo.updateCount() != 1 {
+		t.Fatalf("expected one persisted update, got %d", fixture.repo.updateCount())
+	}
+}
+
 func TestEditorUpdatePersistsAndBroadcastsToOtherClients(t *testing.T) {
 	fixture := newTestService(100)
 	fixture.permissions.edit["doc-1:editor-1"] = true
@@ -127,6 +146,7 @@ func TestSnapshotCreatedAtInterval(t *testing.T) {
 type testFixture struct {
 	service     *Service
 	repo        *memoryCollabRepo
+	docs        *memoryDocumentRepo
 	permissions *memoryPermissionService
 }
 
@@ -150,6 +170,7 @@ func newTestService(snapshotInterval int) testFixture {
 	return testFixture{
 		service:     NewService(repo, docs, permissions, objectStorage, snapshotInterval),
 		repo:        repo,
+		docs:        docs,
 		permissions: permissions,
 	}
 }

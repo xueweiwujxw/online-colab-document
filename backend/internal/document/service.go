@@ -251,7 +251,7 @@ func (s *Service) GetMarkdown(ctx context.Context, userID string, id string) (Ma
 	if err != nil {
 		return MarkdownDocument{}, err
 	}
-	if !isMarkdownDocument(doc.FileExt) {
+	if !isTextDocument(doc.FileExt) {
 		return MarkdownDocument{}, ErrUnsupportedType
 	}
 	reader, err := s.storage.GetObject(ctx, doc.StorageKey)
@@ -289,7 +289,7 @@ func (s *Service) SaveMarkdown(ctx context.Context, userID string, id string, co
 	if err != nil {
 		return MarkdownDocument{}, err
 	}
-	if !isMarkdownDocument(doc.FileExt) {
+	if !isTextDocument(doc.FileExt) {
 		return MarkdownDocument{}, ErrUnsupportedType
 	}
 
@@ -456,12 +456,13 @@ func (t allowedType) accepts(mimeType string) bool {
 }
 
 var allowedFileTypes = map[string]allowedType{
-	"doc":  newAllowedType("application/msword", "application/octet-stream"),
-	"docx": newAllowedType("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"),
-	"xls":  newAllowedType("application/vnd.ms-excel", "application/octet-stream"),
-	"xlsx": newAllowedType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"),
-	"md":   newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
-	"txt":  newAllowedType("text/plain", "text/plain; charset=utf-8", "application/octet-stream"),
+	"doc":      newAllowedType("application/msword", "application/octet-stream"),
+	"docx":     newAllowedType("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"),
+	"xls":      newAllowedType("application/vnd.ms-excel", "application/octet-stream"),
+	"xlsx":     newAllowedType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"),
+	"md":       newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
+	"markdown": newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
+	"txt":      newAllowedType("text/plain", "text/plain; charset=utf-8", "application/octet-stream"),
 }
 
 func newAllowedType(preferred string, alternates ...string) allowedType {
@@ -506,9 +507,9 @@ func storageKey(documentID string, versionID string, filename string) string {
 	return fmt.Sprintf("documents/%s/versions/%s/%s", documentID, versionID, safe)
 }
 
-func isMarkdownDocument(fileExt string) bool {
+func isTextDocument(fileExt string) bool {
 	ext := strings.ToLower(strings.TrimPrefix(fileExt, "."))
-	return ext == "md" || ext == "markdown"
+	return ext == "md" || ext == "markdown" || ext == "txt"
 }
 
 func newUUID() (string, error) {

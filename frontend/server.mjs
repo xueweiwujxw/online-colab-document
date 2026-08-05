@@ -51,6 +51,15 @@ const server = createServer(async (req, res) => {
 
 server.on('upgrade', (req, socket, head) => {
   const rawPath = req.url ?? '/';
+  if (rawPath.startsWith('/api/')) {
+    proxyWebSocket(req, socket, head, {
+      hostname: apiProxyTarget.hostname,
+      port: apiProxyTarget.port || 80,
+      host: apiProxyTarget.host,
+      path: rawPath,
+    });
+    return;
+  }
   if (!rawPath.startsWith('/office-collab')) {
     socket.destroy();
     return;
@@ -58,15 +67,21 @@ server.on('upgrade', (req, socket, head) => {
 
   const upstreamPath = rawPath.slice('/office-collab'.length) || '/';
 
-  const proxyReq = request({
+  proxyWebSocket(req, socket, head, {
     hostname: officeCollabProxyHost,
     port: officeCollabProxyPort,
-    method: req.method,
+    host: `${officeCollabProxyHost}:${officeCollabProxyPort}`,
     path: upstreamPath.startsWith('/') ? upstreamPath : `/${upstreamPath}`,
-    headers: {
-      ...req.headers,
-      host: `${officeCollabProxyHost}:${officeCollabProxyPort}`,
-    },
+  });
+});
+
+function proxyWebSocket(req, socket, head, target) {
+  const proxyReq = request({
+    hostname: target.hostname,
+    port: target.port,
+    method: req.method,
+    path: target.path,
+    headers: { ...req.headers, host: target.host },
   });
   proxyReq.on('upgrade', (proxyRes, upstream, upstreamHead) => {
     const headers = [`HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode} ${proxyRes.statusMessage}`];
@@ -94,7 +109,7 @@ server.on('upgrade', (req, socket, head) => {
     socket.destroy();
   });
   proxyReq.end();
-});
+}
 
 server.listen(port, '0.0.0.0');
 

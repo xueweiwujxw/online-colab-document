@@ -79,6 +79,24 @@ func TestXLSXGetsCellConfig(t *testing.T) {
 	}
 }
 
+func TestDOCGetsWordConfig(t *testing.T) {
+	harness := newTestHarness()
+	doc := harness.documents.docs["doc-1"]
+	doc.OriginalFilename = "legacy.doc"
+	doc.FileExt = "doc"
+	doc.MimeType = "application/msword"
+	harness.documents.docs["doc-1"] = doc
+
+	cfg, err := harness.service.Config(context.Background(), user.User{ID: "editor-1", DisplayName: "Editor"}, "doc-1")
+
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if cfg.Document.FileType != "doc" || cfg.DocumentType != "word" || cfg.EditorConfig.Mode != "edit" {
+		t.Fatalf("unexpected legacy DOC config: %#v", cfg)
+	}
+}
+
 func TestConfigRejectsNonOfficeDocument(t *testing.T) {
 	harness := newTestHarness()
 	doc := harness.documents.docs["doc-1"]

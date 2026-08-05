@@ -230,7 +230,7 @@ func (s *Service) checkAccess(ctx context.Context, userID string, documentID str
 	if err != nil {
 		return false, err
 	}
-	if !isMarkdownDocument(doc.FileExt) {
+	if !isTextDocument(doc.FileExt) {
 		return false, ErrUnsupportedFile
 	}
 	canView, err := s.permissions.CanView(ctx, userID, documentID)
@@ -391,9 +391,9 @@ func (s *ClientSession) enqueue(message ServerMessage) {
 	}
 }
 
-func isMarkdownDocument(fileExt string) bool {
+func isTextDocument(fileExt string) bool {
 	ext := strings.ToLower(strings.TrimPrefix(fileExt, "."))
-	return ext == "md" || ext == "markdown"
+	return ext == "md" || ext == "markdown" || ext == "txt"
 }
 
 func newUUID() (string, error) {
