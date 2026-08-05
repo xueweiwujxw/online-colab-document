@@ -68,9 +68,6 @@ const server = new Server({
   async onAuthenticate(data) {
     return authorize(data);
   },
-  async onConnect(data) {
-    await authorize(data);
-  },
 });
 
 server.listen();

@@ -91,9 +91,10 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
     getOfficeSession(documentId)
       .then(async (session) => {
         const buffer = await fetchOfficeContent(session.downloadUrl);
-        if (mounted) {
-          setState({ status: 'success', session, buffer, error: null });
+        if (!mounted) {
+          return;
         }
+        setState({ status: 'success', session, buffer, error: null });
         if (session.fileExt === 'xlsx') {
           setCollabState({ status: 'loading', session: null });
           try {

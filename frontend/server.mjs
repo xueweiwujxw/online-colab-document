@@ -1,10 +1,13 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
-import { createServer } from 'node:http';
+import { request, createServer } from 'node:http';
 
 const root = '/app/dist';
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
+const apiProxyTarget = new URL(process.env.API_PROXY_TARGET ?? 'http://backend:8080');
+const officeCollabProxyHost = process.env.OFFICE_COLLAB_PROXY_HOST ?? 'office-collab';
+const officeCollabProxyPort = Number.parseInt(process.env.OFFICE_COLLAB_PROXY_PORT ?? '1234', 10);
 
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -14,8 +17,13 @@ const contentTypes = {
   '.svg': 'image/svg+xml',
 };
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const path = normalize(decodeURIComponent(req.url?.split('?')[0] ?? '/'));
+  if (path.startsWith('/api/')) {
+    proxyAPI(req, res);
+    return;
+  }
+
   const relativePath = path === '/' ? '/index.html' : path;
   const filePath = join(root, relativePath);
 
@@ -39,4 +47,78 @@ createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     createReadStream(join(root, 'index.html')).pipe(res);
   }
-}).listen(port, '0.0.0.0');
+});
+
+server.on('upgrade', (req, socket, head) => {
+  const rawPath = req.url ?? '/';
+  if (!rawPath.startsWith('/office-collab')) {
+    socket.destroy();
+    return;
+  }
+
+  const upstreamPath = rawPath.slice('/office-collab'.length) || '/';
+
+  const proxyReq = request({
+    hostname: officeCollabProxyHost,
+    port: officeCollabProxyPort,
+    method: req.method,
+    path: upstreamPath.startsWith('/') ? upstreamPath : `/${upstreamPath}`,
+    headers: {
+      ...req.headers,
+      host: `${officeCollabProxyHost}:${officeCollabProxyPort}`,
+    },
+  });
+  proxyReq.on('upgrade', (proxyRes, upstream, upstreamHead) => {
+    const headers = [`HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode} ${proxyRes.statusMessage}`];
+    for (const [name, value] of Object.entries(proxyRes.headers)) {
+      if (value !== undefined) {
+        headers.push(`${name}: ${Array.isArray(value) ? value.join(', ') : value}`);
+      }
+    }
+    socket.write(`${headers.join('\r\n')}\r\n\r\n`);
+    if (upstreamHead.length > 0) {
+      socket.write(upstreamHead);
+    }
+    if (head.length > 0) {
+      upstream.write(head);
+    }
+    upstream.pipe(socket);
+    socket.pipe(upstream);
+  });
+  proxyReq.on('response', (proxyRes) => {
+    socket.write(`HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode} ${proxyRes.statusMessage}\r\n\r\n`);
+    socket.destroy();
+  });
+  proxyReq.on('error', (error) => {
+    console.error(`office collab proxy error: ${error.code ?? error.message}`);
+    socket.destroy();
+  });
+  proxyReq.end();
+});
+
+server.listen(port, '0.0.0.0');
+
+function proxyAPI(req, res) {
+  const proxyReq = request(
+    {
+      hostname: apiProxyTarget.hostname,
+      port: apiProxyTarget.port || 80,
+      protocol: apiProxyTarget.protocol,
+      method: req.method,
+      path: req.url,
+      headers: {
+        ...req.headers,
+        host: apiProxyTarget.host,
+      },
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
+      proxyRes.pipe(res);
+    },
+  );
+  proxyReq.on('error', () => {
+    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad Gateway');
+  });
+  req.pipe(proxyReq);
+}

@@ -33,9 +33,16 @@ cd frontend && corepack pnpm run dev -- --host 0.0.0.0 --port 3000
 前端 dev server 已配置代理：
 
 - `/api` -> `http://localhost:8080`
-- `/office-collab` -> `ws://localhost:1234`
+- `/office-collab` -> `ws://localhost:1234`，转发时会去掉 `/office-collab` 前缀，匹配 Hocuspocus 的根路径 WebSocket 服务。
+
+compose 前端容器也提供同源代理：
+
+- `/api` -> `http://backend:8080`
+- `/office-collab` -> `ws://office-collab:1234`，转发时会去掉 `/office-collab` 前缀。
 
 开发时优先访问 `http://localhost:3000` 或 `http://127.0.0.1:3000` 的前端入口，不要直接让浏览器访问 `8080` 或 `1234`。Office 编辑器会把本地 backend / collab 绝对地址改写为同源代理地址，避免 `localhost` 和 `127.0.0.1` 混用导致 cookie 不发送，从而出现登录成功但 Office 下载 `401`、`Failed to fetch`、协作 WebSocket 认证失败或只读不可编辑的问题。
+
+Casual Sheets 的 xlsx 解析依赖包内 `parser.worker.js`。Vite dev server 必须在 `frontend/vite.config.ts` 里把 `@casualoffice/sheets/xlsx` 加入 `optimizeDeps.exclude`，否则浏览器会请求不存在的 `node_modules/.vite/deps/parser.worker.js?worker_file&type=module`，页面表现为表格编辑器一直加载、协作状态异常，或报 `xlsx parser worker ran out of memory parsing this file`。修改 `vite.config.ts` 后必须重启 Vite。
 
 服务地址：
 

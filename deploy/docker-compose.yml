@@ -45,11 +45,16 @@ services:
     build:
       context: ../frontend
       args:
-        VITE_API_BASE_URL: http://localhost:8080
+        VITE_API_BASE_URL: ""
+    environment:
+      API_PROXY_TARGET: http://backend:8080
+      OFFICE_COLLAB_PROXY_HOST: office-collab
+      OFFICE_COLLAB_PROXY_PORT: "1234"
     ports:
       - "3000:3000"
     depends_on:
       - backend
+      - office-collab
 
   office-collab:
     build:
