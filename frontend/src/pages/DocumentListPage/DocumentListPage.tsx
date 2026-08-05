@@ -92,10 +92,11 @@ export function DocumentListPage() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">文档</p>
+      <header className="topbar workspace-header">
+        <div className="workspace-intro">
+          <p className="eyebrow">DOCS COLLAB / 工作区</p>
           <h1>我的文档</h1>
+          <p className="workspace-description">集中管理、协作与沉淀每一份工作内容。</p>
         </div>
         <div className="user-actions">
           {auth.user.isAdmin ? (
@@ -121,54 +122,65 @@ export function DocumentListPage() {
         </div>
       </header>
       {actionError ? <p className="form-error">{actionError}</p> : null}
-      {documents.status === 'loading' ? <section className="empty-state">加载中</section> : null}
-      {documents.status === 'error' ? (
-        <section className="empty-state">{documents.error}</section>
-      ) : null}
-      {documents.status === 'success' && documents.items.length === 0 ? (
-        <section className="empty-state">暂无文档。</section>
-      ) : null}
-      {documents.status === 'success' && documents.items.length > 0 ? (
-        <section className="document-list">
-          {documents.items.map((document) => (
-            <article className="document-row" key={document.id}>
-              <a className="document-title" href={`/documents/${document.id}`}>
-                {document.title}
-              </a>
-              <span className="file-badge">{document.fileExt}</span>
-              <span className="document-meta">{formatDate(document.updatedAt)}</span>
-              <span className="document-meta">{formatSize(document.sizeBytes)}</span>
-              <div className="document-actions">
-                <a className="primary-link compact-link" href={documentOpenURL(document)}>
-                  打开
+      <section className="workspace-content" aria-label="文档列表">
+        <div className="workspace-section-heading">
+          <div>
+            <p className="section-kicker">DOCUMENT LIBRARY</p>
+            <h2>最近更新</h2>
+          </div>
+          {documents.status === 'success' ? (
+            <p className="document-count">共 {documents.items.length} 份文档</p>
+          ) : null}
+        </div>
+        {documents.status === 'loading' ? <section className="empty-state">正在整理你的文档…</section> : null}
+        {documents.status === 'error' ? (
+          <section className="empty-state">{documents.error}</section>
+        ) : null}
+        {documents.status === 'success' && documents.items.length === 0 ? (
+          <section className="empty-state">还没有文档。使用右上角的“上传”开始创建你的工作区。</section>
+        ) : null}
+        {documents.status === 'success' && documents.items.length > 0 ? (
+          <section className="document-list">
+            {documents.items.map((document) => (
+              <article className="document-row" key={document.id}>
+                <a className="document-title" href={`/documents/${document.id}`}>
+                  {document.title}
                 </a>
-                <a className="secondary-button" href={documentDownloadURL(document.id)}>
-                  下载
-                </a>
-                {document.canManage ? (
-                  <a className="secondary-button" href={`/documents/${document.id}/permissions`}>
-                    权限
+                <span className="file-badge">{document.fileExt}</span>
+                <span className="document-meta">{formatDate(document.updatedAt)}</span>
+                <span className="document-meta">{formatSize(document.sizeBytes)}</span>
+                <div className="document-actions">
+                  <a className="primary-link compact-link" href={documentOpenURL(document)}>
+                    打开
                   </a>
-                ) : null}
-                {document.canManage ? (
-                  <a className="secondary-button" href={`/documents/${document.id}/share`}>
-                    分享
+                  <a className="secondary-button" href={documentDownloadURL(document.id)}>
+                    下载
                   </a>
-                ) : null}
-                {document.canManage ? (
-                  <button
-                    className="secondary-button danger-button"
-                    onClick={() => void onDelete(document.id)}
-                    type="button"
-                  >
-                    删除
-                  </button>
-                ) : null}
-              </div>
-            </article>
-          ))}
-        </section>
-      ) : null}
+                  {document.canManage ? (
+                    <a className="secondary-button" href={`/documents/${document.id}/permissions`}>
+                      权限
+                    </a>
+                  ) : null}
+                  {document.canManage ? (
+                    <a className="secondary-button" href={`/documents/${document.id}/share`}>
+                      分享
+                    </a>
+                  ) : null}
+                  {document.canManage ? (
+                    <button
+                      className="secondary-button danger-button"
+                      onClick={() => void onDelete(document.id)}
+                      type="button"
+                    >
+                      删除
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </section>
+        ) : null}
+      </section>
     </main>
   );
 }
