@@ -39,7 +39,7 @@
 - Deploy: Docker Compose / Nginx
 
 禁止自研 docx / xlsx 编辑器。  
-Word / Excel 在线编辑必须通过自托管开源 Office 编辑器提供商实现，例如 ONLYOFFICE、Collabora Online 或经过 POC 验证的同类方案。
+Word / Excel 在线编辑必须通过经过 POC 验证的自托管开源 Office 编辑器提供商实现。
 替换编辑器前必须先在 `TASK.md` 记录计划，并验证 doc/docx/xls/xlsx 的打开、编辑、保存、权限和版本链路。
 
 ## 3. 代码约束
@@ -117,7 +117,7 @@ feature/m1-local-auth
 feature/m2-oidc-login
 feature/m3-document-upload
 feature/m4-permission
-feature/m5-onlyoffice
+feature/m5-office-editor
 feature/m6-markdown-editor
 feature/m7-markdown-collab
 feature/m8-share-link
@@ -157,7 +157,7 @@ perf
 feat(auth): add local login
 feat(document): add upload API
 feat(permission): add permission service
-feat(onlyoffice): add editor config endpoint
+feat(office): add editor session endpoint
 fix(storage): validate object key
 docs(deploy): add compose guide
 test(permission): cover role matrix

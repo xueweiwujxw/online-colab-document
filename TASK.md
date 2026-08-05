@@ -102,7 +102,7 @@ Markdown 第二版：
 │   │   │   ├── collab/
 │   │   │   └── snapshot/
 │   │   ├── middleware/
-│   │   ├── onlyoffice/
+│   │   ├── office/
 │   │   ├── permission/
 │   │   ├── server/
 │   │   ├── share/
@@ -122,12 +122,12 @@ Markdown 第二版：
 │   │   ├── components/
 │   │   ├── editors/
 │   │   │   ├── markdown/
-│   │   │   └── onlyoffice/
+│   │   │   └── office/
 │   │   ├── pages/
 │   │   │   ├── LoginPage/
 │   │   │   ├── DocumentListPage/
 │   │   │   ├── DocumentDetailPage/
-│   │   │   ├── OnlyOfficeEditorPage/
+│   │   │   ├── OfficeEditorPage/
 │   │   │   ├── MarkdownEditorPage/
 │   │   │   ├── PermissionPage/
 │   │   │   └── AdminPage/
@@ -153,7 +153,7 @@ Markdown 第二版：
 │   ├── api.md
 │   ├── deployment.md
 │   ├── permission.md
-│   ├── onlyoffice.md
+│   ├── office-editor.md
 │   └── markdown-collab.md
 │
 ├── AGENTS.md
@@ -184,7 +184,7 @@ M1  本地用户认证
 M2  OIDC 登录
 M3  文档上传下载
 M4  权限系统
-M5  ONLYOFFICE 集成
+M5  Office 编辑器集成（已由替代 POC 取代）
 M6  Markdown 普通编辑
 M7  Markdown 协同编辑
 M8  分享链接
@@ -226,7 +226,7 @@ M12 Docker 部署与安全加固
 - OIDC 登录
 - 文档上传下载
 - 权限系统
-- ONLYOFFICE 集成
+- Office 编辑器集成
 - Markdown 编辑器
 - 分享链接
 - 审计日志
@@ -351,7 +351,7 @@ deploy/docker-compose.yml
 
 M0 不加入：
 
-- onlyoffice
+- office editor
 - keycloak
 - nginx
 
@@ -426,7 +426,7 @@ README 中明确说明：
 
 ```text
 当前只完成 M0 项目骨架。
-尚未实现认证、文档上传下载、权限、ONLYOFFICE、Markdown 协同。
+尚未实现认证、文档上传下载、权限、Office 编辑器、Markdown 协同。
 ```
 
 ## M0.8 docs/architecture.md 要求
@@ -438,7 +438,7 @@ README 中明确说明：
 - 总体架构图，text diagram 即可
 - 模块说明
 - 后续里程碑
-- 为什么 Word / Excel 编辑使用 ONLYOFFICE
+- 为什么 Word / Excel 编辑使用自托管 Office 提供商
 - 为什么 Markdown 编辑单独实现
 
 ## M0.9 验收标准
@@ -1060,134 +1060,6 @@ viewer 只能查看和下载
 
 ---
 
-# M5：ONLYOFFICE 集成
-
-## M5.1 目标
-
-集成 ONLYOFFICE Document Server，实现 docx / xlsx 在线编辑。
-
-支持：
-
-- docx 在线打开
-- xlsx 在线打开
-- 根据权限决定 view / edit
-- ONLYOFFICE 保存回调
-- 保存后生成新版本
-- viewer 只读
-- editor 可编辑
-
-不处理 Markdown。
-
-## M5.2 Docker Compose
-
-在 docker-compose 中增加 onlyoffice 服务。
-
-服务名建议：
-
-```text
-onlyoffice
-```
-
-需要配置：
-
-```text
-ONLYOFFICE_JWT_SECRET=change-me
-```
-
-## M5.3 环境变量
-
-Backend 新增：
-
-```text
-ONLYOFFICE_ENABLED=true
-ONLYOFFICE_PUBLIC_URL=http://localhost:8080/onlyoffice
-ONLYOFFICE_INTERNAL_URL=http://onlyoffice
-ONLYOFFICE_JWT_SECRET=change-me
-PUBLIC_APP_URL=http://localhost:3000
-PUBLIC_API_URL=http://localhost:8080
-BACKEND_INTERNAL_URL=http://backend:8080
-```
-
-## M5.4 Backend API
-
-实现：
-
-```text
-GET  /api/documents/:id/onlyoffice/config
-POST /api/onlyoffice/callback/:documentId
-```
-
-## M5.5 Config 生成要求
-
-生成 config 前必须：
-
-1. 检查文档存在。
-2. 检查文件类型是 doc/docx/xls/xlsx。
-3. 检查 CanView。
-4. 如果用户有 CanEdit，mode 为 edit。
-5. 如果用户只有 CanView，mode 为 view。
-6. 生成 document key。
-7. 生成 callbackUrl。
-8. 设置 download URL。
-9. 设置 editorConfig.user。
-10. 使用 ONLYOFFICE JWT secret 签名配置，如果启用。
-
-## M5.6 Callback 要求
-
-ONLYOFFICE 保存回调必须：
-
-1. 校验 token。
-2. 校验 documentId。
-3. 校验 document key。
-4. 处理 status。
-5. 当 ONLYOFFICE 通知需要保存时，从 callback body 中的 URL 下载新文件。
-6. 下载文件需要设置 timeout。
-7. 下载文件需要限制最大大小。
-8. 新文件保存到对象存储。
-9. 新增 document_versions 记录。
-10. 更新 documents.current_version_id。
-11. callback 需要幂等。
-
-## M5.7 Frontend 要求
-
-新增页面：
-
-```text
-/documents/:id/edit
-```
-
-如果是 doc/docx/xls/xlsx：
-
-- 调用 `/api/documents/:id/onlyoffice/config`
-- 嵌入 ONLYOFFICE editor
-- 显示 loading
-- 显示 error
-- 无权限显示 forbidden
-
-## M5.8 测试要求
-
-Backend 测试：
-
-- 无权限无法获取 config
-- viewer 获取 view config
-- editor 获取 edit config
-- 非 Office 文档无法获取 config
-- callback token 错误失败
-- callback 保存成功生成新版本
-
-## M5.9 验收标准
-
-```text
-docx 可以在线打开
-xlsx 可以在线打开
-viewer 打开为只读
-editor 可以编辑
-保存后下载得到新版本
-document_versions 中新增版本
-```
-
----
-
 # M6：Markdown 普通编辑
 
 ## M6.1 目标
@@ -1552,7 +1424,7 @@ owner 可以生成分享链接
 - 查看版本列表
 - 下载历史版本
 - 恢复历史版本
-- 上传 / 编辑 / ONLYOFFICE callback / Markdown 保存都生成版本
+- 上传、Office 编辑保存、Markdown 保存都生成版本
 
 ## M9.2 Backend API
 
@@ -1576,7 +1448,7 @@ POST /api/documents/:id/versions/:versionId/restore
    - created_at
    - size_bytes
    - storage_key
-6. 普通上传、ONLYOFFICE 保存、Markdown 保存都必须生成版本。
+6. 普通上传、Office 保存、Markdown 保存都必须生成版本。
 
 ## M9.4 Frontend 要求
 
@@ -1629,7 +1501,7 @@ POST /api/documents/:id/versions/:versionId/restore
 - 下载文档
 - 删除文档
 - 在线编辑保存
-- ONLYOFFICE 保存回调
+- Office 保存
 - Markdown 保存
 - 创建权限
 - 删除权限
@@ -1815,7 +1687,7 @@ npm run test
 - postgres
 - redis
 - minio
-- onlyoffice
+- office-collab
 - nginx
 - optional keycloak dev profile
 
@@ -1840,7 +1712,7 @@ deploy/docker-compose.prod.yml
 - postgres
 - redis
 - minio
-- onlyoffice
+- office-collab
 - keycloak，可选 profile
 - nginx，可选
 
@@ -1851,7 +1723,7 @@ deploy/docker-compose.prod.yml
 - postgres
 - redis
 - minio or external S3
-- onlyoffice
+- office-collab
 - nginx
 
 ## M12.3 Nginx 要求
@@ -1863,7 +1735,7 @@ Nginx 负责统一入口。
 ```text
 /                  frontend
 /api/              backend
-/onlyoffice/       onlyoffice
+/office-collab     office-collab
 ```
 
 需要支持：
@@ -1871,7 +1743,7 @@ Nginx 负责统一入口。
 - WebSocket upgrade
 - 大文件上传限制
 - 反向代理 timeout
-- onlyoffice callback
+- Office 保存回调
 - gzip，可选
 
 ## M12.4 环境变量文档
@@ -1902,10 +1774,8 @@ OIDC_ISSUER_URL
 OIDC_CLIENT_ID
 OIDC_CLIENT_SECRET
 OIDC_REDIRECT_URL
-ONLYOFFICE_ENABLED
-ONLYOFFICE_PUBLIC_URL
-ONLYOFFICE_INTERNAL_URL
-ONLYOFFICE_JWT_SECRET
+OFFICE_COLLAB_ENABLED
+OFFICE_COLLAB_PUBLIC_URL
 BACKEND_INTERNAL_URL
 MAX_UPLOAD_BYTES
 MARKDOWN_SNAPSHOT_UPDATE_INTERVAL
@@ -1938,7 +1808,7 @@ MARKDOWN_SNAPSHOT_UPDATE_INTERVAL
 ```text
 README.md
 docs/deployment.md
-docs/onlyoffice.md
+docs/architecture.md
 docs/permission.md
 docs/markdown-collab.md
 ```
@@ -1949,7 +1819,7 @@ docs/markdown-collab.md
 - 生产环境启动
 - 环境变量
 - OIDC 配置方式
-- ONLYOFFICE 配置方式
+- Office 编辑器配置方式
 - MinIO / S3 配置方式
 - 数据持久化 volume
 - 备份建议
@@ -1995,17 +1865,6 @@ docker compose -f deploy/docker-compose.prod.yml config
 
 M12 完成后的体验修补按计划逐个执行，不混合提交。
 
-## Plan 1：修复 ONLYOFFICE Download failed
-
-状态：已完成。
-
-范围：
-
-- ONLYOFFICE 继续作为 Word / Excel 在线编辑器。
-- ONLYOFFICE 文档下载改为 backend 受控下载地址。
-- 下载地址使用短期签名票据。
-- 保持 ONLYOFFICE config 生成前的统一权限检查。
-
 ## Plan 2：Markdown 编辑器在线成员显示
 
 状态：已完成。
@@ -2017,7 +1876,7 @@ M12 完成后的体验修补按计划逐个执行，不混合提交。
 - 当前用户标记为“我”。
 - 每个在线用户显示可编辑 / 只读状态。
 - 不修改进入编辑器的入口逻辑。
-- 不修改 ONLYOFFICE 内部协同成员展示。
+- 不修改 Office 编辑器内部协同成员展示。
 
 验收标准：
 
@@ -2049,7 +1908,7 @@ M12 完成后的体验修补按计划逐个执行，不混合提交。
 
 范围：
 
-- 优化登录页、文档列表、详情页、Markdown 编辑器和 ONLYOFFICE 外层页面的视觉层次。
+- 优化登录页、文档列表、详情页、Markdown 编辑器和 Office 编辑器外层页面的视觉层次。
 - 保持中后台工具型信息密度，不做营销落地页。
 - 保持中文界面一致性。
 - 不改变后端接口和权限逻辑。
@@ -2117,20 +1976,20 @@ M12 完成后的体验修补按计划逐个执行，不混合提交。
 
 范围：
 
-- 上传文件类型仅允许 `doc`、`docx`、`xls`、`xlsx`、`md`、`txt`。
+- 上传文件类型仅允许 `docx`、`xlsx`、`md`、`txt`。
 - 前端文件选择器增加同样的 accept 限制。
 - 后端继续以扩展名和 MIME 双重校验为准。
-- 验证 Excel 文档可以生成 ONLYOFFICE config，并且 ONLYOFFICE 容器可以下载该文档。
+- 验证 xlsx 文档可以取得 Office session、打开编辑器并保存新版本。
 - 不实现 Plan 5。
 
 验收标准：
 
 ```text
-允许上传 doc/docx/xls/xlsx/md/txt
+允许上传 docx/xlsx/md/txt
 拒绝未列入白名单的扩展名
 权限和审计逻辑不变
-ONLYOFFICE xlsx config 正常生成
-ONLYOFFICE 容器可访问 xlsx 下载地址
+xlsx Office session 正常生成
+xlsx 编辑器可访问受控下载地址
 前端构建和后端测试通过
 ```
 
@@ -2147,11 +2006,11 @@ ONLYOFFICE 容器可访问 xlsx 下载地址
 
 范围：
 
-- 选择一个替代 ONLYOFFICE 的自托管开源 Office 编辑器候选方案优先做 POC。
+- 选择自托管开源 Office 编辑器候选方案优先做 POC。
 - 优先验证 Casual Office；如果无法满足基本链路，再评估 Collabora Online + WOPI。
 - POC 必须复用现有文档、权限、版本、审计和对象存储边界。
 - 不自研 docx / xlsx 编辑器。
-- 已移除 ONLYOFFICE 代码、配置、容器和回退路径；不得重新引入。
+- 已移除旧 Office 提供商代码、配置、容器和回退路径；不得重新引入。
 - 不实现完整迁移，只完成候选方案可行性验证和最小接入。
 
 验收标准：
@@ -2189,7 +2048,7 @@ viewer 只能只读打开
 - Word 当前仍走 Casual iframe POC，只支持单人编辑保存，不支持多人实时共享编辑。
 - CasualSheets 的 `lazyPlugins` 暂时关闭以避开缺失的 `@univerjs/docs-mention-ui` 懒加载白屏问题；后续需要恢复高级表格能力时单独修复插件清单或升级依赖。
 - 还没有支持旧格式 doc / xls 的 Casual 打开链路。
-- ONLYOFFICE 已按硬约束移除，不保留回退路径。
+- 旧 Office 提供商已按硬约束移除，不保留回退路径。
 
 下一阶段：Excel 协同 POC：
 
@@ -2310,7 +2169,7 @@ viewer 只读并能实时看到更新
 
 - 不自研 xlsx 文件解析或编辑内核。
 - 不在本计划内处理 Markdown 富文本。
-- 不重新引入 ONLYOFFICE 或任何回退配置。
+- 不重新引入已移除的 Office 提供商或任何回退配置。
 
 验收标准：
 
@@ -2444,6 +2303,48 @@ OIDC 账号不显示本地修改密码表单
 
 ---
 
+## Plan 15：编辑器页面显示与实用性优化
+
+状态：待开始。
+
+目标：
+
+- 优化页面在桌面、平板和手机上的信息层级、可读性与连续操作体验。
+- 以 Markdown 富文本编辑和 xlsx 表格编辑为最高优先级，保持现有权限、保存、版本和协同边界不变。
+
+范围：
+
+- 全局页面：统一标题、返回入口、状态提示、空/错误态和主要操作的视觉优先级；确保 375px、768px、1440px 宽度下无横向溢出。
+- Markdown：改善工具栏的分组、悬停/禁用/选中反馈和小屏折叠策略；让在线成员、连接状态、保存状态与编辑区保持可扫读；优化源码辅助区域，使其在小屏上位于编辑区之后且不挤压主编辑空间。
+- Markdown：补齐键盘快捷键提示、链接插入的无阻塞输入体验，以及表格插入后继续编辑、撤销和保存的浏览器回归用例。
+- xlsx：改善中文工具栏的分组、按钮文案、禁用反馈和窄屏横向滚动策略；确保表格画布始终优先获得可用高度和宽度。
+- xlsx：优先验证单元格输入、选区格式化、撤销/重做、保存状态、只读禁用和双页面实时同步；高级筛选、排序、批注、数据校验与工作表管理仅在依赖可稳定加载后逐项开放。
+- 为 Markdown 与 xlsx 增加可重复的 Playwright 浏览器回归脚本，覆盖登录、上传、打开、编辑、保存、权限只读和关键小屏布局。
+
+不做：
+
+- 不修改后端权限模型、版本模型或存储格式。
+- 不自研 docx / xlsx 文件解析或编辑内核。
+- 不在本计划内引入新的 Office 提供商。
+
+验收标准：
+
+```text
+375px、768px、1440px 页面无横向溢出，主要操作始终可见或可达
+Markdown 富文本编辑、格式化、表格、保存、下载、只读状态均可通过浏览器回归验证
+xlsx 可输入单元格、应用常用格式、撤销/重做、保存并生成新版本，viewer 工具栏不可编辑
+两名 editor 打开同一 xlsx 后可看到实时同步，关键操作无白屏和运行时异常
+前端构建、后端相关测试和 Playwright 回归均通过
+```
+
+当前浏览器基线（2026-08-05）：
+
+- 已在桌面和 375px 手机视口模拟注册、上传 Markdown、进入富文本编辑器、追加内容、加粗和保存；保存状态显示“已保存”，页面无横向溢出。
+- 浏览器控制台未出现应用运行时异常；认证初始化请求会产生一次预期的 401，后续页面操作正常。
+- xlsx 的完整交互、只读和双人同步回归留在本计划执行时使用独立测试样本完成。
+
+---
+
 # 6. 每个 Milestone 的 Codex Goal 用法
 
 ## Goal：M0
@@ -2494,16 +2395,6 @@ OIDC 账号不显示本地修改密码表单
 要求所有文档接口必须接入 PermissionService，不允许在 handler 中散落权限判断。
 
 完成后运行权限矩阵测试，并按 TASK.md 规定格式输出结果。
-```
-
-## Goal：M5
-
-```text
-请阅读 AGENTS.md 和 TASK.md，只完成 TASK.md 中的 M5：ONLYOFFICE 集成。
-
-只处理 doc/docx/xls/xlsx，不处理 Markdown。
-
-完成后运行测试，更新部署说明，并按 TASK.md 规定格式输出结果。
 ```
 
 ## Goal：M6
