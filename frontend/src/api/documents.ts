@@ -137,5 +137,5 @@ function isMarkdownDocument(fileExt: string): boolean {
 }
 
 function isTextDocument(fileExt: string): boolean {
-  return isMarkdownDocument(fileExt) || fileExt.toLowerCase() === 'txt';
+  return isMarkdownDocument(fileExt);
 }

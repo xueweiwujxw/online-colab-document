@@ -393,7 +393,7 @@ func (s *ClientSession) enqueue(message ServerMessage) {
 
 func isTextDocument(fileExt string) bool {
 	ext := strings.ToLower(strings.TrimPrefix(fileExt, "."))
-	return ext == "md" || ext == "txt"
+	return ext == "md"
 }
 
 func newUUID() (string, error) {

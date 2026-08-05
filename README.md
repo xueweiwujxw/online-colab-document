@@ -12,7 +12,8 @@ Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服
 - Cache: Redis
 - Storage: MinIO / S3
 - Deploy: Podman Compose / Docker Compose compatible compose file
-- Office editor: Casual Office（当前支持 docx / xlsx；不部署或使用 ONLYOFFICE）
+- Office editor: Casual Office（Casual Docs 处理 docx、Casual Sheets 处理 xlsx；不部署或使用 ONLYOFFICE）
+- Markdown editor: 项目内置 ProseMirror + WebSocket 协同（`.md`；不将 Markdown 转换为 DOCX）
 - Markdown collab: 后续里程碑使用 Yjs / WebSocket
 
 ## 本地启动
@@ -44,7 +45,7 @@ compose 前端容器也提供同源代理：
 
 ### 本地前端端口约束
 
-`FRONTEND_ORIGIN` 默认固定为 `http://localhost:3000`，Markdown/TXT 协作 WebSocket 会校验该 Origin。因此 Vite 已启用 `strictPort: true`：`3000` 被占用时启动会直接失败，**不会自动改用 3001、3002 或其他端口**。这是安全约束，不应绕过。
+`FRONTEND_ORIGIN` 默认固定为 `http://localhost:3000`，Markdown 协作 WebSocket 会校验该 Origin。因此 Vite 已启用 `strictPort: true`：`3000` 被占用时启动会直接失败，**不会自动改用 3001、3002 或其他端口**。这是安全约束，不应绕过。
 
 出现端口占用时：
 

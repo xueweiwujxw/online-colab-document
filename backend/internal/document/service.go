@@ -459,7 +459,6 @@ var allowedFileTypes = map[string]allowedType{
 	"docx": newAllowedType("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"),
 	"xlsx": newAllowedType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"),
 	"md":   newAllowedType("text/markdown", "text/plain; charset=utf-8", "text/plain", "application/octet-stream"),
-	"txt":  newAllowedType("text/plain", "text/plain; charset=utf-8", "application/octet-stream"),
 }
 
 func newAllowedType(preferred string, alternates ...string) allowedType {
@@ -506,7 +505,7 @@ func storageKey(documentID string, versionID string, filename string) string {
 
 func isTextDocument(fileExt string) bool {
 	ext := strings.ToLower(strings.TrimPrefix(fileExt, "."))
-	return ext == "md" || ext == "txt"
+	return ext == "md"
 }
 
 func newUUID() (string, error) {
