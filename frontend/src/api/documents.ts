@@ -136,7 +136,7 @@ function isOfficeDocument(fileExt: string): boolean {
 }
 
 function isMarkdownDocument(fileExt: string): boolean {
-  return ['md', 'markdown'].includes(fileExt.toLowerCase());
+  return fileExt.toLowerCase() === 'md';
 }
 
 function isTextDocument(fileExt: string): boolean {

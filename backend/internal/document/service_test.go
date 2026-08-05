@@ -57,7 +57,6 @@ func TestUploadAcceptsRequiredFileTypes(t *testing.T) {
 		{name: "xls", filename: "example.xls", contentType: "application/vnd.ms-excel"},
 		{name: "xlsx", filename: "example.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
 		{name: "markdown", filename: "example.md", contentType: "text/markdown"},
-		{name: "long markdown suffix", filename: "example.markdown", contentType: "text/markdown"},
 		{name: "text", filename: "example.txt", contentType: "text/plain"},
 	}
 	for _, tc := range cases {
@@ -77,10 +76,10 @@ func TestUploadAcceptsRequiredFileTypes(t *testing.T) {
 	}
 }
 
-func TestUploadKeepsMarkdownSuffix(t *testing.T) {
+func TestUploadRejectsMarkdownSuffix(t *testing.T) {
 	service := NewService(newMemoryRepo(), newMemoryStorage(), nil, 1024)
 
-	doc, err := service.Upload(context.Background(), UploadInput{
+	_, err := service.Upload(context.Background(), UploadInput{
 		OwnerID:          "owner-1",
 		OriginalFilename: "example.markdown",
 		HeaderMimeType:   "text/markdown",
@@ -88,11 +87,8 @@ func TestUploadKeepsMarkdownSuffix(t *testing.T) {
 		Reader:           strings.NewReader("hello"),
 	})
 
-	if err != nil {
-		t.Fatalf("upload: %v", err)
-	}
-	if doc.FileExt != "markdown" || doc.OriginalFilename != "example.markdown" {
-		t.Fatalf("unexpected markdown metadata: %#v", doc)
+	if err != ErrUnsupportedType {
+		t.Fatalf("expected ErrUnsupportedType, got %v", err)
 	}
 }
 
