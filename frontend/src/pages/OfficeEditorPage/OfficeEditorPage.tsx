@@ -48,7 +48,6 @@ type CollabState =
 export function OfficeEditorPage({ documentId }: { documentId: string }) {
   const auth = useAuth();
   const activeTransport = useRef<EmbedHostTransport | null>(null);
-  const activeSheetSave = useRef<(() => void) | null>(null);
   const [state, setState] = useState<EditorState>({
     status: 'loading',
     session: null,
@@ -60,9 +59,6 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
   const [collabState, setCollabState] = useState<CollabState>({ status: 'idle', session: null });
   const onTransport = useCallback((transport: EmbedHostTransport | null) => {
     activeTransport.current = transport;
-  }, []);
-  const onSheetSaveReady = useCallback((save: (() => void) | null) => {
-    activeSheetSave.current = save;
   }, []);
   const onCollabStatus = useCallback((connectionStatus: CollabConnectionStatus) => {
     setCollabState((current) =>
@@ -165,18 +161,14 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
           ) : null}
           {state.status === 'success' ? <span className="office-collab-note">{collabLabel(collabState)}</span> : null}
           {saveError ? <span className="form-error office-save-error">{saveError}</span> : null}
-          {state.status === 'success' && state.session.mode === 'edit' ? (
+          {state.status === 'success' && state.session.mode === 'edit' && state.session.fileExt !== 'xlsx' ? (
             <button
               className="secondary-button"
               disabled={saveState === 'saving'}
               onClick={() => {
                 setSaveState('saving');
                 setSaveError(null);
-                if (state.session.fileExt === 'xlsx') {
-                  activeSheetSave.current?.();
-                } else {
-                  activeTransport.current?.sendCommandSave();
-                }
+                activeTransport.current?.sendCommandSave();
               }}
               type="button"
             >
@@ -198,9 +190,9 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
             collabSession={collabState.status === 'success' ? collabState.session : null}
             onCollabStatus={onCollabStatus}
             onSaveError={onSaveError}
-            onSaveReady={onSheetSaveReady}
             onSaveStart={onSaveStart}
             onSaveSuccess={onSaveSuccess}
+            saveState={saveState}
             session={state.session}
           />
         ) : (
@@ -222,20 +214,20 @@ function DirectSheetsHost({
   session,
   buffer,
   collabSession,
-  onSaveReady,
   onCollabStatus,
   onSaveStart,
   onSaveSuccess,
   onSaveError,
+  saveState,
 }: {
   session: OfficeSession;
   buffer: ArrayBuffer;
   collabSession: OfficeCollabSession | null;
-  onSaveReady: (save: (() => void) | null) => void;
   onCollabStatus: (status: CollabConnectionStatus) => void;
   onSaveStart: () => void;
   onSaveSuccess: () => void;
   onSaveError: (message: string) => void;
+  saveState: SaveState;
 }) {
   const apiRef = useRef<CasualSheetsAPI | null>(null);
   const realtimeMapRef = useRef<Y.Map<RealtimeSnapshot> | null>(null);
@@ -295,13 +287,6 @@ function DirectSheetsHost({
     },
     [onSaveError, onSaveStart, onSaveSuccess, session.mode, session.saveUrl],
   );
-
-  useEffect(() => {
-    onSaveReady(() => {
-      void saveSnapshot(apiRef.current?.getContent() ?? null);
-    });
-    return () => onSaveReady(null);
-  }, [onSaveReady, saveSnapshot]);
 
   useEffect(() => {
     if (!sheetApi || !collabSession?.enabled || !collabSession.serverUrl) {
@@ -401,28 +386,155 @@ function DirectSheetsHost({
 
   return (
     <section className="office-frame office-frame-direct">
-      <CasualSheets
-        key={`${session.documentId}:${session.mode}`}
-        appearance="light"
-        chrome="none"
-        documentMode={session.mode === 'edit' ? 'editing' : 'viewing'}
-        initialData={sheetState.workbook}
-        lazyPlugins={false}
-        locale={SHEETS_LOCALE}
-        locales={SHEETS_LOCALES}
-        onError={(error) => onSaveError(error.message)}
-        onChange={publishRealtimeSnapshot}
-        onReady={(api) => {
-          apiRef.current = api;
-          setSheetApi(api);
+      <SpreadsheetToolbar
+        api={sheetApi}
+        disabled={session.mode !== 'edit'}
+        onSave={() => {
+          void saveSnapshot(apiRef.current?.getContent() ?? null);
         }}
-        onSave={(snapshot) => {
-          void saveSnapshot(snapshot);
-        }}
-        readOnly={session.mode !== 'edit'}
-        ui={{ header: false, toolbar: false, footer: false, contextMenu: true }}
+        saveState={saveState}
       />
+      <div className="spreadsheet-canvas">
+        <CasualSheets
+          key={`${session.documentId}:${session.mode}`}
+          appearance="light"
+          chrome="none"
+          documentMode={session.mode === 'edit' ? 'editing' : 'viewing'}
+          initialData={sheetState.workbook}
+          lazyPlugins={false}
+          locale={SHEETS_LOCALE}
+          locales={SHEETS_LOCALES}
+          onError={(error) => onSaveError(error.message)}
+          onChange={publishRealtimeSnapshot}
+          onReady={(api) => {
+            apiRef.current = api;
+            setSheetApi(api);
+          }}
+          onSave={(snapshot) => {
+            void saveSnapshot(snapshot);
+          }}
+          readOnly={session.mode !== 'edit'}
+          ui={{ header: false, toolbar: false, footer: false, contextMenu: true }}
+        />
+      </div>
     </section>
+  );
+}
+
+const NUMBER_FORMATS = [
+  { label: '常规', pattern: '' },
+  { label: '数字', pattern: '#,##0.00' },
+  { label: '整数', pattern: '#,##0' },
+  { label: '货币', pattern: '¥#,##0.00' },
+  { label: '百分比', pattern: '0.00%' },
+  { label: '日期', pattern: 'yyyy-mm-dd' },
+  { label: '文本', pattern: '@' },
+];
+
+function SpreadsheetToolbar({
+  api,
+  disabled,
+  onSave,
+  saveState,
+}: {
+  api: CasualSheetsAPI | null;
+  disabled: boolean;
+  onSave: () => void;
+  saveState: SaveState;
+}) {
+  const controlsDisabled = disabled || !api;
+  const runCommand = useCallback(
+    (command: string, params?: object) => {
+      if (controlsDisabled || !api) {
+        return;
+      }
+      void api.executeCommand(command, params).then(() => api.focus());
+    },
+    [api, controlsDisabled],
+  );
+  const applyNumberFormat = useCallback(
+    (pattern: string) => {
+      if (controlsDisabled || !api) {
+        return;
+      }
+      void api.executeCommand('sheet.command.numfmt.set.numfmt', { value: pattern }).then(() => api.focus());
+    },
+    [api, controlsDisabled],
+  );
+
+  return (
+    <div aria-label="表格工具栏" className="spreadsheet-toolbar" role="toolbar">
+      <div className="spreadsheet-toolbar-group">
+        <button
+          aria-label="撤销"
+          className="sheet-toolbar-button"
+          disabled={controlsDisabled}
+          onClick={() => runCommand('univer.command.undo')}
+          title="撤销"
+          type="button"
+        >
+          撤销
+        </button>
+        <button
+          aria-label="重做"
+          className="sheet-toolbar-button"
+          disabled={controlsDisabled}
+          onClick={() => runCommand('univer.command.redo')}
+          title="重做"
+          type="button"
+        >
+          重做
+        </button>
+        <button
+          className="primary-button sheet-save-button"
+          disabled={controlsDisabled || saveState === 'saving'}
+          onClick={onSave}
+          type="button"
+        >
+          {saveState === 'saving' ? '保存中' : saveState === 'saved' ? '已保存' : '保存'}
+        </button>
+      </div>
+      <div className="spreadsheet-toolbar-group">
+        <button className="sheet-toolbar-button sheet-toolbar-strong" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-bold')} type="button">
+          加粗
+        </button>
+        <button className="sheet-toolbar-button sheet-toolbar-italic" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-italic')} type="button">
+          斜体
+        </button>
+        <button className="sheet-toolbar-button sheet-toolbar-underline" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-underline')} type="button">
+          下划线
+        </button>
+        <label className="sheet-toolbar-label">
+          字号
+          <select defaultValue="12" disabled={controlsDisabled} onChange={(event) => runCommand('sheet.command.set-range-fontsize', { value: Number(event.target.value) })}>
+            {[10, 11, 12, 14, 16, 18, 24, 32].map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </label>
+        <label className="sheet-toolbar-label">
+          文字色
+          <input aria-label="文字颜色" defaultValue="#1f2937" disabled={controlsDisabled} onChange={(event) => runCommand('sheet.command.set-range-text-color', { value: event.target.value })} type="color" />
+        </label>
+        <label className="sheet-toolbar-label">
+          填充色
+          <input aria-label="填充颜色" defaultValue="#ffffff" disabled={controlsDisabled} onChange={(event) => runCommand('sheet.command.set-background-color', { value: event.target.value })} type="color" />
+        </label>
+      </div>
+      <div className="spreadsheet-toolbar-group">
+        <button className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 1 })} type="button">左对齐</button>
+        <button className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 2 })} type="button">居中</button>
+        <button className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 3 })} type="button">右对齐</button>
+        <label className="sheet-toolbar-label">
+          数字格式
+          <select defaultValue="" disabled={controlsDisabled} onChange={(event) => applyNumberFormat(event.target.value)}>
+            {NUMBER_FORMATS.map(({ label, pattern }) => (
+              <option key={label} value={pattern}>{label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </div>
   );
 }
 

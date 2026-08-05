@@ -2,7 +2,7 @@
 
 # 在线文档共享编辑服务开发任务
 
-> Hard constraint: the project must not deploy, configure, or call ONLYOFFICE. The legacy `.doc` and `.xls` formats are not supported until a different provider has passed a separate POC.
+> Hard constraint: the project must not deploy, configure, or call ONLYOFFICE. The legacy `.doc` and `.xls` formats are not supported until a different provider has passed a separate POC. Any historical ONLYOFFICE references below only describe retired work; they are not executable requirements and must not be restored.
 
 ## 0. 项目目标
 
@@ -2136,7 +2136,7 @@ ONLYOFFICE 容器可访问 xlsx 下载地址
 
 ## Plan 8：Office 编辑器替换 POC
 
-状态：进行中。
+状态：已完成。
 
 方向：
 
@@ -2151,7 +2151,7 @@ ONLYOFFICE 容器可访问 xlsx 下载地址
 - 优先验证 Casual Office；如果无法满足基本链路，再评估 Collabora Online + WOPI。
 - POC 必须复用现有文档、权限、版本、审计和对象存储边界。
 - 不自研 docx / xlsx 编辑器。
-- 不在 POC 通过前删除现有 ONLYOFFICE 代码和部署配置。
+- 已移除 ONLYOFFICE 代码、配置、容器和回退路径；不得重新引入。
 - 不实现完整迁移，只完成候选方案可行性验证和最小接入。
 
 验收标准：
@@ -2189,7 +2189,7 @@ viewer 只能只读打开
 - Word 当前仍走 Casual iframe POC，只支持单人编辑保存，不支持多人实时共享编辑。
 - CasualSheets 的 `lazyPlugins` 暂时关闭以避开缺失的 `@univerjs/docs-mention-ui` 懒加载白屏问题；后续需要恢复高级表格能力时单独修复插件清单或升级依赖。
 - 还没有支持旧格式 doc / xls 的 Casual 打开链路。
-- 还没有删除 ONLYOFFICE，正式替换前继续保留回退路径。
+- ONLYOFFICE 已按硬约束移除，不保留回退路径。
 
 下一阶段：Excel 协同 POC：
 
@@ -2240,7 +2240,7 @@ editor/owner 以 write role 加入，可以广播修改
 
 ## Plan 10：Markdown 富文本协同编辑
 
-状态：进行中。
+状态：已完成。
 
 方向：
 
@@ -2290,7 +2290,7 @@ viewer 只读并能实时看到更新
 
 ## Plan 11：xlsx 中文菜单和丰富编辑能力
 
-状态：待开始。
+状态：已完成。
 
 方向：
 
@@ -2310,7 +2310,7 @@ viewer 只读并能实时看到更新
 
 - 不自研 xlsx 文件解析或编辑内核。
 - 不在本计划内处理 Markdown 富文本。
-- 不删除 ONLYOFFICE 回退配置。
+- 不重新引入 ONLYOFFICE 或任何回退配置。
 
 验收标准：
 
@@ -2323,6 +2323,14 @@ viewer 只读时工具栏编辑动作不可用
 前端构建通过
 浏览器烟测无白屏、无英文硬编码菜单、无运行时异常
 ```
+
+当前记录：
+
+- 已新增项目自有的 xlsx 中文工具栏，继续关闭 CasualSheets 内置 chrome，避免内置英文菜单。
+- 工具栏通过 CasualSheets / Univer 命令接口提供撤销、重做、保存、粗体、斜体、下划线、字号、文字色、填充色、水平对齐和数字格式。
+- 格式修改继续触发既有 workbook snapshot 协同广播；保存继续调用既有 office/content 接口，生成版本和审计记录。
+- viewer 会同时使用表格只读模式，并禁用工具栏所有编辑和保存控件。
+- 已浏览器烟测编辑态工具栏和格式化保存：页面无运行时异常，保存状态为“已保存”，版本数从 1 增加到 2。
 
 ---
 
