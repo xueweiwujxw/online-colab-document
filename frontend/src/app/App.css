@@ -360,6 +360,37 @@ h1 {
   padding: 22px;
 }
 
+.profile-avatar-row {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  margin: 4px 0 18px;
+}
+
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a7f3d0, #bfdbfe);
+  box-shadow: 0 5px 16px rgb(15 118 110 / 16%);
+  color: #0f766e;
+  font-size: 22px;
+  font-weight: 800;
+  object-fit: cover;
+}
+
+.profile-avatar-fallback {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.avatar-upload-button input {
+  display: none;
+}
+
 .profile-panel h2 {
   margin: 0 0 18px;
   font-size: 22px;

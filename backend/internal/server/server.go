@@ -99,6 +99,9 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		if err != nil {
 			logger.Error("storage setup failed", "error", err)
 		} else {
+			authHandler = authHandler.WithAvatarStorage(objectStorage)
+			mux.Handle("PUT /api/auth/avatar", requireAuth(authHandler.UpdateAvatar))
+			mux.Handle("GET /api/users/{id}/avatar", requireAuth(authHandler.Avatar))
 			permissionRepo := permission.NewPostgresRepository(db)
 			permissionService := permission.NewService(permissionRepo)
 			permissionHandler := permission.NewHandler(permissionService, logger).WithAudit(auditService)

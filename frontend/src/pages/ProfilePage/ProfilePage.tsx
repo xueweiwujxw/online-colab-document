@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 
 import {
   changePassword,
   listSessions,
   revokeSession,
   updateProfile,
+  updateAvatar,
   type AuthSession,
 } from '../../api/auth';
 import { ApiError, errorMessage } from '../../api/client';
@@ -28,6 +29,8 @@ export function ProfilePage() {
     error: string | null;
   }>({ status: 'idle', items: [], error: null });
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [avatarSubmitting, setAvatarSubmitting] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     if (auth.status === 'authenticated') {
@@ -65,6 +68,26 @@ export function ProfilePage() {
       setProfileError(errorMessage(caught, '更新基本信息失败'));
     } finally {
       setProfileSubmitting(false);
+    }
+  }
+
+  async function onAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      setAvatarError('请选择不超过 2MB 的 PNG、JPEG 或 WebP 图片。');
+      return;
+    }
+    setAvatarSubmitting(true);
+    setAvatarError(null);
+    try {
+      await updateAvatar(file);
+      await auth.refresh();
+    } catch (caught) {
+      setAvatarError(errorMessage(caught, '上传头像失败'));
+    } finally {
+      setAvatarSubmitting(false);
     }
   }
 
@@ -151,6 +174,14 @@ export function ProfilePage() {
       <section className="profile-layout">
         <article className="profile-panel">
           <p className="eyebrow">基本信息</p>
+          <div className="profile-avatar-row">
+            {auth.user.avatarUrl ? <img alt={`${auth.user.displayName} 的头像`} className="profile-avatar" src={auth.user.avatarUrl} /> : <span aria-hidden="true" className="profile-avatar profile-avatar-fallback">{auth.user.displayName.slice(0, 1).toUpperCase()}</span>}
+            <label className="secondary-button avatar-upload-button">
+              <input accept="image/jpeg,image/png,image/webp" disabled={avatarSubmitting} onChange={onAvatarChange} type="file" />
+              {avatarSubmitting ? '上传中' : '更换头像'}
+            </label>
+          </div>
+          {avatarError ? <p className="form-error">{avatarError}</p> : null}
           <dl className="profile-details">
             <div>
               <dt>显示名</dt>

@@ -54,3 +54,12 @@ export async function sendJSON<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
+
+export function sendBlob<T>(path: string, body: Blob, init?: RequestInit): Promise<T> {
+  return getJSON<T>(path, {
+    method: 'POST',
+    ...init,
+    headers: { 'Content-Type': body.type, ...init?.headers },
+    body,
+  });
+}

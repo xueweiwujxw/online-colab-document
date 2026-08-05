@@ -2,24 +2,35 @@ package local
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 
 	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/session"
 	"online-colab-document/backend/internal/middleware"
+	"online-colab-document/backend/internal/storage"
 	"online-colab-document/backend/internal/user"
 )
 
 type Handler struct {
-	service    *Service
-	logger     *slog.Logger
-	cookieName string
-	secure     bool
-	audit      AuditRecorder
+	service       *Service
+	logger        *slog.Logger
+	cookieName    string
+	secure        bool
+	audit         AuditRecorder
+	avatarStorage storage.Storage
+}
+
+func (h Handler) WithAvatarStorage(objectStorage storage.Storage) Handler {
+	h.avatarStorage = objectStorage
+	return h
 }
 
 type AuditRecorder interface {
@@ -220,6 +231,104 @@ func (h Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		TargetID:    currentUser.ID,
 	})
 	api.WriteJSON(w, http.StatusOK, user.ToPublic(updatedUser))
+}
+
+func (h Handler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if h.avatarStorage == nil {
+		api.WriteError(w, http.StatusServiceUnavailable, "avatar storage unavailable")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
+	bytes, err := io.ReadAll(r.Body)
+	if err != nil || len(bytes) == 0 {
+		api.WriteError(w, http.StatusBadRequest, "invalid avatar image")
+		return
+	}
+	contentType := http.DetectContentType(bytes)
+	extension := map[string]string{"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[contentType]
+	if extension == "" {
+		api.WriteError(w, http.StatusBadRequest, "avatar must be a png, jpeg, or webp image")
+		return
+	}
+	id := make([]byte, 16)
+	if _, err := rand.Read(id); err != nil {
+		h.logger.Error("avatar id failed", "error", err)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	key := filepath.ToSlash(fmt.Sprintf("avatars/%s/%x%s", currentUser.ID, id, extension))
+	if err := h.avatarStorage.PutObject(r.Context(), key, bytesReader(bytes), int64(len(bytes)), contentType); err != nil {
+		h.logger.Error("avatar upload failed", "error", err)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	updated, err := h.service.UpdateAvatar(r.Context(), UpdateAvatarInput{UserID: currentUser.ID, AvatarKey: key})
+	if err != nil {
+		_ = h.avatarStorage.DeleteObject(r.Context(), key)
+		api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	if currentUser.AvatarKey != nil {
+		_ = h.avatarStorage.DeleteObject(r.Context(), *currentUser.AvatarKey)
+	}
+	actorID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{ActorUserID: &actorID, Action: audit.ActionAvatarUpdate, TargetType: "user", TargetID: currentUser.ID})
+	api.WriteJSON(w, http.StatusOK, user.ToPublic(updated))
+}
+
+func (h Handler) Avatar(w http.ResponseWriter, r *http.Request) {
+	if _, ok := middleware.CurrentUser(r.Context()); !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if h.avatarStorage == nil {
+		api.WriteError(w, http.StatusServiceUnavailable, "avatar storage unavailable")
+		return
+	}
+	u, err := h.service.users.FindByID(r.Context(), r.PathValue("id"))
+	if err != nil || u.AvatarKey == nil {
+		api.WriteError(w, http.StatusNotFound, "avatar not found")
+		return
+	}
+	reader, err := h.avatarStorage.GetObject(r.Context(), *u.AvatarKey)
+	if err != nil {
+		api.WriteError(w, http.StatusNotFound, "avatar not found")
+		return
+	}
+	defer reader.Close()
+	w.Header().Set("Content-Type", contentTypeForAvatar(*u.AvatarKey))
+	_, _ = io.Copy(w, reader)
+}
+
+func bytesReader(bytes []byte) io.Reader { return &byteReader{bytes: bytes} }
+
+type byteReader struct {
+	bytes  []byte
+	offset int
+}
+
+func (r *byteReader) Read(p []byte) (int, error) {
+	if r.offset >= len(r.bytes) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.bytes[r.offset:])
+	r.offset += n
+	return n, nil
+}
+func contentTypeForAvatar(key string) string {
+	switch filepath.Ext(key) {
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	default:
+		return "image/jpeg"
+	}
 }
 
 func (h Handler) ListSessions(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,4 @@
-import { apiBaseUrl, getJSON, sendJSON } from './client';
+import { apiBaseUrl, getJSON, sendBlob, sendJSON } from './client';
 
 export type CurrentUser = {
   id: string;
@@ -6,6 +6,7 @@ export type CurrentUser = {
   displayName: string;
   authSource: string;
   isAdmin: boolean;
+  avatarUrl?: string;
 };
 
 export type LoginInput = {
@@ -59,6 +60,10 @@ export function updateProfile(input: UpdateProfileInput): Promise<CurrentUser> {
   return sendJSON<CurrentUser>('/api/auth/profile', input, {
     method: 'PUT',
   });
+}
+
+export function updateAvatar(file: File): Promise<CurrentUser> {
+  return sendBlob<CurrentUser>('/api/auth/avatar', file, { method: 'PUT' });
 }
 
 export async function listSessions(): Promise<AuthSession[]> {
