@@ -16,8 +16,8 @@ type PermissionState =
   | { status: 'error'; items: DocumentPermission[]; error: string };
 
 type UserSearchState =
-  | { status: 'idle' | 'loading'; items: UserSearchItem[]; error: null }
-  | { status: 'error'; items: UserSearchItem[]; error: string };
+  | { status: 'idle' | 'loading'; items: UserSearchItem[]; hasMore: boolean; error: null }
+  | { status: 'error'; items: UserSearchItem[]; hasMore: boolean; error: string };
 
 export function PermissionPage({ documentId }: { documentId: string }) {
   const auth = useAuth();
@@ -32,6 +32,7 @@ export function PermissionPage({ documentId }: { documentId: string }) {
   const [userSearch, setUserSearch] = useState<UserSearchState>({
     status: 'idle',
     items: [],
+    hasMore: false,
     error: null,
   });
   const [permission, setPermission] = useState<'viewer' | 'editor'>('viewer');
@@ -58,15 +59,26 @@ export function PermissionPage({ documentId }: { documentId: string }) {
     }
   }, [auth.status, documentId]);
 
-  async function refreshUsers(query = userQuery) {
-    setUserSearch((current) => ({ status: 'loading', items: current.items, error: null }));
+  async function refreshUsers(query = userQuery, offset = 0) {
+    setUserSearch((current) => ({
+      status: 'loading',
+      items: offset === 0 ? current.items : current.items,
+      hasMore: current.hasMore,
+      error: null,
+    }));
     try {
-      const items = await searchUsers(query);
-      setUserSearch({ status: 'idle', items, error: null });
+      const result = await searchUsers(query, offset);
+      setUserSearch((current) => ({
+        status: 'idle',
+        items: offset === 0 ? result.items : mergeUsers(current.items, result.items),
+        hasMore: result.hasMore,
+        error: null,
+      }));
     } catch (error) {
       setUserSearch({
         status: 'error',
-        items: [],
+        items: offset === 0 ? [] : userSearch.items,
+        hasMore: false,
         error: errorMessage(error, '加载用户失败'),
       });
     }
@@ -202,6 +214,16 @@ export function PermissionPage({ documentId }: { documentId: string }) {
           );
         })}
       </section>
+      {userSearch.hasMore ? (
+        <button
+          className="secondary-button"
+          disabled={userSearch.status === 'loading'}
+          onClick={() => void refreshUsers(userQuery, userSearch.items.length)}
+          type="button"
+        >
+          {userSearch.status === 'loading' ? '加载中' : '加载更多用户'}
+        </button>
+      ) : null}
       {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
       {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
       {state.status === 'success' && state.items.length === 0 ? (
@@ -258,4 +280,10 @@ function subjectTypeLabel(subjectType: string): string {
     return '用户';
   }
   return subjectType;
+}
+
+function mergeUsers(current: UserSearchItem[], next: UserSearchItem[]): UserSearchItem[] {
+  const items = new Map(current.map((item) => [item.id, item]));
+  next.forEach((item) => items.set(item.id, item));
+  return [...items.values()];
 }

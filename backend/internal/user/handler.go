@@ -31,11 +31,12 @@ func NewHandler(service *Service, logger *slog.Logger) Handler {
 
 func (h Handler) Search(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	items, err := h.service.Search(r.Context(), r.URL.Query().Get("q"), limit)
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	result, err := h.service.Search(r.Context(), r.URL.Query().Get("q"), limit, offset)
 	if err != nil {
 		h.logger.Error("search users failed", "error", err)
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+	api.WriteJSON(w, http.StatusOK, map[string]any{"items": result.Items, "hasMore": result.HasMore})
 }

@@ -2389,6 +2389,38 @@ xlsx 可输入单元格、应用常用格式、撤销/重做、保存并生成�
 
 ---
 
+## Plan 17：Casual Office 原生协同与用户发现修复
+
+状态：进行中。
+
+> 本计划替换当前仅使用 SDK / iframe 的 Office 编辑器集成。实施前必须完成每个 POC 验收项；不得恢复 ONLYOFFICE。
+
+### 17.1 用户发现与权限管理
+
+- `GET /api/users` 改为受控分页查询，权限页默认加载首批用户并提供“加载更多”与搜索，不能只展示固定 20 人。
+- 保留当前用户排除、已授权状态和 owner/editor/viewer 后端校验。
+- 验收：新建用户无需精确搜索即可在权限页找到；超过一页时可继续加载；授权后两端立即取得正确权限。
+
+### 17.2 Casual Docs 原生服务 POC（`.docx` / `.md`）
+
+- 在 compose 中增加自托管 `casualoffice/docs` 服务，并通过前端同源路径反向代理；配置 Redis 持久化与每文档独立房间。
+- 以 Casual Docs 的 WOPI 或 JWT-API host integration 对接本系统：每次打开、读取、写回、协同 WebSocket 建立前均由 Go 统一权限服务决定 viewer/editor。
+- `.docx` 使用 Docs 原生 OOXML 链路；`.md` 使用 Docs 官方 WASM Markdown 导入/导出链路，保存后仍为 `.md`。
+- 验收：两个用户分别以 editor/viewer 打开同一 `.docx` 和 `.md`；编辑内容、用户名称、远程光标实时同步；viewer 无法修改；保存生成版本并写入审计日志。
+
+### 17.3 Casual Sheets 原生 Docker 服务 POC（`.xlsx`）
+
+- 在 compose 中增加自托管 `casualoffice/sheets` 服务（Web + Hocuspocus + Fastify），采用其房间、seed、snapshot 和 Yjs 协同链路，不再把整本工作簿快照通过项目自建 WebSocket 广播。
+- 使用受权限保护的 host integration / JWT API 提供初始 xlsx、保存回调和 editor/viewer 角色；前端通过同源代理打开对应房间。
+- 验收：两个 editor 在同一 `.xlsx` 中可实时看到单元格值、格式、远程选区和名称；viewer 能看到更新但不能写入；断线重连后内容不丢失；保存生成版本与审计日志。
+
+### 17.4 端到端与部署验收
+
+- 新增 Playwright 双用户回归：权限用户列表、Markdown、DOCX、XLSX 的内容同步、远程光标/名称、viewer 只读、保存和版本链路。
+- 执行 compose 启动、健康检查、后端测试、前端 lint/build 和浏览器回归；记录镜像版本与配置项。
+
+---
+
 # 6. 每个 Milestone 的 Codex Goal 用法
 
 ## Goal：M0

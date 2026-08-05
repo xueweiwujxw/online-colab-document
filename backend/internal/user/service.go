@@ -6,12 +6,12 @@ import (
 )
 
 const (
-	defaultSearchLimit = 20
+	defaultSearchLimit = 50
 	maxSearchLimit     = 50
 )
 
 type Repository interface {
-	Search(ctx context.Context, query string, limit int) ([]User, error)
+	Search(ctx context.Context, query string, limit, offset int) ([]User, error)
 	ListAdmin(ctx context.Context, query string, limit int, offset int) ([]User, error)
 }
 
@@ -41,20 +41,32 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) Search(ctx context.Context, query string, limit int) ([]PublicUser, error) {
+type SearchResult struct {
+	Items   []PublicUser
+	HasMore bool
+}
+
+func (s *Service) Search(ctx context.Context, query string, limit, offset int) (SearchResult, error) {
 	if limit <= 0 {
 		limit = defaultSearchLimit
 	}
 	if limit > maxSearchLimit {
 		limit = maxSearchLimit
 	}
-	users, err := s.repo.Search(ctx, strings.TrimSpace(query), limit)
+	if offset < 0 {
+		offset = 0
+	}
+	users, err := s.repo.Search(ctx, strings.TrimSpace(query), limit+1, offset)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
+	}
+	hasMore := len(users) > limit
+	if hasMore {
+		users = users[:limit]
 	}
 	items := make([]PublicUser, 0, len(users))
 	for _, u := range users {
 		items = append(items, ToPublic(u))
 	}
-	return items, nil
+	return SearchResult{Items: items, HasMore: hasMore}, nil
 }

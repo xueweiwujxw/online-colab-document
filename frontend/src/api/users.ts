@@ -8,12 +8,17 @@ export type UserSearchItem = {
   isAdmin: boolean;
 };
 
-export async function searchUsers(query: string): Promise<UserSearchItem[]> {
+export type UserSearchResult = {
+  items: UserSearchItem[];
+  hasMore: boolean;
+};
+
+export async function searchUsers(query: string, offset = 0): Promise<UserSearchResult> {
   const params = new URLSearchParams();
   if (query.trim() !== '') {
     params.set('q', query.trim());
   }
-  params.set('limit', '20');
-  const response = await getJSON<{ items: UserSearchItem[] }>(`/api/users?${params.toString()}`);
-  return response.items;
+  params.set('limit', '50');
+  params.set('offset', String(Math.max(offset, 0)));
+  return getJSON<UserSearchResult>(`/api/users?${params.toString()}`);
 }

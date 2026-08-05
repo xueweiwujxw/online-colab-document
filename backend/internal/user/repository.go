@@ -15,12 +15,12 @@ func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) Search(ctx context.Context, query string, limit int) ([]User, error) {
+func (r *PostgresRepository) Search(ctx context.Context, query string, limit, offset int) ([]User, error) {
 	query = strings.TrimSpace(query)
-	args := []any{limit}
+	args := []any{limit, offset}
 	where := "disabled = false"
 	if query != "" {
-		args = []any{"%" + strings.ToLower(query) + "%", limit}
+		args = []any{"%" + strings.ToLower(query) + "%", limit, offset}
 		where += " AND (LOWER(email) LIKE $1 OR LOWER(display_name) LIKE $1)"
 	}
 	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`
@@ -29,7 +29,7 @@ func (r *PostgresRepository) Search(ctx context.Context, query string, limit int
 		FROM users
 		WHERE %s
 		ORDER BY display_name ASC, email ASC
-		LIMIT $%d`, where, len(args)), args...)
+		LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, fmt.Errorf("search users: %w", err)
 	}
