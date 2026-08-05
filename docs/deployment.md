@@ -13,7 +13,6 @@ podman compose -f deploy/docker-compose.yml up --build
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8080`
 - MinIO Console: `http://localhost:9001`
-- ONLYOFFICE: `http://localhost:8081`
 
 可选 nginx 统一入口：
 
@@ -21,7 +20,7 @@ podman compose -f deploy/docker-compose.yml up --build
 podman compose -f deploy/docker-compose.yml --profile proxy up --build
 ```
 
-统一入口为 `http://localhost:8088`，`/api/` 代理到 backend，`/onlyoffice/` 代理到 ONLYOFFICE。
+统一入口为 `http://localhost:8088`，`/api/` 代理到 backend。
 
 可选 mock OIDC 开发 profile：
 
@@ -38,7 +37,7 @@ mock OIDC 服务默认在 `http://localhost:8082`，会自动签发固定测试�
 
 ## 生产环境
 
-生产 compose 提供完整服务：backend、frontend、postgres、redis、minio、onlyoffice、nginx。
+生产 compose 提供完整服务：backend、frontend、postgres、redis、minio、nginx。
 
 ```bash
 podman compose -f deploy/docker-compose.prod.yml config
@@ -50,7 +49,6 @@ podman compose -f deploy/docker-compose.prod.yml up --build -d
 ```bash
 PUBLIC_APP_URL=https://docs.example.com
 PUBLIC_API_URL=https://docs.example.com
-ONLYOFFICE_PUBLIC_URL=https://docs.example.com/onlyoffice
 NGINX_HTTP_PORT=80
 ```
 
@@ -63,7 +61,6 @@ NGINX_HTTP_PORT=80
 - `SESSION_SECRET` 作为密码 hash pepper 的兼容配置；也可继续使用 `PASSWORD_HASH_PEPPER`。
 - `MAX_UPLOAD_BYTES` 是上传上限别名；也可继续使用 `DOCUMENT_MAX_UPLOAD_BYTES`。
 - `S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`、`S3_BUCKET` 配置 MinIO/S3。
-- `ONLYOFFICE_JWT_SECRET` 必须和 ONLYOFFICE Document Server 的 `JWT_SECRET` 一致。
 
 不要把生产 `.env`、真实 password、token、secret 或私钥提交到 Git。
 
@@ -79,8 +76,8 @@ NGINX_HTTP_PORT=80
 
 - 定期 `pg_dump` PostgreSQL。
 - 定期备份 MinIO bucket 或底层 volume。
-- 保存生产环境变量和 ONLYOFFICE JWT secret 到受控 secret manager。
-- 恢复演练必须同时验证数据库、对象存储和 ONLYOFFICE 保存回调。
+- 保存生产环境变量到受控 secret manager。
+- 恢复演练必须同时验证数据库和对象存储。
 
 ## Migrations
 
@@ -92,6 +89,5 @@ backend 启动时会自动执行 `backend/migrations`。镜像构建会把 migra
 
 - 登录后 cookie 不生效：检查 `PUBLIC_APP_URL`、`FRONTEND_ORIGIN` 和是否通过 HTTPS 访问生产环境。
 - WebSocket 连接失败：确认 nginx `/api/` location 保留 `Upgrade` 和 `Connection` 头。
-- ONLYOFFICE 无法保存：确认 `BACKEND_INTERNAL_URL` 对 ONLYOFFICE 容器可达，且 `ONLYOFFICE_JWT_SECRET` 一致。
 - 上传失败：确认 nginx `client_max_body_size` 和 backend `MAX_UPLOAD_BYTES` 一致。
 - 重启后文件丢失：确认 MinIO 和 PostgreSQL volumes 没有被删除。

@@ -105,7 +105,7 @@ export function DocumentListPage() {
           ) : null}
           <label className="upload-button">
             <input
-              accept=".doc,.docx,.xls,.xlsx,.md,.txt"
+              accept=".docx,.xlsx,.md,.txt"
               disabled={uploading}
               onChange={onUpload}
               type="file"

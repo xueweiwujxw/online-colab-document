@@ -15,7 +15,7 @@ Go backend
   |-- PostgreSQL: users, documents, permissions, versions, audit logs
   |-- Redis: sessions, cache, realtime coordination
   |-- MinIO / S3: uploaded document objects
-  |-- ONLYOFFICE Document Server: Word / Excel preview and editing
+  |-- Casual Office: docx / xlsx editing
   |-- Share links: token-hash based public access
   `-- Markdown collaboration service: Yjs / WebSocket snapshots
 ```
@@ -33,11 +33,11 @@ Go backend
 
 ## 里程碑
 
-M0 到 M12 已覆盖项目骨架、本地/OIDC 登录、文档上传下载、权限、ONLYOFFICE、Markdown 编辑、Markdown 协同、分享链接、版本管理、审计日志、前端完善和 Docker 部署。
+M0 到 M12 已覆盖项目骨架、本地/OIDC 登录、文档上传下载、权限、Casual Office、Markdown 编辑、Markdown 协同、分享链接、版本管理、审计日志、前端完善和 Docker 部署。
 
-## Word / Excel 为什么使用 ONLYOFFICE
+## Office 编辑器范围
 
-Word / Excel 的格式兼容、渲染、编辑和多人协同复杂度很高。项目要求不自研 docx / xlsx 编辑器，因此后续通过 ONLYOFFICE Document Server 提供在线预览、编辑和协同能力，系统只负责认证、权限、文档元数据、文件存储、配置生成和保存回调。
+项目不自研 Office 编辑器。当前通过 Casual Office 支持 docx / xlsx 编辑和保存；`.doc` / `.xls` 暂不支持，且项目不部署或使用 ONLYOFFICE。
 
 ## Markdown 为什么单独实现
 
@@ -51,4 +51,4 @@ Markdown 是文本格式，服务端保存和前端编辑成本较低。普通�
 
 ## 版本管理
 
-每次上传、Markdown 保存、ONLYOFFICE 保存回调和历史版本恢复都会写入 `document_versions`。恢复历史版本会读取旧版本对象，写入新的对象存储 key，再创建一个新版本并更新 `documents.current_version_id`，不会覆盖旧版本。
+每次上传、Markdown 保存、Office 保存和历史版本恢复都会写入 `document_versions`。恢复历史版本会读取旧版本对象，写入新的对象存储 key，再创建一个新版本并更新 `documents.current_version_id`，不会覆盖旧版本。

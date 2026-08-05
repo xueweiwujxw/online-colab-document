@@ -29,10 +29,6 @@ type Config struct {
 	OIDCScopes                     []string
 	OIDCAutoMergeByEmail           bool
 	DocumentMaxUploadBytes         int64
-	OnlyOfficeEnabled              bool
-	OnlyOfficePublicURL            string
-	OnlyOfficeInternalURL          string
-	OnlyOfficeJWTSecret            string
 	OfficeCollabPublicURL          string
 	OfficeCollabEnabled            bool
 	PublicAppURL                   string
@@ -64,10 +60,6 @@ func Load() Config {
 		OIDCScopes:                     getListEnv("OIDC_SCOPES", []string{"openid", "email", "profile"}),
 		OIDCAutoMergeByEmail:           getBoolEnv("OIDC_AUTO_MERGE_BY_EMAIL", false),
 		DocumentMaxUploadBytes:         getInt64EnvAny([]string{"DOCUMENT_MAX_UPLOAD_BYTES", "MAX_UPLOAD_BYTES"}, 50<<20),
-		OnlyOfficeEnabled:              getBoolEnv("ONLYOFFICE_ENABLED", false),
-		OnlyOfficePublicURL:            getEnv("ONLYOFFICE_PUBLIC_URL", "http://localhost:8080/onlyoffice"),
-		OnlyOfficeInternalURL:          getEnv("ONLYOFFICE_INTERNAL_URL", "http://onlyoffice"),
-		OnlyOfficeJWTSecret:            getEnv("ONLYOFFICE_JWT_SECRET", ""),
 		OfficeCollabPublicURL:          getEnv("OFFICE_COLLAB_PUBLIC_URL", ""),
 		OfficeCollabEnabled:            getBoolEnv("OFFICE_COLLAB_ENABLED", false),
 		PublicAppURL:                   getEnv("PUBLIC_APP_URL", "http://localhost:3000"),

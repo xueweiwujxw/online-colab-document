@@ -13,7 +13,6 @@ const (
 	ActionDocumentDelete    = "document.delete"
 	ActionMarkdownSave      = "document.markdown_save"
 	ActionOfficeSave        = "office.save"
-	ActionOnlyOfficeSave    = "onlyoffice.save"
 	ActionVersionRestore    = "document.version_restore"
 	ActionPermissionGrant   = "permission.grant"
 	ActionPermissionDelete  = "permission.delete"

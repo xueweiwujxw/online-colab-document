@@ -2,6 +2,8 @@
 
 # 在线文档共享编辑服务开发任务
 
+> Hard constraint: the project must not deploy, configure, or call ONLYOFFICE. The legacy `.doc` and `.xls` formats are not supported until a different provider has passed a separate POC.
+
 ## 0. 项目目标
 
 开发一个私有化部署的在线文档共享编辑服务。
@@ -25,7 +27,7 @@
 ## 1. 总体技术路线
 
 Word / Excel 在线编辑不自研，使用自托管开源 Office 编辑器提供商。
-当前已实现的提供商是 ONLYOFFICE Document Server；后续可以通过明确计划替换为 Collabora Online、Casual Office 或其他经过 POC 验证的开源方案。
+当前只使用 Casual Office 支持 docx / xlsx；项目禁止部署、配置或调用 ONLYOFFICE。`.doc` / `.xls` 暂不支持，待新的替代方案通过 POC 后再评估。
 
 本系统负责：
 

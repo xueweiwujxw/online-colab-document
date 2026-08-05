@@ -1,7 +1,7 @@
 import { ApiError, apiBaseUrl, getJSON } from './client';
 
 export type OfficeSession = {
-  provider: 'casual' | 'onlyoffice' | string;
+  provider: 'casual' | string;
   documentId: string;
   fileExt: string;
   title: string;

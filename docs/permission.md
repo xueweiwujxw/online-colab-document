@@ -20,8 +20,8 @@ none
 
 所有文档相关操作必须经过 backend 的统一权限判断：
 
-- 文档详情、下载、Markdown snapshot、ONLYOFFICE config 检查 view。
-- Markdown 保存、ONLYOFFICE 编辑、版本恢复检查 edit。
+- 文档详情、下载、Markdown snapshot、Office session 检查 view。
+- Markdown 保存、Office 编辑、版本恢复检查 edit。
 - 权限管理和分享管理检查 owner/manage。
 - 删除检查 delete。
 - Markdown WebSocket 建立时检查权限；viewer 可连接但不能提交更新。

@@ -20,7 +20,6 @@ import (
 	markdowncollab "online-colab-document/backend/internal/markdown/collab"
 	"online-colab-document/backend/internal/middleware"
 	"online-colab-document/backend/internal/office"
-	"online-colab-document/backend/internal/onlyoffice"
 	"online-colab-document/backend/internal/permission"
 	"online-colab-document/backend/internal/share"
 	"online-colab-document/backend/internal/storage"
@@ -128,20 +127,6 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 				cfg.FrontendOrigin,
 				logger,
 			)
-			onlyOfficeService := onlyoffice.NewService(
-				onlyoffice.Config{
-					Enabled:          cfg.OnlyOfficeEnabled,
-					PublicURL:        cfg.OnlyOfficePublicURL,
-					JWTSecret:        cfg.OnlyOfficeJWTSecret,
-					PublicAPIURL:     cfg.PublicAPIURL,
-					CallbackBaseURL:  cfg.BackendInternalURL,
-					MaxDownloadBytes: cfg.DocumentMaxUploadBytes,
-				},
-				documentRepo,
-				permissionService,
-				objectStorage,
-			)
-			onlyOfficeHandler := onlyoffice.NewHandler(onlyOfficeService, logger).WithAudit(auditService)
 			officeService := office.NewService(
 				office.Config{
 					Provider:        "casual",
@@ -179,9 +164,6 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /api/documents/{id}/office/session", requireAuth(officeHandler.Session))
 			mux.Handle("GET /api/documents/{id}/office/collab/session", requireAuth(officeHandler.CollabSession))
 			mux.Handle("PUT /api/documents/{id}/office/content", requireAuth(officeHandler.Save))
-			mux.Handle("GET /api/documents/{id}/onlyoffice/config", requireAuth(onlyOfficeHandler.Config))
-			mux.HandleFunc("GET /api/onlyoffice/download/{documentId}", onlyOfficeHandler.Download)
-			mux.HandleFunc("POST /api/onlyoffice/callback/{documentId}", onlyOfficeHandler.Callback)
 		}
 	}
 

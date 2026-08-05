@@ -5,7 +5,6 @@ import { DocumentListPage } from '../pages/DocumentListPage/DocumentListPage';
 import { LoginPage } from '../pages/LoginPage/LoginPage';
 import { MarkdownEditorPage } from '../pages/MarkdownEditorPage/MarkdownEditorPage';
 import { OfficeEditorPage } from '../pages/OfficeEditorPage/OfficeEditorPage';
-import { OnlyOfficeEditorPage } from '../pages/OnlyOfficeEditorPage/OnlyOfficeEditorPage';
 import { PermissionPage } from '../pages/PermissionPage/PermissionPage';
 import { ProfilePage } from '../pages/ProfilePage/ProfilePage';
 import { RegisterPage } from '../pages/RegisterPage/RegisterPage';
@@ -17,7 +16,6 @@ import './App.css';
 export function App() {
   const path = window.location.pathname;
   const editorMatch = path.match(/^\/documents\/([^/]+)\/edit$/);
-  const onlyOfficeMatch = path.match(/^\/documents\/([^/]+)\/onlyoffice$/);
   const markdownMatch = path.match(/^\/documents\/([^/]+)\/markdown$/);
   const permissionMatch = path.match(/^\/documents\/([^/]+)\/permissions$/);
   const shareManagementMatch = path.match(/^\/documents\/([^/]+)\/share$/);
@@ -33,7 +31,6 @@ export function App() {
       {path === '/profile' ? <ProfilePage /> : null}
       {path === '/documents' || path === '/' ? <DocumentListPage /> : null}
       {editorMatch ? <OfficeEditorPage documentId={editorMatch[1]} /> : null}
-      {onlyOfficeMatch ? <OnlyOfficeEditorPage documentId={onlyOfficeMatch[1]} /> : null}
       {markdownMatch ? <MarkdownEditorPage documentId={markdownMatch[1]} /> : null}
       {permissionMatch ? <PermissionPage documentId={permissionMatch[1]} /> : null}
       {shareManagementMatch ? <ShareManagementPage documentId={shareManagementMatch[1]} /> : null}
@@ -58,8 +55,7 @@ export function App() {
       !shareManagementMatch &&
       !versionMatch &&
       !markdownMatch &&
-      !editorMatch &&
-      !onlyOfficeMatch ? (
+      !editorMatch ? (
         <DocumentListPage />
       ) : null}
     </AuthProvider>

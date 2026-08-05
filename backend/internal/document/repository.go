@@ -18,8 +18,6 @@ type Repository interface {
 	SoftDeleteForOwner(ctx context.Context, id string, ownerID string, deletedAt time.Time) error
 	ListVersions(ctx context.Context, documentID string) ([]Version, error)
 	FindVersion(ctx context.Context, documentID string, versionID string) (Version, error)
-	HasOnlyOfficeSave(ctx context.Context, documentID string, documentKey string) (bool, error)
-	AddVersion(ctx context.Context, documentID string, version Version, documentKey string, updatedAt time.Time) (bool, error)
 	AddDocumentVersion(ctx context.Context, documentID string, version Version, updatedAt time.Time) error
 }
 
@@ -220,94 +218,6 @@ func (r *PostgresRepository) FindVersion(ctx context.Context, documentID string,
 	return scanVersion(row)
 }
 
-func (r *PostgresRepository) AddVersion(ctx context.Context, documentID string, version Version, documentKey string, updatedAt time.Time) (bool, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, fmt.Errorf("begin add version tx: %w", err)
-	}
-	defer tx.Rollback()
-
-	result, err := tx.ExecContext(
-		ctx,
-		`INSERT INTO onlyoffice_saves (document_id, document_key, version_id, created_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (document_id, document_key) DO NOTHING`,
-		documentID,
-		documentKey,
-		version.ID,
-		updatedAt,
-	)
-	if err != nil {
-		return false, fmt.Errorf("record onlyoffice save: %w", err)
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("record onlyoffice save rows affected: %w", err)
-	}
-	if rows == 0 {
-		return false, nil
-	}
-
-	var versionNo int64
-	err = tx.QueryRowContext(
-		ctx,
-		`SELECT COALESCE(MAX(version_no), 0) + 1 FROM document_versions WHERE document_id = $1`,
-		documentID,
-	).Scan(&versionNo)
-	if err != nil {
-		return false, fmt.Errorf("next document version: %w", err)
-	}
-	version.VersionNo = versionNo
-
-	_, err = tx.ExecContext(
-		ctx,
-		`INSERT INTO document_versions (
-			id, document_id, version_no, storage_key, size_bytes, created_by, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		version.ID,
-		version.DocumentID,
-		version.VersionNo,
-		version.StorageKey,
-		version.SizeBytes,
-		version.CreatedBy,
-		version.CreatedAt,
-	)
-	if err != nil {
-		return false, fmt.Errorf("insert onlyoffice version: %w", err)
-	}
-
-	_, err = tx.ExecContext(
-		ctx,
-		`UPDATE documents
-		SET current_version_id = $1, storage_key = $2, size_bytes = $3, updated_at = $4
-		WHERE id = $5 AND deleted_at IS NULL`,
-		version.ID,
-		version.StorageKey,
-		version.SizeBytes,
-		updatedAt,
-		documentID,
-	)
-	if err != nil {
-		return false, fmt.Errorf("update document current version: %w", err)
-	}
-
-	_, err = tx.ExecContext(
-		ctx,
-		`UPDATE onlyoffice_saves SET version_id = $1 WHERE document_id = $2 AND document_key = $3`,
-		version.ID,
-		documentID,
-		documentKey,
-	)
-	if err != nil {
-		return false, fmt.Errorf("update onlyoffice save version: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("commit add version tx: %w", err)
-	}
-	return true, nil
-}
-
 func (r *PostgresRepository) AddDocumentVersion(ctx context.Context, documentID string, version Version, updatedAt time.Time) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -369,22 +279,6 @@ func (r *PostgresRepository) AddDocumentVersion(ctx context.Context, documentID 
 		return fmt.Errorf("commit add document version tx: %w", err)
 	}
 	return nil
-}
-
-func (r *PostgresRepository) HasOnlyOfficeSave(ctx context.Context, documentID string, documentKey string) (bool, error) {
-	var exists bool
-	err := r.db.QueryRowContext(
-		ctx,
-		`SELECT EXISTS (
-			SELECT 1 FROM onlyoffice_saves WHERE document_id = $1 AND document_key = $2
-		)`,
-		documentID,
-		documentKey,
-	).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("check onlyoffice save: %w", err)
-	}
-	return exists, nil
 }
 
 type rowScanner interface {

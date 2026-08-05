@@ -18,9 +18,6 @@ services:
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:8088}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8088}
       BACKEND_INTERNAL_URL: http://backend:8080
-      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:8088/onlyoffice}
-      ONLYOFFICE_INTERNAL_URL: http://onlyoffice
-      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-change-me}
       OFFICE_COLLAB_ENABLED: ${OFFICE_COLLAB_ENABLED:-true}
       OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-ws://localhost:8088/office-collab}
       PASSWORD_HASH_PEPPER: ${SESSION_SECRET:-change-me}
@@ -31,8 +28,6 @@ services:
       redis:
         condition: service_started
       minio:
-        condition: service_started
-      onlyoffice:
         condition: service_started
     restart: unless-stopped
 
@@ -67,7 +62,6 @@ services:
       - frontend
       - backend
       - office-collab
-      - onlyoffice
     restart: unless-stopped
 
   postgres:
@@ -95,12 +89,6 @@ services:
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-change-me}
     volumes:
       - minio-data:/data
-    restart: unless-stopped
-
-  onlyoffice:
-    image: docker.io/onlyoffice/documentserver:latest
-    environment:
-      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-change-me}
     restart: unless-stopped
 
 volumes:

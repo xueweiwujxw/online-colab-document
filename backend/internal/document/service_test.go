@@ -52,9 +52,7 @@ func TestUploadAcceptsRequiredFileTypes(t *testing.T) {
 		filename    string
 		contentType string
 	}{
-		{name: "doc", filename: "example.doc", contentType: "application/msword"},
 		{name: "docx", filename: "example.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-		{name: "xls", filename: "example.xls", contentType: "application/vnd.ms-excel"},
 		{name: "xlsx", filename: "example.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
 		{name: "markdown", filename: "example.md", contentType: "text/markdown"},
 		{name: "text", filename: "example.txt", contentType: "text/plain"},
@@ -640,27 +638,6 @@ func (r *memoryRepo) FindVersion(_ context.Context, documentID string, versionID
 		}
 	}
 	return Version{}, ErrNotFound
-}
-
-func (r *memoryRepo) HasOnlyOfficeSave(context.Context, string, string) (bool, error) {
-	return false, nil
-}
-
-func (r *memoryRepo) AddVersion(_ context.Context, documentID string, version Version, _ string, updatedAt time.Time) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	doc, ok := r.documents[documentID]
-	if !ok || doc.DeletedAt != nil {
-		return false, ErrNotFound
-	}
-	version.VersionNo = int64(len(r.versions[documentID]) + 1)
-	r.versions[documentID] = append(r.versions[documentID], version)
-	doc.CurrentVersionID = &version.ID
-	doc.StorageKey = version.StorageKey
-	doc.SizeBytes = version.SizeBytes
-	doc.UpdatedAt = updatedAt
-	r.documents[documentID] = doc
-	return true, nil
 }
 
 func (r *memoryRepo) AddDocumentVersion(_ context.Context, documentID string, version Version, updatedAt time.Time) error {

@@ -608,12 +608,6 @@ h1 {
   line-height: 1.3;
 }
 
-.onlyoffice-frame {
-  min-height: calc(100vh - 64px);
-  border: 0;
-  background: var(--surface);
-}
-
 .office-toolbar {
   display: flex;
   align-items: center;

@@ -12,7 +12,7 @@ Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服
 - Cache: Redis
 - Storage: MinIO / S3
 - Deploy: Podman Compose / Docker Compose compatible compose file
-- Office editor: 自托管开源 Office 编辑器，当前保留 ONLYOFFICE 回退并推进 xlsx 协同 POC
+- Office editor: Casual Office（当前支持 docx / xlsx；不部署或使用 ONLYOFFICE）
 - Markdown collab: 后续里程碑使用 Yjs / WebSocket
 
 ## 本地启动
@@ -53,7 +53,6 @@ Casual Sheets 的 xlsx 解析依赖包内 `parser.worker.js`。Vite dev server �
 - Redis: localhost:6379
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
-- ONLYOFFICE Document Server: http://localhost:8081
 - Office collab WebSocket: ws://localhost:1234
 
 可选 nginx 统一入口：
@@ -96,10 +95,6 @@ OIDC_REDIRECT_URL=http://localhost:8080/api/auth/oidc/callback
 OIDC_SCOPES=openid,email,profile
 OIDC_AUTO_MERGE_BY_EMAIL=false
 DOCUMENT_MAX_UPLOAD_BYTES=52428800
-ONLYOFFICE_ENABLED=true
-ONLYOFFICE_PUBLIC_URL=http://localhost:8081
-ONLYOFFICE_INTERNAL_URL=http://onlyoffice
-ONLYOFFICE_JWT_SECRET=change-me
 OFFICE_COLLAB_ENABLED=true
 OFFICE_COLLAB_PUBLIC_URL=ws://localhost:1234
 PUBLIC_APP_URL=http://localhost:3000
@@ -144,10 +139,8 @@ M12 Docker 部署与安全加固：
 - owner / editor / viewer 权限矩阵
 - 文档接口统一接入 PermissionService
 - 前端 `/documents/:id/permissions` 权限管理页面
-- ONLYOFFICE Document Server compose 服务
-- doc/docx/xls/xlsx 编辑器 config 生成
-- viewer 只读、editor/owner 可编辑
-- ONLYOFFICE 保存回调生成新版本
+- Casual Office 支持 docx / xlsx 编辑器；viewer 只读、editor/owner 可编辑
+- `.doc` / `.xls` 当前不支持上传，待后续完成替代方案 POC 后再评估
 - Markdown 文档读取接口 `GET /api/documents/:id/markdown`
 - Markdown 文档保存接口 `PUT /api/documents/:id/markdown`
 - Markdown 保存生成新版本并更新当前下载内容
@@ -173,7 +166,7 @@ M12 Docker 部署与安全加固：
 - 恢复历史版本会生成新版本，不覆盖旧版本
 - viewer 不能恢复，editor/owner 可以恢复
 - audit_logs 数据库 migration
-- 关键操作审计记录：登录、登出、OIDC 登录、文档上传/下载/删除、Markdown 保存、ONLYOFFICE 保存 callback、权限授予/删除、分享链接创建/禁用/访问/下载/Markdown 保存、历史版本恢复
+- 关键操作审计记录：登录、登出、OIDC 登录、文档上传/下载/删除、Markdown 保存、Office 保存、权限授予/删除、分享链接创建/禁用/访问/下载/Markdown 保存、历史版本恢复
 - 审计写入失败只记录 error log，不影响主流程
 - 审计 metadata 过滤 password/token/secret/cookie 等敏感字段
 - 管理员审计查询接口 `GET /api/admin/audit-logs`
@@ -185,10 +178,10 @@ M12 Docker 部署与安全加固：
 - 用户中心 `/profile` 支持查看账户信息、修改本地账号密码、修改显示名和撤销其他登录会话
 - backend 启动时自动执行 `backend/migrations`
 - 生产 compose `deploy/docker-compose.prod.yml`
-- nginx 配置 `deploy/nginx/nginx.conf`，支持 `/api/`、`/onlyoffice/`、WebSocket upgrade、上传大小限制和 gzip
+- nginx 配置 `deploy/nginx/nginx.conf`，支持 `/api/`、WebSocket upgrade、上传大小限制和 gzip
 - 开发 compose 增加可选 nginx proxy profile 和 mock OIDC dev profile
 - 完整环境变量样例 `deploy/env/app.env.example`
-- 部署、ONLYOFFICE、权限、Markdown 协同文档
+- 部署、权限、Markdown 协同文档
 
 ## 当前限制
 
@@ -198,6 +191,5 @@ M12 Docker 部署与安全加固：
 ## 部署文档
 
 - [Deployment](docs/deployment.md)
-- [ONLYOFFICE](docs/onlyoffice.md)
 - [Permission](docs/permission.md)
 - [Markdown Collaboration](docs/markdown-collab.md)
