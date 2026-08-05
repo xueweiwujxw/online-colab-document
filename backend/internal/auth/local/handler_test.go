@@ -591,6 +591,19 @@ func (r *memoryRepo) UpdateDisplayName(_ context.Context, id string, displayName
 	return u, nil
 }
 
+func (r *memoryRepo) UpdateAvatarKey(_ context.Context, id string, avatarKey *string) (user.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.usersByID[id]
+	if !ok {
+		return user.User{}, ErrUserNotFound
+	}
+	u.AvatarKey = avatarKey
+	u.UpdatedAt = time.Now()
+	r.usersByID[id] = u
+	return u, nil
+}
+
 func (r *memoryRepo) CreateSession(_ context.Context, record session.Record) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

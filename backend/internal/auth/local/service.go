@@ -77,6 +77,11 @@ type UpdateProfileInput struct {
 	DisplayName string
 }
 
+type UpdateAvatarInput struct {
+	UserID    string
+	AvatarKey string
+}
+
 type AuthSession struct {
 	User      user.User
 	Token     string
@@ -206,6 +211,23 @@ func (s *Service) UpdateProfile(ctx context.Context, input UpdateProfileInput) (
 		return user.User{}, ErrUnauthenticated
 	}
 	return s.users.UpdateDisplayName(ctx, u.ID, displayName)
+}
+
+func (s *Service) UpdateAvatar(ctx context.Context, input UpdateAvatarInput) (user.User, error) {
+	if input.UserID == "" || input.AvatarKey == "" {
+		return user.User{}, ErrInvalidInput
+	}
+	u, err := s.users.FindByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return user.User{}, ErrUnauthenticated
+		}
+		return user.User{}, err
+	}
+	if u.Disabled {
+		return user.User{}, ErrUnauthenticated
+	}
+	return s.users.UpdateAvatarKey(ctx, u.ID, &input.AvatarKey)
 }
 
 func (s *Service) ListSessions(ctx context.Context, userID string, currentToken string) ([]PublicSession, error) {

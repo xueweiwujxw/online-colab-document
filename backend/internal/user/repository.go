@@ -25,7 +25,7 @@ func (r *PostgresRepository) Search(ctx context.Context, query string, limit int
 	}
 	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`
 		SELECT id, email, display_name, password_hash, auth_source, oidc_subject,
-			is_admin, disabled, created_at, updated_at
+			is_admin, disabled, created_at, updated_at, avatar_key
 		FROM users
 		WHERE %s
 		ORDER BY display_name ASC, email ASC
@@ -48,6 +48,7 @@ func (r *PostgresRepository) Search(ctx context.Context, query string, limit int
 			&u.Disabled,
 			&u.CreatedAt,
 			&u.UpdatedAt,
+			&u.AvatarKey,
 		); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}

@@ -26,6 +26,7 @@ type UserRepository interface {
 	SetOIDCSubject(ctx context.Context, id string, subject string) (user.User, error)
 	UpdatePasswordHash(ctx context.Context, id string, passwordHash string) error
 	UpdateDisplayName(ctx context.Context, id string, displayName string) (user.User, error)
+	UpdateAvatarKey(ctx context.Context, id string, avatarKey *string) (user.User, error)
 }
 
 type PostgresRepository struct {
@@ -41,8 +42,8 @@ func (r *PostgresRepository) Create(ctx context.Context, u user.User) error {
 		ctx,
 		`INSERT INTO users (
 			id, email, display_name, password_hash, auth_source, oidc_subject,
-			is_admin, disabled, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			is_admin, disabled, created_at, updated_at, avatar_key
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		u.ID,
 		u.Email,
 		u.DisplayName,
@@ -53,6 +54,7 @@ func (r *PostgresRepository) Create(ctx context.Context, u user.User) error {
 		u.Disabled,
 		u.CreatedAt,
 		u.UpdatedAt,
+		u.AvatarKey,
 	)
 	if isUniqueViolation(err) {
 		return ErrEmailAlreadyUsed
@@ -65,17 +67,17 @@ func (r *PostgresRepository) Create(ctx context.Context, u user.User) error {
 
 func (r *PostgresRepository) FindByEmail(ctx context.Context, email string) (user.User, error) {
 	return r.scanUser(ctx, `SELECT id, email, display_name, password_hash, auth_source, oidc_subject,
-		is_admin, disabled, created_at, updated_at FROM users WHERE email = $1`, email)
+		is_admin, disabled, created_at, updated_at, avatar_key FROM users WHERE email = $1`, email)
 }
 
 func (r *PostgresRepository) FindByID(ctx context.Context, id string) (user.User, error) {
 	return r.scanUser(ctx, `SELECT id, email, display_name, password_hash, auth_source, oidc_subject,
-		is_admin, disabled, created_at, updated_at FROM users WHERE id = $1`, id)
+		is_admin, disabled, created_at, updated_at, avatar_key FROM users WHERE id = $1`, id)
 }
 
 func (r *PostgresRepository) FindByOIDCSubject(ctx context.Context, subject string) (user.User, error) {
 	return r.scanUser(ctx, `SELECT id, email, display_name, password_hash, auth_source, oidc_subject,
-		is_admin, disabled, created_at, updated_at FROM users WHERE oidc_subject = $1`, subject)
+		is_admin, disabled, created_at, updated_at, avatar_key FROM users WHERE oidc_subject = $1`, subject)
 }
 
 func (r *PostgresRepository) SetOIDCSubject(ctx context.Context, id string, subject string) (user.User, error) {
@@ -129,6 +131,21 @@ func (r *PostgresRepository) UpdateDisplayName(ctx context.Context, id string, d
 	return r.FindByID(ctx, id)
 }
 
+func (r *PostgresRepository) UpdateAvatarKey(ctx context.Context, id string, avatarKey *string) (user.User, error) {
+	result, err := r.db.ExecContext(ctx, `UPDATE users SET avatar_key = $1, updated_at = NOW() WHERE id = $2`, avatarKey, id)
+	if err != nil {
+		return user.User{}, fmt.Errorf("update avatar key: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return user.User{}, fmt.Errorf("update avatar key rows affected: %w", err)
+	}
+	if rows == 0 {
+		return user.User{}, ErrUserNotFound
+	}
+	return r.FindByID(ctx, id)
+}
+
 func (r *PostgresRepository) scanUser(ctx context.Context, query string, args ...any) (user.User, error) {
 	var u user.User
 	err := r.db.QueryRowContext(ctx, query, args...).Scan(
@@ -142,6 +159,7 @@ func (r *PostgresRepository) scanUser(ctx context.Context, query string, args ..
 		&u.Disabled,
 		&u.CreatedAt,
 		&u.UpdatedAt,
+		&u.AvatarKey,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return user.User{}, ErrUserNotFound
