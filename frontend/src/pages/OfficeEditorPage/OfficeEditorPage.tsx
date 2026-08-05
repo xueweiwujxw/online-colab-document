@@ -160,6 +160,9 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
             <span className="connection-pill">{state.session.mode === 'edit' ? '可编辑' : '只读'}</span>
           ) : null}
           {state.status === 'success' ? <span className="office-collab-note">{collabLabel(collabState)}</span> : null}
+          {state.status === 'success' && state.session.fileExt === 'xlsx' ? (
+            <span className="office-collab-note">双击单元格输入，拖拽选择后再格式化</span>
+          ) : null}
           {saveError ? <span className="form-error office-save-error">{saveError}</span> : null}
           {state.status === 'success' && state.session.mode === 'edit' && state.session.fileExt !== 'xlsx' ? (
             <button
@@ -177,6 +180,9 @@ export function OfficeEditorPage({ documentId }: { documentId: string }) {
           ) : null}
         </div>
       </header>
+      <span aria-live="polite" className="screen-reader-text" role="status">
+        {saveState === 'saving' ? '正在保存文档' : saveState === 'saved' ? '文档已保存' : saveState === 'error' ? '文档保存失败' : ''}
+      </span>
       {state.status === 'loading' ? (
         <section className="empty-state editor-state">正在加载 Casual Office 编辑器</section>
       ) : null}
@@ -408,6 +414,7 @@ function DirectSheetsHost({
           onChange={publishRealtimeSnapshot}
           onReady={(api) => {
             apiRef.current = api;
+            api.focus();
             setSheetApi(api);
           }}
           onSave={(snapshot) => {
@@ -464,7 +471,7 @@ function SpreadsheetToolbar({
 
   return (
     <div aria-label="表格工具栏" className="spreadsheet-toolbar" role="toolbar">
-      <div className="spreadsheet-toolbar-group">
+      <div aria-label="历史与保存" className="spreadsheet-toolbar-group" role="group">
         <button
           aria-label="撤销"
           className="sheet-toolbar-button"
@@ -486,6 +493,7 @@ function SpreadsheetToolbar({
           重做
         </button>
         <button
+          aria-label="保存表格"
           className="primary-button sheet-save-button"
           disabled={controlsDisabled || saveState === 'saving'}
           onClick={onSave}
@@ -494,14 +502,14 @@ function SpreadsheetToolbar({
           {saveState === 'saving' ? '保存中' : saveState === 'saved' ? '已保存' : '保存'}
         </button>
       </div>
-      <div className="spreadsheet-toolbar-group">
-        <button className="sheet-toolbar-button sheet-toolbar-strong" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-bold')} type="button">
+      <div aria-label="文字格式" className="spreadsheet-toolbar-group" role="group">
+        <button aria-label="加粗" className="sheet-toolbar-button sheet-toolbar-strong" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-bold')} title="加粗" type="button">
           加粗
         </button>
-        <button className="sheet-toolbar-button sheet-toolbar-italic" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-italic')} type="button">
+        <button aria-label="斜体" className="sheet-toolbar-button sheet-toolbar-italic" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-italic')} title="斜体" type="button">
           斜体
         </button>
-        <button className="sheet-toolbar-button sheet-toolbar-underline" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-underline')} type="button">
+        <button aria-label="下划线" className="sheet-toolbar-button sheet-toolbar-underline" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-range-underline')} title="下划线" type="button">
           下划线
         </button>
         <label className="sheet-toolbar-label">
@@ -521,10 +529,10 @@ function SpreadsheetToolbar({
           <input aria-label="填充颜色" defaultValue="#ffffff" disabled={controlsDisabled} onChange={(event) => runCommand('sheet.command.set-background-color', { value: event.target.value })} type="color" />
         </label>
       </div>
-      <div className="spreadsheet-toolbar-group">
-        <button className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 1 })} type="button">左对齐</button>
-        <button className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 2 })} type="button">居中</button>
-        <button className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 3 })} type="button">右对齐</button>
+      <div aria-label="对齐与数字" className="spreadsheet-toolbar-group" role="group">
+        <button aria-label="左对齐" className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 1 })} title="左对齐" type="button">左对齐</button>
+        <button aria-label="居中" className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 2 })} title="居中" type="button">居中</button>
+        <button aria-label="右对齐" className="sheet-toolbar-button" disabled={controlsDisabled} onClick={() => runCommand('sheet.command.set-horizontal-text-align', { value: 3 })} title="右对齐" type="button">右对齐</button>
         <label className="sheet-toolbar-label">
           数字格式
           <select defaultValue="" disabled={controlsDisabled} onChange={(event) => applyNumberFormat(event.target.value)}>

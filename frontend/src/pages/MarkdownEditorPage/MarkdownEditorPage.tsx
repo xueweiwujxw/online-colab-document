@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import {
   baseKeymap,
   chainCommands,
@@ -17,6 +17,7 @@ import {
   Node as ProseMirrorNode,
   Schema,
   type Mark,
+  type MarkType,
   type NodeSpec,
 } from 'prosemirror-model';
 import { EditorState, type Command } from 'prosemirror-state';
@@ -328,6 +329,9 @@ export function MarkdownEditorPage({ documentId }: { documentId: string }) {
           </a>
         </div>
       </header>
+      <span aria-live="polite" className="screen-reader-text" role="status">
+        {saveButtonText(saveState)}，{statusText}
+      </span>
       {error ? <p className="form-error markdown-save-error">{error}</p> : null}
       <section className="presence-bar">
         <span className="presence-summary">当前在线 {visibleUsers.length} 人</span>
@@ -377,6 +381,8 @@ export function RichMarkdownEditor({
   const onChangeRef = useRef(onChange);
   const readonlyRef = useRef(readOnly || disabled);
   const [view, setView] = useState<EditorView | null>(null);
+  const [editorVersion, setEditorVersion] = useState(0);
+  const [linkDialog, setLinkDialog] = useState<{ href: string; text: string } | null>(null);
 
   onChangeRef.current = onChange;
   readonlyRef.current = readOnly || disabled;
@@ -392,6 +398,7 @@ export function RichMarkdownEditor({
       dispatchTransaction(transaction) {
         const nextState = view.state.apply(transaction);
         view.updateState(nextState);
+        setEditorVersion((version) => version + 1);
         if (transaction.docChanged) {
           onChangeRef.current(serializeMarkdown(nextState.doc));
         }
@@ -429,48 +436,60 @@ export function RichMarkdownEditor({
   const isReadOnly = readOnly || disabled;
   const marks = markdownSchema.marks;
   const nodes = markdownSchema.nodes;
+  const currentSelection = view?.state.selection;
+  const selectedText = currentSelection
+    ? view.state.doc.textBetween(currentSelection.from, currentSelection.to, ' ')
+    : '';
 
   return (
     <section className="markdown-pane rich-markdown-pane">
-      <div className="rich-markdown-toolbar" aria-label="Markdown 富文本工具栏">
-        <EditorButton command={undo} disabled={isReadOnly} label="撤销" view={view}>
+      <div aria-label="Markdown 富文本工具栏" className="rich-markdown-toolbar" role="toolbar">
+        <EditorButton command={undo} disabled={isReadOnly} label="撤销" shortcut="Ctrl+Z" view={view}>
           ↶
         </EditorButton>
-        <EditorButton command={redo} disabled={isReadOnly} label="重做" view={view}>
+        <EditorButton command={redo} disabled={isReadOnly} label="重做" shortcut="Ctrl+Shift+Z" view={view}>
           ↷
         </EditorButton>
         <span className="toolbar-divider" />
-        <EditorButton command={setBlockType(nodes.heading, { level: 1 })} disabled={isReadOnly} label="一级标题" view={view}>
+        <EditorButton active={isNodeActive(view, 'heading', { level: 1 })} command={setBlockType(nodes.heading, { level: 1 })} disabled={isReadOnly} label="一级标题" view={view}>
           H1
         </EditorButton>
-        <EditorButton command={setBlockType(nodes.heading, { level: 2 })} disabled={isReadOnly} label="二级标题" view={view}>
+        <EditorButton active={isNodeActive(view, 'heading', { level: 2 })} command={setBlockType(nodes.heading, { level: 2 })} disabled={isReadOnly} label="二级标题" view={view}>
           H2
         </EditorButton>
-        <EditorButton command={setBlockType(nodes.paragraph)} disabled={isReadOnly} label="正文" view={view}>
+        <EditorButton active={isNodeActive(view, 'paragraph')} command={setBlockType(nodes.paragraph)} disabled={isReadOnly} label="正文" view={view}>
           正文
         </EditorButton>
-        <EditorButton command={wrapIn(nodes.blockquote)} disabled={isReadOnly} label="引用" view={view}>
+        <EditorButton active={isNodeActive(view, 'blockquote')} command={wrapIn(nodes.blockquote)} disabled={isReadOnly} label="引用" view={view}>
           “”
         </EditorButton>
-        <EditorButton command={setBlockType(nodes.code_block)} disabled={isReadOnly} label="代码块" view={view}>
+        <EditorButton active={isNodeActive(view, 'code_block')} command={setBlockType(nodes.code_block)} disabled={isReadOnly} label="代码块" view={view}>
           {'</>'}
         </EditorButton>
         <span className="toolbar-divider" />
-        <EditorButton command={toggleMark(marks.strong)} disabled={isReadOnly} label="加粗" view={view}>
+        <EditorButton active={isMarkActive(view, marks.strong)} command={toggleMark(marks.strong)} disabled={isReadOnly} label="加粗" shortcut="Ctrl+B" view={view}>
           B
         </EditorButton>
-        <EditorButton command={toggleMark(marks.em)} disabled={isReadOnly} label="斜体" view={view}>
+        <EditorButton active={isMarkActive(view, marks.em)} command={toggleMark(marks.em)} disabled={isReadOnly} label="斜体" shortcut="Ctrl+I" view={view}>
           I
         </EditorButton>
-        <EditorButton command={toggleMark(marks.strike)} disabled={isReadOnly} label="删除线" view={view}>
+        <EditorButton active={isMarkActive(view, marks.strike)} command={toggleMark(marks.strike)} disabled={isReadOnly} label="删除线" view={view}>
           S
         </EditorButton>
-        <EditorButton command={toggleMark(marks.code)} disabled={isReadOnly} label="行内代码" view={view}>
+        <EditorButton active={isMarkActive(view, marks.code)} command={toggleMark(marks.code)} disabled={isReadOnly} label="行内代码" view={view}>
           code
         </EditorButton>
-        <EditorButton command={setLink()} disabled={isReadOnly} label="链接" view={view}>
+        <button
+          aria-label="插入链接"
+          className="rich-toolbar-button"
+          disabled={isReadOnly || !view}
+          onClick={() => setLinkDialog({ href: '', text: selectedText })}
+          onMouseDown={(event) => event.preventDefault()}
+          title="插入链接"
+          type="button"
+        >
           链接
-        </EditorButton>
+        </button>
         <span className="toolbar-divider" />
         <EditorButton command={insertList('bullet_list')} disabled={isReadOnly} label="无序列表" view={view}>
           •
@@ -478,10 +497,50 @@ export function RichMarkdownEditor({
         <EditorButton command={insertList('ordered_list')} disabled={isReadOnly} label="有序列表" view={view}>
           1.
         </EditorButton>
-        <EditorButton command={insertTable()} disabled={isReadOnly} label="表格" view={view}>
+        <EditorButton active={isNodeActive(view, 'table')} command={insertTable()} disabled={isReadOnly} label="插入表格" view={view}>
           表格
         </EditorButton>
+        <span className="markdown-shortcuts">快捷键：Ctrl+B / Ctrl+I</span>
       </div>
+      {linkDialog ? (
+        <form
+          aria-label="插入链接"
+          className="markdown-link-form"
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (!view || linkDialog.href.trim() === '') {
+              return;
+            }
+            applyLink(view, linkDialog.href.trim(), linkDialog.text.trim());
+            setEditorVersion((version) => version + 1);
+            setLinkDialog(null);
+            view.focus();
+          }}
+        >
+          <label>
+            链接地址
+            <input
+              autoFocus
+              onChange={(event) => setLinkDialog((current) => current ? { ...current, href: event.target.value } : current)}
+              placeholder="https://example.com"
+              required
+              type="url"
+              value={linkDialog.href}
+            />
+          </label>
+          <label>
+            显示文字
+            <input
+              onChange={(event) => setLinkDialog((current) => current ? { ...current, text: event.target.value } : current)}
+              placeholder="保留选中内容"
+              type="text"
+              value={linkDialog.text}
+            />
+          </label>
+          <button className="primary-button compact-action" type="submit">插入</button>
+          <button className="secondary-button" onClick={() => setLinkDialog(null)} type="button">取消</button>
+        </form>
+      ) : null}
       <div className={`rich-markdown-editor ${isReadOnly ? 'is-readonly' : ''}`} ref={hostRef} />
     </section>
   );
@@ -492,12 +551,16 @@ function EditorButton({
   command,
   disabled,
   label,
+  active = false,
+  shortcut,
   view,
 }: {
+  active?: boolean;
   children: string;
   command: Command;
   disabled: boolean;
   label: string;
+  shortcut?: string;
   view: EditorView | null;
 }) {
   function run() {
@@ -508,7 +571,7 @@ function EditorButton({
     view.focus();
   }
   return (
-    <button className="rich-toolbar-button" disabled={disabled || !view} onMouseDown={(event) => event.preventDefault()} onClick={run} title={label} type="button">
+    <button aria-pressed={active} aria-keyshortcuts={shortcut} aria-label={label} className={`rich-toolbar-button${active ? ' is-active' : ''}`} disabled={disabled || !view} onMouseDown={(event) => event.preventDefault()} onClick={run} title={shortcut ? `${label}（${shortcut}）` : label} type="button">
       {children}
     </button>
   );
@@ -540,25 +603,38 @@ function baseKeys(): Record<string, Command> {
   };
 }
 
-function setLink(): Command {
-  return (state, dispatch) => {
-    const href = window.prompt('链接地址');
-    if (!href) {
-      return false;
-    }
-    if (!dispatch) {
-      return true;
-    }
-    const { from, to, empty } = state.selection;
-    const mark = markdownSchema.marks.link.create({ href });
-    if (empty) {
-      const text = window.prompt('链接文字') || href;
-      dispatch(state.tr.insertText(text, from).addMark(from, from + text.length, mark));
-      return true;
-    }
-    dispatch(state.tr.addMark(from, to, mark));
-    return true;
-  };
+function applyLink(view: EditorView, href: string, label: string): void {
+  const { from, to, empty } = view.state.selection;
+  const mark = markdownSchema.marks.link.create({ href });
+  if (empty) {
+    const text = label || href;
+    view.dispatch(view.state.tr.insertText(text, from).addMark(from, from + text.length, mark));
+    return;
+  }
+  if (label !== '') {
+    view.dispatch(view.state.tr.insertText(label, from, to).addMark(from, from + label.length, mark));
+    return;
+  }
+  view.dispatch(view.state.tr.addMark(from, to, mark));
+}
+
+function isMarkActive(view: EditorView | null, mark: MarkType): boolean {
+  if (!view) {
+    return false;
+  }
+  const { from, $from, empty } = view.state.selection;
+  return empty ? Boolean(mark.isInSet(view.state.storedMarks ?? $from.marks())) : view.state.doc.rangeHasMark(from, view.state.selection.to, mark);
+}
+
+function isNodeActive(view: EditorView | null, nodeName: string, attrs?: Record<string, unknown>): boolean {
+  if (!view) {
+    return false;
+  }
+  const node = view.state.selection.$from.parent;
+  if (node.type.name !== nodeName) {
+    return false;
+  }
+  return !attrs || Object.entries(attrs).every(([key, value]) => node.attrs[key] === value);
 }
 
 function insertList(type: 'bullet_list' | 'ordered_list'): Command {
