@@ -77,6 +77,41 @@ func (s *MinIOStorage) PresignedGetURL(ctx context.Context, key string, ttl time
 	return u.String(), nil
 }
 
+func (s *MinIOStorage) Usage(ctx context.Context) (Usage, error) {
+	if err := s.ensureBucket(ctx); err != nil {
+		return Usage{}, err
+	}
+	var usage Usage
+	for object := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Recursive: true}) {
+		if object.Err != nil {
+			return Usage{}, fmt.Errorf("list storage usage: %w", object.Err)
+		}
+		usage.ObjectCount++
+		usage.TotalBytes += object.Size
+	}
+	return usage, nil
+}
+
+func (s *MinIOStorage) ListObjects(ctx context.Context, prefix string, limit int) ([]ObjectInfo, error) {
+	if err := s.ensureBucket(ctx); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	items := make([]ObjectInfo, 0, limit)
+	for object := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: strings.TrimPrefix(prefix, "/"), Recursive: true}) {
+		if object.Err != nil {
+			return nil, fmt.Errorf("list storage objects: %w", object.Err)
+		}
+		items = append(items, ObjectInfo{Key: object.Key, SizeBytes: object.Size, ContentType: object.ContentType, UpdatedAt: object.LastModified})
+		if len(items) == limit {
+			break
+		}
+	}
+	return items, nil
+}
+
 func (s *MinIOStorage) ensureBucket(ctx context.Context) error {
 	s.ensureOnce.Do(func() {
 		exists, err := s.client.BucketExists(ctx, s.bucket)

@@ -1,5 +1,6 @@
 import { AuthProvider } from '../auth/AuthContext';
 import { AuditLogPage } from '../pages/AuditLogPage/AuditLogPage';
+import { AdminPage } from '../pages/AdminPage/AdminPage';
 import { DocumentDetailPage } from '../pages/DocumentDetailPage/DocumentDetailPage';
 import { DocumentListPage } from '../pages/DocumentListPage/DocumentListPage';
 import { LoginPage } from '../pages/LoginPage/LoginPage';
@@ -26,6 +27,7 @@ export function App() {
     <AuthProvider>
       {shareAccessMatch ? <ShareAccessPage token={shareAccessMatch[1]} /> : null}
       {path === '/admin/audit-logs' ? <AuditLogPage /> : null}
+      {path === '/admin' ? <AdminPage /> : null}
       {path === '/login' ? <LoginPage /> : null}
       {path === '/register' ? <RegisterPage /> : null}
       {path === '/profile' ? <ProfilePage /> : null}
@@ -49,6 +51,7 @@ export function App() {
       path !== '/documents' &&
       path !== '/' &&
       path !== '/admin/audit-logs' &&
+      path !== '/admin' &&
       !shareAccessMatch &&
       !documentDetailMatch &&
       !permissionMatch &&

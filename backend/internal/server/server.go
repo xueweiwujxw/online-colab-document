@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"online-colab-document/backend/internal/admin"
 	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
 	"online-colab-document/backend/internal/auth/local"
@@ -116,6 +117,9 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		if err != nil {
 			logger.Error("storage setup failed", "error", err)
 		} else {
+			adminHandler := admin.NewHandler(objectStorage, objectStorage, auditService, logger)
+			mux.Handle("GET /api/admin/storage", requireAdmin(adminHandler.Storage))
+			mux.Handle("DELETE /api/admin/storage/object", requireAdmin(adminHandler.DeleteObject))
 			authHandler = authHandler.WithAvatarStorage(objectStorage)
 			mux.Handle("PUT /api/auth/avatar", requireAuth(authHandler.UpdateAvatar))
 			mux.Handle("GET /api/users/{id}/avatar", requireAuth(authHandler.Avatar))

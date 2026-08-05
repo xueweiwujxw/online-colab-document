@@ -391,6 +391,20 @@ h1 {
   display: none;
 }
 
+.admin-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
+.admin-summary article, .admin-panel { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 12px 30px rgb(15 118 110 / 7%); padding: 18px; }
+.admin-summary span, .admin-user small, .admin-object small { color: var(--muted); display: block; font-size: 13px; }
+.admin-summary strong { color: var(--text); display: block; font-size: 26px; margin-top: 6px; }
+.admin-panel { margin: 18px 0; }
+.admin-panel-header, .admin-panel-header form, .admin-user, .admin-user > div, .admin-user form, .admin-object { align-items: center; display: flex; gap: 10px; }
+.admin-panel-header { justify-content: space-between; margin-bottom: 12px; }
+.admin-panel-header h2 { margin: 0; }
+.admin-panel-header input, .admin-user input { min-height: 36px; }
+.admin-user, .admin-object { border-top: 1px solid var(--border); justify-content: space-between; padding: 12px 0; }
+.admin-avatar { border-radius: 50%; height: 32px; object-fit: cover; width: 32px; }
+.admin-object span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .admin-summary { grid-template-columns: 1fr; } .admin-panel-header, .admin-user, .admin-object { align-items: stretch; flex-direction: column; } .admin-panel-header form, .admin-user form { width: 100%; } .admin-panel-header input, .admin-user input { flex: 1; min-width: 0; } }
+
 .profile-panel h2 {
   margin: 0 0 18px;
   font-size: 22px;

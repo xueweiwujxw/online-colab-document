@@ -99,8 +99,8 @@ export function DocumentListPage() {
         </div>
         <div className="user-actions">
           {auth.user.isAdmin ? (
-            <a className="secondary-button" href="/admin/audit-logs">
-              审计日志
+            <a className="secondary-button" href="/admin">
+              管理控制台
             </a>
           ) : null}
           <label className="upload-button">
