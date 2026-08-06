@@ -1,0 +1,55 @@
+diff --git a/apps/web/src/collab/CollabDriver.tsx b/apps/web/src/collab/CollabDriver.tsx
+index 351603b..5184c00 100644
+--- a/apps/web/src/collab/CollabDriver.tsx
++++ b/apps/web/src/collab/CollabDriver.tsx
+@@ -70,6 +70,21 @@ import {
+ import { useCurrentUser } from '../auth/auth-context';
+ import { parseShareMeta, shareMetaUrl, sharePasswordKey, type ShareMeta } from './share-meta';
+ 
++function hostDisplayName(): string | null {
++  try {
++    const token = new URLSearchParams(window.location.search).get('access_token');
++    const payload = token?.split('.')[1];
++    if (!payload) return null;
++    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
++    const claims = JSON.parse(atob(normalized + '='.repeat((4 - (normalized.length % 4)) % 4)));
++    return typeof claims.display_name === 'string' && claims.display_name.trim()
++      ? claims.display_name.trim()
++      : null;
++  } catch {
++    return null;
++  }
++}
++
+ /**
+  * Owns the co-edit join flow:
+  *   1. Parse roomId + role from the URL (`/r/:id?role=view|write`).
+@@ -237,15 +252,25 @@ export function CollabDriver({ children }: { children?: ReactNode }) {
+     setRoomId(id);
+     setRole(requestedRole);
+ 
+-    // Resolve display name. Precedence:
+-    //   1. Stored localStorage name (the user has previously joined a
++    // Resolve display name. A host-issued WOPI session is authoritative: its
++    // public JWT payload contains the application display name, which keeps
++    // cursor labels aligned with the host's users instead of a browser-local
++    // anonymous nickname. The server still verifies that token on every
++    // WOPI/Yjs request; this decode only feeds presentation metadata.
++    const hostedName = hostDisplayName();
++    // Precedence:
++    //   1. Host-issued WOPI display name.
++    //   2. Stored localStorage name (the user has previously joined a
+     //      room and set / accepted a name — keep it stable).
+     //   2. Personal-mode signed-in username (UX_AUDIT.md §4.4). We
+     //      ALSO write it through `setDisplayName` so the same identity
+     //      survives a sign-out → anonymous-join round trip.
+     //   3. Whimsical anon name + open the prompt.
+     const stored = getDisplayName();
+-    if (stored) {
++    if (hostedName) {
++      setDisplayName(hostedName);
++      setIdentity({ name: hostedName, color: colorForName(hostedName) });
++    } else if (stored) {
+       setIdentity({ name: stored, color: colorForName(stored) });
+     } else if (currentUser) {
+       const name = currentUser.username;
