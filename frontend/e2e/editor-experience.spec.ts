@@ -47,12 +47,75 @@ test.describe('编辑器体验回归', () => {
     }
   });
 
-  test('xlsx 实际渲染中文表格界面并保持 viewer 只读', async ({ browser, page }) => {
-    await register(page, account('sheet-owner'));
+  test('xlsx 原生协同：同步、重连、只读与保存版本', async ({ browser, page }) => {
+    test.setTimeout(120_000);
+    const owner = account('sheet-owner');
+    await register(page, owner);
     const documentId = await upload(page, await xlsxFile());
+    const editor = account('sheet-editor');
+    const editorContext = await browser.newContext();
+    const editorPage = await editorContext.newPage();
+    await register(editorPage, editor);
     const viewerContext = await browser.newContext();
     const viewerPage = await viewerContext.newPage();
     const viewer = account('sheet-viewer');
+    await register(viewerPage, viewer);
+
+    await page.goto(`/documents/${documentId}/permissions`);
+    await grant(page, editor.email, 'editor');
+    await page.goto(`/documents/${documentId}/permissions`);
+    await grant(page, viewer.email, 'viewer');
+
+    await Promise.all([
+      page.goto(`/documents/${documentId}/edit`),
+      editorPage.goto(`/documents/${documentId}/edit`),
+    ]);
+    await Promise.all([waitForSheet(page), waitForSheet(editorPage)]);
+    await expect(page.getByText(owner.displayName, { exact: true })).toBeVisible();
+    await expect(editorPage.getByText(editor.displayName, { exact: true })).toBeVisible();
+
+    const marker = `sync-${Date.now()}`;
+    await selectFirstVisibleSheetCell(page);
+    await page.getByTestId('formula-input').fill(marker);
+    await page.getByTestId('formula-input').press('Enter');
+    await selectFirstVisibleSheetCell(editorPage);
+    await expect(editorPage.getByTestId('formula-input')).toHaveValue(marker, { timeout: 20_000 });
+    await expect(page.getByTestId('presence-cursor')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(editor.displayName, { exact: true })).toBeVisible();
+
+    await editorPage.reload();
+    await waitForSheet(editorPage);
+    await selectFirstVisibleSheetCell(editorPage);
+    await expect(editorPage.getByTestId('formula-input')).toHaveValue(marker, { timeout: 20_000 });
+
+    await viewerPage.goto(`/documents/${documentId}/edit`);
+    await waitForSheet(viewerPage);
+    await expect(viewerPage.getByTestId('view-only-banner')).toBeVisible();
+    await selectFirstVisibleSheetCell(viewerPage);
+    await expect(viewerPage.getByTestId('formula-input')).toHaveValue(marker, { timeout: 20_000 });
+    await expect(viewerPage.getByTestId('formula-input')).not.toBeEditable();
+
+    const saveResponse = page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/wopi/files/${documentId}/contents`
+      && response.ok()
+    ), { timeout: 60_000 });
+    await page.keyboard.press('Control+S');
+    await saveResponse;
+    await page.goto(`/documents/${documentId}/versions`);
+    await expect(page.locator('.version-row').first()).toBeVisible();
+    await expect(page.getByText('版本 2', { exact: true })).toBeVisible();
+
+    await editorContext.close();
+    await viewerContext.close();
+  });
+
+  test('xlsx viewer 无法在权限页外获得编辑能力', async ({ browser, page }) => {
+    await register(page, account('sheet-owner-readonly'));
+    const documentId = await upload(page, await xlsxFile());
+    const viewerContext = await browser.newContext();
+    const viewerPage = await viewerContext.newPage();
+    const viewer = account('sheet-viewer-readonly');
     await register(viewerPage, viewer);
 
     await page.goto(`/documents/${documentId}/permissions`);
@@ -63,12 +126,10 @@ test.describe('编辑器体验回归', () => {
     await page.getByRole('button', { name: '授权', exact: true }).click();
     await expect(page.getByText('已有：只读')).toBeVisible();
 
-    await page.goto(`/documents/${documentId}/edit`);
-    await waitForSheet(page);
-
     await viewerPage.goto(`/documents/${documentId}/edit`);
     await waitForSheet(viewerPage);
-    await expect(viewerPage.getByText('只读')).toBeVisible();
+    await expect(viewerPage.getByTestId('view-only-banner')).toBeVisible();
+    await expect(viewerPage.getByTestId('formula-input')).not.toBeEditable();
     await viewerPage.setViewportSize({ width: 375, height: 812 });
     expect(await hasHorizontalOverflow(viewerPage)).toBe(false);
 
@@ -126,17 +187,38 @@ async function upload(page: Page, file: { name: string; mimeType: string; buffer
 }
 
 async function waitForSheet(page: Page): Promise<void> {
-  const iframe = page.locator('.office-sheet-iframe');
-  await expect(iframe).toBeVisible({ timeout: 45_000 });
-  const frame = page.frameLocator('.office-sheet-iframe');
-  await expect(frame.getByText('文件', { exact: true })).toBeVisible({ timeout: 45_000 });
-  await expect(frame.getByText('编辑', { exact: true })).toBeVisible();
+  const namePrompt = page.getByTestId('name-prompt-backdrop');
+  if (await namePrompt.isVisible().catch(() => false)) {
+    await namePrompt.getByRole('button').last().click();
+  }
+  await expect(page.getByText('File', { exact: true })).toBeVisible({ timeout: 45_000 });
   await expect
-    .poll(() => frame.locator('canvas').evaluateAll((canvases) => canvases.some((canvas) => {
+    .poll(() => page.locator('canvas').evaluateAll((canvases) => canvases.some((canvas) => {
       const rect = canvas.getBoundingClientRect();
       return rect.width > 100 && rect.height > 100;
     })))
     .toBe(true);
+}
+
+async function selectFirstVisibleSheetCell(page: Page): Promise<void> {
+  const canvas = page.locator('canvas');
+  const index = await canvas.evaluateAll((items) => items.findIndex((item) => {
+    const rect = item.getBoundingClientRect();
+    return rect.width > 100 && rect.height > 100;
+  }));
+  if (index < 0) throw new Error('未找到可操作的表格画布');
+  const target = canvas.nth(index);
+  const box = await target.boundingBox();
+  if (!box) throw new Error('表格画布不可见');
+  await target.click({ position: { x: Math.min(180, box.width / 2), y: Math.min(180, box.height / 2) } });
+}
+
+async function grant(page: Page, email: string, role: 'editor' | 'viewer'): Promise<void> {
+  await page.getByLabel('搜索用户').fill(email);
+  await page.getByRole('button', { name: '搜索', exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(email) }).click();
+  await page.getByLabel('权限').selectOption(role);
+  await page.getByRole('button', { name: '授权', exact: true }).click();
 }
 
 async function hasHorizontalOverflow(page: Page): Promise<boolean> {
