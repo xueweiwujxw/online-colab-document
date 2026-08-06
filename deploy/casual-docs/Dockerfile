@@ -8,7 +8,9 @@ RUN git clone https://github.com/CasualOffice/docs.git . \
  && git config --global url."https://github.com/".insteadOf git@github.com: \
  && git submodule update --init --recursive
 COPY wopi-markdown.patch /tmp/wopi-markdown.patch
-RUN git apply --check /tmp/wopi-markdown.patch && git apply /tmp/wopi-markdown.patch
+COPY wopi-docx.patch /tmp/wopi-docx.patch
+RUN git apply --check /tmp/wopi-markdown.patch && git apply /tmp/wopi-markdown.patch \
+ && git apply --check /tmp/wopi-docx.patch && git apply /tmp/wopi-docx.patch
 WORKDIR /src/docx-editor
 RUN bun install --frozen-lockfile
 ENV VITE_COLLAB_ENABLED=true

@@ -1,0 +1,39 @@
+diff --git a/docx-editor/examples/vite/src/App.tsx b/docx-editor/examples/vite/src/App.tsx
+--- a/docx-editor/examples/vite/src/App.tsx
++++ b/docx-editor/examples/vite/src/App.tsx
+@@ -1780,4 +1780,28 @@ function CollabApp({
+     [peers, status]
+   );
+
++  // In a hosted room Ctrl/Cmd+S and File → Save must persist through the
++  // WOPI host, rather than falling back to a browser download. The token is
++  // only used to address the server; the Go host verifies it and re-checks
++  // the current editor permission for every write.
++  const saveToWopi = useCallback((buffer: ArrayBuffer) => {
++    try {
++      const token = new URLSearchParams(window.location.search).get('access_token');
++      const payload = token?.split('.')[1];
++      if (!token || !payload) return;
++      const padded = payload.replace(/-/g, '+').replace(/_/g, '/');
++      const claims = JSON.parse(atob(padded + '='.repeat((4 - (padded.length % 4)) % 4)));
++      if (typeof claims.file_id !== 'string') return;
++      void fetch(`/wopi/files/${encodeURIComponent(claims.file_id)}/contents?access_token=${encodeURIComponent(token)}`, {
++        method: 'POST',
++        headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
++        body: buffer,
++      }).then((response) => {
++        if (!response.ok) throw new Error(`WOPI save failed: HTTP ${response.status}`);
++      }).catch((error) => console.error('[wopi-docx] save failed', error));
++    } catch (error) {
++      console.error('[wopi-docx] save setup failed', error);
++    }
++  }, []);
++
+   if (seed.kind === 'loading') {
+@@ -1815,5 +1840,6 @@ function CollabApp({
+           commentIdBase={commentIdBase}
+           documentName={collabFileName ?? seed.fileName}
+           onDocumentNameChange={handleRename}
++          onSave={saveToWopi}
+           renderTitleBarRight={renderTitleBarRight}
+         />
