@@ -1,8 +1,8 @@
 diff --git a/docx-editor/examples/vite/src/App.tsx b/docx-editor/examples/vite/src/App.tsx
-index 4b544b6..e951b55 100644
+index 4b544b6..7882609 100644
 --- a/docx-editor/examples/vite/src/App.tsx
 +++ b/docx-editor/examples/vite/src/App.tsx
-@@ -573,14 +573,26 @@ export function App() {
+@@ -573,12 +573,24 @@ export function App() {
      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
      return `${proto}//${window.location.host}/yjs`;
    }, []);
@@ -33,9 +33,57 @@ index 4b544b6..e951b55 100644
 +    }
 +  }, [collabWs]);
  
-   // Local-user identity for awareness. M2 will prompt for a name +
-   // colour; M1 ships an anonymous fallback so co-edit works
-@@ -1698,6 +1710,12 @@ function CollabApp({
+@@ -585,24 +597,41 @@ export function App() {
+-  // Local-user identity for awareness. M2 will prompt for a name +
+-  // colour; M1 ships an anonymous fallback so co-edit works
+-  // immediately. Stored in sessionStorage so the same browser tab
+-  // keeps a stable colour across reloads.
++  // Use the host-issued display name for collaboration awareness. The signed
++  // WOPI token is already part of this hosted URL; only its public payload is
++  // decoded here so remote cursor labels identify the actual application user.
++  const collabDisplayName = useMemo(() => {
++    try {
++      const token = new URLSearchParams(window.location.search).get('access_token');
++      const payload = token?.split('.')[1];
++      if (!payload) return null;
++      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
++      const claims = JSON.parse(atob(normalized + '='.repeat((4 - (normalized.length % 4)) % 4)));
++      return typeof claims.display_name === 'string' && claims.display_name.trim()
++        ? claims.display_name.trim()
++        : null;
++    } catch {
++      return null;
++    }
++  }, []);
++
++  // Keep a stable per-browser colour while always preferring the host identity
++  // over the demo's anonymous name fallback.
+   const localUser = useMemo(() => {
++    let color: string | undefined;
+     const stored = sessionStorage.getItem('collab-user');
+     if (stored) {
+       try {
+-        return JSON.parse(stored) as { name: string; color: string };
++        color = (JSON.parse(stored) as { color?: unknown }).color as string | undefined;
+       } catch {
+         /* fall through */
+       }
+     }
+     const palette = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0891b2'];
+     const user = {
+-      name: `Editor ${Math.floor(Math.random() * 1000)}`,
+-      color: palette[Math.floor(Math.random() * palette.length)] ?? '#2563eb',
++      name: collabDisplayName ?? `Editor ${Math.floor(Math.random() * 1000)}`,
++      color: color ?? palette[Math.floor(Math.random() * palette.length)] ?? '#2563eb',
+     };
+     sessionStorage.setItem('collab-user', JSON.stringify(user));
+     return user;
+-  }, []);
++  }, [collabDisplayName]);
+ 
+   const [shareOpen, setShareOpen] = useState(false);
+ 
+@@ -1698,6 +1727,12 @@ function CollabApp({
    onFontsLoaded,
  }: CollabAppProps) {
    const { plugins, status, peers, metaMap } = useCollab({ room, backend, user });
@@ -48,7 +96,7 @@ index 4b544b6..e951b55 100644
    const [seed, setSeed] = useState<SeedState>({ kind: 'loading' });
    // Bumped via "Try again" to re-trigger the fetch effect.
    const [attempt, setAttempt] = useState(0);
-@@ -1787,6 +1805,30 @@ function CollabApp({
+@@ -1787,6 +1822,30 @@ function CollabApp({
      [peers, status]
    );
  
@@ -79,7 +127,7 @@ index 4b544b6..e951b55 100644
    if (seed.kind === 'loading') {
      return <LoadingPanel />;
    }
-@@ -1813,7 +1855,9 @@ function CollabApp({
+@@ -1813,7 +1872,9 @@ function CollabApp({
            disableFindReplaceShortcuts={disableFindReplaceShortcuts}
            commentIdBase={commentIdBase}
            documentName={collabFileName ?? seed.fileName}
