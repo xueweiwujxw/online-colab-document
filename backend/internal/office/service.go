@@ -390,11 +390,11 @@ func editorKind(ext string) string {
 func editorURL(cfg Config, doc document.Document, token string) string {
 	role := roleForDocument(doc, token)
 	if editorKind(doc.FileExt) == "sheets" {
-		// `/sheet/:id` activates Casual Sheets' WOPI file source, while the
-		// room query activates its native CollabDriver. `/r/:room` alone is
-		// an anonymous-room route and intentionally starts with an empty
-		// workbook, so it must not be used for a host-backed document.
-		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/sheet/" + doc.ID + "?room=" + doc.ID + "&access_token=" + token + "&share=" + token + "&role=" + role
+		// Casual Sheets detects its WOPI host integration from the token on
+		// the root route. `/sheet/:id` is an application route for opening a
+		// local sheet and starts an empty workbook, so it must not be used for
+		// a host-backed document.
+		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/?room=" + url.QueryEscape(doc.ID) + "&access_token=" + url.QueryEscape(token) + "&role=" + role
 	}
 	id := base64.RawURLEncoding.EncodeToString([]byte(doc.ID))
 	kind := "docx"

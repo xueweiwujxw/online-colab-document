@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +33,35 @@ func TestSessionAllowsViewerAndReturnsReadOnlyMode(t *testing.T) {
 	}
 	if session.EditorURL == "" {
 		t.Fatal("editor URL is empty")
+	}
+}
+
+func TestSheetsSessionUsesWOPIRootRoute(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "xlsx"
+	h.permissions.canView = true
+	h.permissions.canEdit = true
+
+	session, err := h.service.Session(context.Background(), testUser(), "doc-1")
+	if err != nil {
+		t.Fatalf("Session returned error: %v", err)
+	}
+	editorURL, err := url.Parse(session.EditorURL)
+	if err != nil {
+		t.Fatalf("parse editor URL: %v", err)
+	}
+	if editorURL.Path != "/" {
+		t.Fatalf("editor path = %q, want WOPI root route /", editorURL.Path)
+	}
+	query := editorURL.Query()
+	if query.Get("room") != "doc-1" {
+		t.Fatalf("room = %q, want doc-1", query.Get("room"))
+	}
+	if query.Get("role") != "write" {
+		t.Fatalf("role = %q, want write", query.Get("role"))
+	}
+	if query.Get("access_token") == "" {
+		t.Fatal("missing WOPI access token")
 	}
 }
 
