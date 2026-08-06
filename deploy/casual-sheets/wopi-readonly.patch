@@ -1,0 +1,56 @@
+diff --git a/apps/web/src/shell/FormulaBar.tsx b/apps/web/src/shell/FormulaBar.tsx
+index e095631..34ee4e1 100644
+--- a/apps/web/src/shell/FormulaBar.tsx
++++ b/apps/web/src/shell/FormulaBar.tsx
+@@ -26,6 +26,7 @@ import {
+ import { flushSync } from 'react-dom';
+ import { useUniverAPI } from '../use-univer';
+ import { useActiveCellState } from '../hooks/useActiveCellState';
++import { useCollab } from '../collab/collab-context';
+ import { Dialog } from './Dialog';
+ import {
+   canInsertRefAtCaret,
+@@ -62,6 +63,8 @@ type Suggestion =
+  */
+ export function FormulaBar() {
+   const api = useUniverAPI();
++  const { role } = useCollab();
++  const canEdit = role !== 'view';
+   const { ready, a1, displayValue, isMultiCell, selRows, selCols } = useActiveCellState();
+ 
+   const [draft, setDraft] = useState<string | null>(null);
+@@ -559,7 +562,7 @@ export function FormulaBar() {
+             className="btn btn--icon formula-bar__action"
+             data-testid="formula-cancel"
+             aria-label="Cancel"
+-            disabled={!editing}
++            disabled={!editing || !canEdit}
+             onMouseDown={(e) => e.preventDefault()}
+             onClick={revert}
+           >
+@@ -572,7 +575,7 @@ export function FormulaBar() {
+             className="btn btn--icon formula-bar__action"
+             data-testid="formula-commit"
+             aria-label="Enter"
+-            disabled={!editing}
++            disabled={!editing || !canEdit}
+             onMouseDown={(e) => e.preventDefault()}
+             onClick={() => {
+               commit();
+@@ -588,6 +591,7 @@ export function FormulaBar() {
+             className="formula-bar__fx"
+             data-testid="formula-fx"
+             aria-label="Insert function"
++            disabled={!canEdit}
+             onClick={() => {
+               startFormulaEdit();
+               setShowInsertFunction(true);
+@@ -607,7 +611,7 @@ export function FormulaBar() {
+         aria-label="Formula input"
+         spellCheck={false}
+         value={value}
+-        disabled={!ready}
++        disabled={!ready || !canEdit}
+         onChange={(e) => {
+           trackCaret();
+           onChange(e);

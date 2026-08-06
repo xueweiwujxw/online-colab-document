@@ -14,9 +14,12 @@ RUN git config --global url."https://github.com/".insteadOf git@github.com: && \
     git -C /repo checkout "${CASUAL_SHEETS_REF}" && \
     git -C /repo submodule update --init --recursive
 COPY wopi-presence.patch /tmp/wopi-presence.patch
+COPY wopi-readonly.patch /tmp/wopi-readonly.patch
 COPY server-log-redaction.patch /tmp/server-log-redaction.patch
 RUN git -C /repo apply --check /tmp/wopi-presence.patch && \
     git -C /repo apply /tmp/wopi-presence.patch && \
+    git -C /repo apply --check /tmp/wopi-readonly.patch && \
+    git -C /repo apply /tmp/wopi-readonly.patch && \
     patch --batch --forward -p1 -d /repo/apps/server < /tmp/server-log-redaction.patch
 
 FROM node:${NODE_VERSION} AS build-web
