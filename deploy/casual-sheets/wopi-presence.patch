@@ -1,5 +1,5 @@
 diff --git a/apps/web/src/collab/CollabDriver.tsx b/apps/web/src/collab/CollabDriver.tsx
-index 351603b..5184c00 100644
+index 351603b..11e2193 100644
 --- a/apps/web/src/collab/CollabDriver.tsx
 +++ b/apps/web/src/collab/CollabDriver.tsx
 @@ -70,6 +70,21 @@ import {
@@ -53,3 +53,14 @@ index 351603b..5184c00 100644
        setIdentity({ name: stored, color: colorForName(stored) });
      } else if (currentUser) {
        const name = currentUser.username;
+@@ -1235,7 +1260,9 @@ function wsUrl(): string {
+   const envOverride = viteEnv('VITE_COLLAB_WS_URL');
+   if (envOverride) return envOverride;
+   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+-  return `${proto}//${window.location.host}/yjs`;
++  const token = new URLSearchParams(window.location.search).get('access_token');
++  const query = token ? `?access_token=${encodeURIComponent(token)}` : '';
++  return `${proto}//${window.location.host}/yjs${query}`;
+ }
+ 
+ /**
