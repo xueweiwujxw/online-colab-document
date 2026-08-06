@@ -27,6 +27,8 @@ COPY --from=source /repo /repo
 RUN ./scripts/setup-fork.sh && \
     pnpm install --frozen-lockfile
 RUN pnpm --filter @casualoffice/sheets build
+ARG VITE_COLLAB_ENABLED=1
+ENV VITE_COLLAB_ENABLED=${VITE_COLLAB_ENABLED}
 ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN pnpm --filter @sheet/web build
 
