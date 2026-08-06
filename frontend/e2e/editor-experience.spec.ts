@@ -47,6 +47,47 @@ test.describe('编辑器体验回归', () => {
     }
   });
 
+  test('docx 原生协同：名称、远程光标、只读、重连与保存版本', async ({ browser, page }) => {
+    test.setTimeout(120_000);
+    const owner = account('docx-owner');
+    await register(page, owner);
+    const documentId = await upload(page, docxFile());
+    const viewer = account('docx-viewer');
+    const viewerContext = await browser.newContext();
+    const viewerPage = await viewerContext.newPage();
+    await register(viewerPage, viewer);
+    await page.goto(`/documents/${documentId}/permissions`);
+    await grant(page, viewer.email, 'viewer');
+
+    await Promise.all([
+      page.goto(`/documents/${documentId}/edit`),
+      viewerPage.goto(`/documents/${documentId}/edit`),
+    ]);
+    const ownerEditor = page.locator('[contenteditable="true"]').first();
+    await expect(ownerEditor).toBeVisible({ timeout: 30_000 });
+    await expect(viewerPage.locator('[contenteditable="true"]')).toHaveCount(0);
+    await expect(page.getByText(viewer.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
+
+    const marker = `docx-sync-${Date.now()}`;
+    await ownerEditor.focus();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type(` ${marker}`);
+    await expect(viewerPage.getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(viewerPage.locator('.ProseMirror-yjs-cursor')).toBeVisible({ timeout: 20_000 });
+    await expect(viewerPage.getByText(owner.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
+
+    await page.reload();
+    const reconnectedEditor = page.locator('[contenteditable="true"]').first();
+    await expect(reconnectedEditor).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
+
+    await expect(wopiWriteStatus(page)).resolves.toBe(200);
+    await expect(wopiWriteStatus(viewerPage)).resolves.toBe(403);
+    await page.goto(`/documents/${documentId}/versions`);
+    await expect(page.getByText('版本 2', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await viewerContext.close();
+  });
+
   test('xlsx 原生协同：同步、重连、只读与保存版本', async ({ browser, page }) => {
     test.setTimeout(120_000);
     const owner = account('sheet-owner');
@@ -232,6 +273,30 @@ function account(prefix: string): Account {
 
 function markdownFile() {
   return { name: 'editor-experience.md', mimeType: 'text/markdown', buffer: Buffer.from('# 编辑器体验\n\n初始内容。\n') };
+}
+
+function docxFile() {
+  return {
+    name: 'editor-experience.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from('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', 'base64'),
+  };
+}
+
+async function wopiWriteStatus(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const token = new URLSearchParams(location.search).get('access_token');
+    const payload = token?.split('.')[1];
+    if (!token || !payload) return -1;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(atob(normalized + '='.repeat((4 - normalized.length % 4) % 4))) as { file_id?: string };
+    if (!claims.file_id) return -1;
+    const path = `/wopi/files/${encodeURIComponent(claims.file_id)}/contents?access_token=${encodeURIComponent(token)}`;
+    const source = await fetch(path);
+    if (!source.ok) return source.status;
+    const response = await fetch(path, { method: 'POST', body: await source.arrayBuffer() });
+    return response.status;
+  });
 }
 
 async function xlsxFile() {
