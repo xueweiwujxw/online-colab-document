@@ -2391,7 +2391,7 @@ xlsx 可输入单元格、应用常用格式、撤销/重做、保存并生成�
 
 ## Plan 17：Casual Office 原生协同与用户发现修复
 
-状态：进行中。
+状态：阶段性完成，待继续验收。
 
 > 本计划替换当前仅使用 SDK / iframe 的 Office 编辑器集成。实施前必须完成每个 POC 验收项；不得恢复 ONLYOFFICE。
 
@@ -2416,9 +2416,14 @@ xlsx 可输入单元格、应用常用格式、撤销/重做、保存并生成�
 
 POC 记录（2026-08-06）：
 
-- 已拉取并启动官方镜像：`casualoffice/sheets:0.3.4`（Web、Hocuspocus、Fastify，`/yjs`）和 `casualoffice/docs:0.0.5`（`/yjs`）；两者容器内 `/health` 均返回 200。
+- 已启动 Casual Sheets `0.3.4` 与基于固定 Casual Docs 源码提交 `d11605185698cfc4b16a83a975cfecc8056ac348` 的自托管镜像；两个上游 Fastify 运行日志均已脱敏 `req.url`，不记录 WOPI/JWT 查询令牌。
+- 权限用户发现已完成：`GET /api/users` 使用受控分页，权限页可加载更多用户、搜索、排除当前用户并展示已授权状态。
+- Sheets 已完成原生 room/seed host adapter：浏览器通过同源网关访问官方 Web + Hocuspocus，Go 对 room seed、WOPI 和 Yjs 建连都执行统一权限检查；不再由项目广播整本 workbook snapshot。
+- Sheets 已做独立浏览器上下文双用户验证：两名 editor 均加载到中文 xlsx 初始内容，owner 对 `C3` 的“`双用户同步`”写入会实时到达另一 editor；viewer 读取成功且其 `D4` 写入没有同步到 owner。该验证不等同于远程选区、断线重连、保存/版本/审计验收。
+- Docs Markdown 已做独立浏览器上下文双用户验证：editor 修改会实时到达另一 editor，WOPI 保存仍保留 `.md`；Docs Yjs 建连通过 Go 代理授权。Markdown viewer、远程光标和审计/版本仍需纳入正式回归。
+- Docs docx 已补充 room seed 和 WOPI save host adapter，但真实 docx 打开仍未通过：官方 Docs 对 `collab` WebSocket URL 的查询参数派生 room seed HTTP 地址时导致请求未命中受保护 seed。已记录为下一阶段的首要修复，未将 docx POC 标记通过。
 - Casual Sheets 官方 SDK 的 `attachCollab` 是所需的单元格 mutation bridge，但当前 npm 发布的 `@casualoffice/sheets@0.20.0` 在直挂页面时动态依赖 `@univerjs/docs-mention-ui`；该包在 npm registry 不存在，导致画布不挂载。因此不能以这个不完整 SDK 发行物作为正式集成。
-- 后续 POC 必须使用官方 Docker 应用的完整前端构建，并补齐本系统的受权限保护 room/seed/save host adapter；在两个真实用户完成单元格与光标同步、viewer 拒写、版本保存前，禁止宣称 xlsx 协同通过。
+- 后续必须先修复 Docs docx room seed URL 推导并完成 docx 双用户 editor/viewer、远程光标、保存、版本、审计链路；随后补齐 Sheets 远程选区/名称、断线重连、保存、版本、审计，以及正式 Playwright 回归、前端构建和 compose 验收。以上全部完成前，Plan 17 不得标记完成。
 
 ### 17.4 端到端与部署验收
 
