@@ -1,10 +1,44 @@
 diff --git a/docx-editor/examples/vite/src/App.tsx b/docx-editor/examples/vite/src/App.tsx
+index 4b544b6..3243a87 100644
 --- a/docx-editor/examples/vite/src/App.tsx
 +++ b/docx-editor/examples/vite/src/App.tsx
-@@ -1780,4 +1780,28 @@ function CollabApp({
+@@ -573,14 +573,26 @@ export function App() {
+     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+     return `${proto}//${window.location.host}/yjs`;
+   }, []);
+-  const collabHttp = useMemo(
+-    () =>
+-      collabWs
++  const collabHttp = useMemo(() => {
++    // Host integrations may sign the WebSocket URL with query parameters.
++    // Strip those before deriving the REST base; otherwise the client emits
++    // `...access_token=<token>/api/rooms/...`, which is neither a valid
++    // seed endpoint nor safe to expose as a path segment.
++    try {
++      const url = new URL(collabWs, window.location.href);
++      url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
++      url.search = '';
++      url.hash = '';
++      url.pathname = url.pathname.replace(/\/yjs\/?$/, '') || '/';
++      return url.toString().replace(/\/$/, '');
++    } catch {
++      return collabWs
++        .split('?')[0]
+         .replace(/^wss:/, 'https:')
+         .replace(/^ws:/, 'http:')
+-        .replace(/\/yjs\/?$/, ''),
+-    [collabWs]
+-  );
++        .replace(/\/yjs\/?$/, '');
++    }
++  }, [collabWs]);
+ 
+   // Local-user identity for awareness. M2 will prompt for a name +
+   // colour; M1 ships an anonymous fallback so co-edit works
+@@ -1787,6 +1799,30 @@ function CollabApp({
      [peers, status]
    );
-
+ 
 +  // In a hosted room Ctrl/Cmd+S and File → Save must persist through the
 +  // WOPI host, rather than falling back to a browser download. The token is
 +  // only used to address the server; the Go host verifies it and re-checks
@@ -30,10 +64,13 @@ diff --git a/docx-editor/examples/vite/src/App.tsx b/docx-editor/examples/vite/s
 +  }, []);
 +
    if (seed.kind === 'loading') {
-@@ -1815,5 +1840,6 @@ function CollabApp({
+     return <LoadingPanel />;
+   }
+@@ -1814,6 +1850,7 @@ function CollabApp({
            commentIdBase={commentIdBase}
            documentName={collabFileName ?? seed.fileName}
            onDocumentNameChange={handleRename}
 +          onSave={saveToWopi}
            renderTitleBarRight={renderTitleBarRight}
          />
+       </main>
