@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,6 +164,37 @@ func TestWOPIRechecksPermissionAfterTokenWasIssued(t *testing.T) {
 	}
 }
 
+func TestSheetsRoomSeedRequiresViewPermission(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "xlsx"
+	h.permissions.canView = false
+
+	_, _, err := h.service.SheetsRoomSeed(context.Background(), testUser(), "doc-1")
+	if err != ErrForbidden {
+		t.Fatalf("SheetsRoomSeed error = %v, want ErrForbidden", err)
+	}
+}
+
+func TestSheetsRoomSeedReturnsStoredXLSX(t *testing.T) {
+	h := newHarness()
+	h.repo.doc.FileExt = "xlsx"
+	h.permissions.canView = true
+	h.storage.objects[h.repo.doc.StorageKey] = "xlsx-bytes"
+
+	doc, reader, err := h.service.SheetsRoomSeed(context.Background(), testUser(), "doc-1")
+	if err != nil {
+		t.Fatalf("SheetsRoomSeed returned error: %v", err)
+	}
+	defer reader.Close()
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read seed: %v", err)
+	}
+	if doc.ID != "doc-1" || string(body) != "xlsx-bytes" {
+		t.Fatalf("seed = (%q, %q), want doc-1 and xlsx-bytes", doc.ID, body)
+	}
+}
+
 func TestWOPIRejectsTokenForAnotherDocument(t *testing.T) {
 	h := newHarness()
 	token, err := h.service.mintWOPIToken(testUser(), "doc-1", "editor", "docs")
@@ -278,8 +310,8 @@ func (s *fakeStorage) PutObject(_ context.Context, key string, reader io.Reader,
 	return nil
 }
 
-func (s *fakeStorage) GetObject(context.Context, string) (io.ReadCloser, error) {
-	return nil, nil
+func (s *fakeStorage) GetObject(_ context.Context, key string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader(s.objects[key])), nil
 }
 
 func (s *fakeStorage) DeleteObject(_ context.Context, key string) error {

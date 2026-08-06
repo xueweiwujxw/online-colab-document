@@ -1,0 +1,81 @@
+diff --git a/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx b/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx
+index 6910a93..6513c5b 100644
+--- a/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx
++++ b/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx
+@@ -2,10 +2,24 @@
+  * Copyright (c) 2026 Casual Office. All rights reserved.
+  */
+ 
+-import React from 'react';
++import React, { useEffect, useRef } from 'react';
++import * as Y from 'yjs';
+ import { MarkdownEditor } from './MarkdownEditor';
+ import { useMarkdownCollab } from './useMarkdownCollab';
+ 
++function wopiFileContext(): { token: string; fileId: string } | null {
++  try {
++    const token = new URLSearchParams(window.location.search).get('access_token');
++    if (!token) return null;
++    const payload = token.split('.')[1];
++    if (!payload) return null;
++    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
++    return typeof claims.file_id === 'string' ? { token, fileId: claims.file_id } : null;
++  } catch {
++    return null;
++  }
++}
++
+ export interface MarkdownCollabAppProps {
+   room: string;
+   backend: string;
+@@ -34,6 +48,50 @@ export function MarkdownCollabApp({
+   renderLogo,
+ }: MarkdownCollabAppProps): React.ReactElement {
+   const collab = useMarkdownCollab({ room, backend, user });
++  const loadedRef = useRef(false);
++
++  // In a WOPI-hosted session the project file, not the first browser tab, is
++  // the room seed. This keeps reloads and a second editor from replacing a
++  // persisted Markdown document with an empty Y.Text.
++  useEffect(() => {
++    const context = wopiFileContext();
++    if (!context || loadedRef.current) return;
++    let cancelled = false;
++    fetch(`/wopi/files/${encodeURIComponent(context.fileId)}/contents?access_token=${encodeURIComponent(context.token)}`)
++      .then((res) => {
++        if (!res.ok) throw new Error(`WOPI GetFile failed: HTTP ${res.status}`);
++        return res.text();
++      })
++      .then((text) => {
++        if (cancelled || collab.ytext.length !== 0) return;
++        loadedRef.current = true;
++        collab.ytext.doc?.transact(() => collab.ytext.insert(0, text), 'wopi-seed');
++      })
++      .catch((error) => console.error('[wopi-markdown] seed failed', error));
++    return () => { cancelled = true; };
++  }, [collab.ytext]);
++
++  // Casual's CodeMirror/Yjs bridge remains the editor and collaboration
++  // engine. This small host adapter serializes the authoritative Y.Text back
++  // through WOPI, where the project performs versioning, audit and permission
++  // checks. Remote changes are saved too, exactly once per debounce window.
++  useEffect(() => {
++    const context = wopiFileContext();
++    if (!context) return;
++    let timer: ReturnType<typeof setTimeout> | null = null;
++    const save = () => {
++      timer = null;
++      void fetch(`/wopi/files/${encodeURIComponent(context.fileId)}/contents?access_token=${encodeURIComponent(context.token)}`, {
++        method: 'POST', headers: { 'Content-Type': 'text/markdown' }, body: collab.ytext.toString(),
++      });
++    };
++    const onChange = (_event: Y.YTextEvent) => {
++      if (timer) clearTimeout(timer);
++      timer = setTimeout(save, 800);
++    };
++    collab.ytext.observe(onChange);
++    return () => { collab.ytext.unobserve(onChange); if (timer) clearTimeout(timer); };
++  }, [collab.ytext]);
+   return (
+     <MarkdownEditor
+       initialText=""

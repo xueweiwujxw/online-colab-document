@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"time"
 
@@ -292,6 +293,43 @@ func (s *Service) WOPISave(ctx context.Context, token, documentID string, body i
 	return s.Save(ctx, user.User{ID: claims.Subject, DisplayName: claims.DisplayName}, documentID, body)
 }
 
+// SheetsRoomInfo and SheetsRoomSeed are the host side of Casual Sheets'
+// native room bootstrap. The editor fetches these before it attaches its
+// official Yjs mutation bridge; therefore they must use the project session
+// and the same live permission service as every other document operation.
+func (s *Service) SheetsRoomInfo(ctx context.Context, currentUser user.User, documentID string) error {
+	doc, err := s.documents.FindByID(ctx, documentID)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(doc.FileExt, "xlsx") {
+		return ErrUnsupportedFile
+	}
+	canView, err := s.permissions.CanView(ctx, currentUser.ID, documentID)
+	if err != nil {
+		return err
+	}
+	if !canView {
+		return ErrForbidden
+	}
+	return nil
+}
+
+func (s *Service) SheetsRoomSeed(ctx context.Context, currentUser user.User, documentID string) (document.Document, io.ReadCloser, error) {
+	if err := s.SheetsRoomInfo(ctx, currentUser, documentID); err != nil {
+		return document.Document{}, nil, err
+	}
+	doc, err := s.documents.FindByID(ctx, documentID)
+	if err != nil {
+		return document.Document{}, nil, err
+	}
+	reader, err := s.storage.GetObject(ctx, doc.StorageKey)
+	if err != nil {
+		return document.Document{}, nil, err
+	}
+	return doc, reader, nil
+}
+
 type limitedReader struct {
 	reader    io.Reader
 	remaining int64
@@ -330,14 +368,25 @@ func editorKind(ext string) string {
 func editorURL(cfg Config, doc document.Document, token string) string {
 	role := roleForDocument(doc, token)
 	if editorKind(doc.FileExt) == "sheets" {
-		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/r/" + doc.ID + "?access_token=" + token + "&share=" + token + "&role=" + role
+		// `/sheet/:id` activates Casual Sheets' WOPI file source, while the
+		// room query activates its native CollabDriver. `/r/:room` alone is
+		// an anonymous-room route and intentionally starts with an empty
+		// workbook, so it must not be used for a host-backed document.
+		return strings.TrimRight(cfg.SheetsEditorURL, "/") + "/sheet/" + doc.ID + "?room=" + doc.ID + "&access_token=" + token + "&share=" + token + "&role=" + role
 	}
 	id := base64.RawURLEncoding.EncodeToString([]byte(doc.ID))
 	kind := "docx"
 	if strings.EqualFold(doc.FileExt, "md") {
 		kind = "markdown"
 	}
-	return strings.TrimRight(cfg.DocsEditorURL, "/") + "/doc/" + id + "?access_token=" + token + "&room=" + doc.ID + "&kind=" + kind + "&role=" + role
+	base := strings.TrimRight(cfg.DocsEditorURL, "/")
+	wsScheme := "ws://"
+	if strings.HasPrefix(base, "https://") {
+		wsScheme = "wss://"
+	}
+	wsHost := strings.TrimPrefix(strings.TrimPrefix(base, "https://"), "http://")
+	collab := wsScheme + wsHost + "/yjs?room=" + url.QueryEscape(doc.ID) + "&access_token=" + url.QueryEscape(token)
+	return base + "/doc/" + id + "?access_token=" + token + "&room=" + doc.ID + "&kind=" + kind + "&role=" + role + "&collab=" + url.QueryEscape(collab)
 }
 
 func roleForDocument(doc document.Document, token string) string {

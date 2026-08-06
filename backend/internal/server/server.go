@@ -197,6 +197,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.HandleFunc("GET /wopi/files/{id}/contents", officeHandler.WOPIContent)
 			mux.HandleFunc("POST /wopi/files/{id}/contents", officeHandler.WOPISave)
 			mux.HandleFunc("GET /casual/sheets/yjs", officeHandler.SheetsWebSocket)
+			mux.Handle("GET /casual/sheets/rooms/{id}/info", requireAuth(officeHandler.SheetsRoomInfo))
+			mux.Handle("GET /casual/sheets/rooms/{id}/seed", requireAuth(officeHandler.SheetsRoomSeed))
 			mux.HandleFunc("GET /casual/docs/yjs", officeHandler.DocsWebSocket)
 		}
 	}

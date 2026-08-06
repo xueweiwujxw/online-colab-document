@@ -57,7 +57,9 @@ services:
       - office-collab
 
   office-collab:
-    image: docker.io/casualoffice/sheets:0.3.4
+    build:
+      context: ./casual-sheets
+    image: local/casualoffice-sheets:0.3.4-patched
     environment:
       PORT: "3000"
       REDIS_URL: redis://redis:6379
@@ -66,7 +68,9 @@ services:
       - redis
 
   casual-docs:
-    image: docker.io/casualoffice/docs:0.0.5
+    build:
+      context: ./casual-docs
+    image: local/casualoffice-docs-wopi:0.0.5-patched
     environment:
       PORT: "3000"
       REDIS_URL: redis://redis:6379

@@ -203,6 +203,36 @@ func (h Handler) WOPISave(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (h Handler) SheetsRoomInfo(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if err := h.service.SheetsRoomInfo(r.Context(), currentUser, r.PathValue("id")); err != nil {
+		h.writeError(w, "sheets room info failed", err)
+		return
+	}
+	api.WriteJSON(w, http.StatusOK, map[string]any{"hasSeed": true, "hasSnapshot": false})
+}
+
+func (h Handler) SheetsRoomSeed(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	doc, reader, err := h.service.SheetsRoomSeed(r.Context(), currentUser, r.PathValue("id"))
+	if err != nil {
+		h.writeError(w, "sheets room seed failed", err)
+		return
+	}
+	defer reader.Close()
+	w.Header().Set("Content-Type", doc.MimeType)
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.Copy(w, reader)
+}
+
 func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error) {
 	switch {
 	case errors.Is(err, ErrForbidden):
