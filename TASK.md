@@ -2420,7 +2420,7 @@ POC 记录（2026-08-06）：
 - 权限用户发现已完成：`GET /api/users` 使用受控分页，权限页可加载更多用户、搜索、排除当前用户并展示已授权状态。
 - Sheets 已完成原生 room/seed host adapter：浏览器通过同源网关访问官方 Web + Hocuspocus，Go 对 room seed、WOPI 和 Yjs 建连都执行统一权限检查；不再由项目广播整本 workbook snapshot。
 - Sheets WOPI 启动路径已修复为官方根路由；浏览器现会加载宿主上传的 xlsx 工作表，而不会进入 `/sheet/:id` 的空白工作簿路由。此前基于该错误路由的双用户同步记录作废，须在真实宿主文件链路上重新验证内容同步、viewer、远程选区、断线重连和保存/版本/审计。
-- Sheets 已改为从固定上游提交及递归子模块构建，镜像内补丁会保留宿主身份、脱敏上游请求日志，并将 WOPI 会话令牌传至经 Go 权限代理的协作 WebSocket。实际三用户浏览器验证已确认宿主 xlsx 工作表加载、真实显示名、持续 WebSocket 连接、远程名称、远程选区，以及 owner 公式栏写入后 editor/viewer 在同一单元格读到相同值；viewer 公式栏不可编辑。断线重连及保存/版本/审计仍待验收。
+- Sheets 已改为从固定上游提交及递归子模块构建，镜像内补丁会保留宿主身份、脱敏上游请求日志，并将 WOPI 会话令牌传至经 Go 权限代理的协作 WebSocket。实际三用户浏览器验证已确认宿主 xlsx 工作表加载、真实显示名、持续 WebSocket 连接、远程名称、远程选区，以及 owner 公式栏写入后 editor/viewer 在同一单元格读到相同值；viewer 公式栏不可编辑。editor 重载后会重新建立 WebSocket 且保留同步内容。保存/版本/审计仍待验收。
 - Docs Markdown 已做独立浏览器上下文双用户验证：editor 修改会实时到达另一 editor，WOPI 保存仍保留 `.md`；Docs Yjs 建连通过 Go 代理授权。Markdown viewer、远程光标和审计/版本仍需纳入正式回归。
 - Docs docx 已补充 room seed 和 WOPI save host adapter。已修复官方 Docs 将带查询参数的 `collab` WebSocket URL 错误拼接到 room seed REST 地址的问题；使用最小有效 `.docx` 的实际浏览器验证已确认受保护 seed 返回 `200`。独立 owner/viewer 均可建立 Docs WebSocket；owner 修改会实时同步到 viewer，viewer 可渲染远程光标及已签发会话中的真实用户显示名；viewer 页面无可编辑区域，WOPI 写回被服务端拒绝为 `403`。owner WOPI 保存返回 `200`、生成第 2 个版本并写入 `office.save` 审计。正式 Playwright 回归与断线重连验收仍未完成，POC 尚未标记通过。
 - Casual Sheets 官方 SDK 的 `attachCollab` 是所需的单元格 mutation bridge，但当前 npm 发布的 `@casualoffice/sheets@0.20.0` 在直挂页面时动态依赖 `@univerjs/docs-mention-ui`；该包在 npm registry 不存在，导致画布不挂载。因此不能以这个不完整 SDK 发行物作为正式集成。
