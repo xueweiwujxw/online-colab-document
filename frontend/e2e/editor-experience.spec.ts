@@ -4,47 +4,41 @@ import ExcelJS from 'exceljs';
 type Account = { displayName: string; email: string; password: string };
 
 test.describe('编辑器体验回归', () => {
-  test('Markdown 富文本可编辑、插入表格和链接，并在三种视口保持可用', async ({ page }) => {
-    await register(page, account('markdown-owner'));
+  test('Markdown 原生协同：同步、只读、重连与保存版本', async ({ browser, page }) => {
+    test.setTimeout(120_000);
+    const owner = account('markdown-owner');
+    await register(page, owner);
     const documentId = await upload(page, markdownFile());
-    await page.goto(`/documents/${documentId}/markdown`);
+    const viewer = account('markdown-viewer');
+    const viewerContext = await browser.newContext();
+    const viewerPage = await viewerContext.newPage();
+    await register(viewerPage, viewer);
+    await page.goto(`/documents/${documentId}/permissions`);
+    await grant(page, viewer.email, 'viewer');
 
-    await expect(page.getByRole('toolbar', { name: 'Markdown 富文本工具栏' })).toBeVisible();
-    const editor = page.locator('.ProseMirror');
-    await expect(editor).toBeEditable();
-    await editor.click();
+    await Promise.all([
+      page.goto(`/documents/${documentId}/markdown`),
+      viewerPage.goto(`/documents/${documentId}/markdown`),
+    ]);
+    const ownerEditor = page.locator('[contenteditable="true"]').first();
+    await expect(ownerEditor).toBeVisible({ timeout: 30_000 });
+    await expect(viewerPage.locator('[contenteditable="true"]')).toHaveCount(0);
+    const marker = `markdown-sync-${Date.now()}`;
+    await ownerEditor.focus();
     await page.keyboard.press('Control+End');
-    await page.keyboard.type('可编辑内容');
-    await page.getByRole('button', { name: '加粗' }).click();
-    await page.getByRole('button', { name: '插入表格' }).click();
-    const tableForm = page.getByRole('form', { name: '插入表格设置' });
-    await tableForm.getByLabel('行数').fill('2');
-    await tableForm.getByLabel('列数').fill('4');
-    await tableForm.getByRole('button', { name: '插入', exact: true }).click();
-    await expect(editor.locator('table')).toBeVisible();
-    await expect(editor.locator('table tr')).toHaveCount(2);
-    await expect(editor.locator('table tr').first().locator('td')).toHaveCount(4);
+    await page.keyboard.type(` ${marker}`);
+    await expect(viewerPage.getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(viewerPage.locator('.ProseMirror-yjs-cursor')).toBeVisible({ timeout: 20_000 });
+    await expect(viewerPage.getByText(owner.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole('button', { name: '插入链接' }).click();
-    const linkForm = page.getByRole('form', { name: '插入链接' });
-    await linkForm.getByLabel('链接地址').fill('https://example.test/docs');
-    await linkForm.getByLabel('显示文字').fill('产品文档');
-    await linkForm.getByRole('button', { name: '插入', exact: true }).click();
-    await expect(editor.getByRole('link', { name: '产品文档' })).toBeVisible();
-
-    await page.getByRole('button', { name: '保存', exact: true }).click();
-    await expect(page.getByRole('button', { name: '已保存', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: '下载' })).toHaveAttribute('href', /\/download$/);
-
-    for (const viewport of [
-      { width: 1440, height: 960 },
-      { width: 768, height: 1024 },
-      { width: 375, height: 812 },
-    ]) {
-      await page.setViewportSize(viewport);
-      await expect(page.locator('.rich-markdown-toolbar')).toBeVisible();
-      expect(await hasHorizontalOverflow(page)).toBe(false);
-    }
+    await page.reload();
+    await expect(page.locator('[contenteditable="true"]').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(wopiWriteStatus(page)).resolves.toBe(200);
+    await expect(wopiWriteStatus(viewerPage)).resolves.toBe(403);
+    await page.goto(`/documents/${documentId}/versions`);
+    await expect(page.getByText('版本 2', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await viewerContext.close();
   });
 
   test('docx 原生协同：名称、远程光标、只读、重连与保存版本', async ({ browser, page }) => {
