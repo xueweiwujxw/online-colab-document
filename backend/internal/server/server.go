@@ -200,6 +200,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			mux.Handle("GET /casual/sheets/rooms/{id}/info", requireAuth(officeHandler.SheetsRoomInfo))
 			mux.Handle("GET /casual/sheets/rooms/{id}/seed", requireAuth(officeHandler.SheetsRoomSeed))
 			mux.HandleFunc("GET /casual/docs/yjs", officeHandler.DocsWebSocket)
+			mux.Handle("GET /casual/docs/rooms/{id}/seed", requireAuth(officeHandler.DocsRoomSeed))
 		}
 	}
 

@@ -233,6 +233,24 @@ func (h Handler) SheetsRoomSeed(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, reader)
 }
 
+func (h Handler) DocsRoomSeed(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	doc, reader, err := h.service.DocsRoomSeed(r.Context(), currentUser, r.PathValue("id"))
+	if err != nil {
+		h.writeError(w, "docs room seed failed", err)
+		return
+	}
+	defer reader.Close()
+	w.Header().Set("Content-Type", doc.MimeType)
+	w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(doc.OriginalFilename))
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.Copy(w, reader)
+}
+
 func (h Handler) writeError(w http.ResponseWriter, logMessage string, err error) {
 	switch {
 	case errors.Is(err, ErrForbidden):

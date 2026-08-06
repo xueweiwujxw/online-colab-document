@@ -330,6 +330,28 @@ func (s *Service) SheetsRoomSeed(ctx context.Context, currentUser user.User, doc
 	return doc, reader, nil
 }
 
+func (s *Service) DocsRoomSeed(ctx context.Context, currentUser user.User, documentID string) (document.Document, io.ReadCloser, error) {
+	doc, err := s.documents.FindByID(ctx, documentID)
+	if err != nil {
+		return document.Document{}, nil, err
+	}
+	if !strings.EqualFold(doc.FileExt, "docx") {
+		return document.Document{}, nil, ErrUnsupportedFile
+	}
+	canView, err := s.permissions.CanView(ctx, currentUser.ID, documentID)
+	if err != nil {
+		return document.Document{}, nil, err
+	}
+	if !canView {
+		return document.Document{}, nil, ErrForbidden
+	}
+	reader, err := s.storage.GetObject(ctx, doc.StorageKey)
+	if err != nil {
+		return document.Document{}, nil, err
+	}
+	return doc, reader, nil
+}
+
 type limitedReader struct {
 	reader    io.Reader
 	remaining int64
