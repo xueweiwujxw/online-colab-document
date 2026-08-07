@@ -1,5 +1,5 @@
 diff --git a/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx b/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx
-index 6910a93..6513c5b 100644
+index 6910a93b..5033337d 100644
 --- a/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx
 +++ b/docx-editor/examples/vite/src/markdown/MarkdownCollabApp.tsx
 @@ -2,10 +2,24 @@
@@ -7,7 +7,7 @@ index 6910a93..6513c5b 100644
   */
  
 -import React from 'react';
-+import React, { useEffect, useRef } from 'react';
++import React, { useEffect, useMemo, useRef } from 'react';
 +import * as Y from 'yjs';
  import { MarkdownEditor } from './MarkdownEditor';
  import { useMarkdownCollab } from './useMarkdownCollab';
@@ -28,10 +28,14 @@ index 6910a93..6513c5b 100644
  export interface MarkdownCollabAppProps {
    room: string;
    backend: string;
-@@ -34,6 +48,50 @@ export function MarkdownCollabApp({
+@@ -34,9 +48,58 @@ export function MarkdownCollabApp({
    renderLogo,
  }: MarkdownCollabAppProps): React.ReactElement {
    const collab = useMarkdownCollab({ room, backend, user });
++  const isReadOnly = useMemo(
++    () => new URLSearchParams(window.location.search).get('role') === 'view',
++    []
++  );
 +  const loadedRef = useRef(false);
 +
 +  // In a WOPI-hosted session the project file, not the first browser tab, is
@@ -61,7 +65,7 @@ index 6910a93..6513c5b 100644
 +  // checks. Remote changes are saved too, exactly once per debounce window.
 +  useEffect(() => {
 +    const context = wopiFileContext();
-+    if (!context) return;
++    if (!context || isReadOnly) return;
 +    let timer: ReturnType<typeof setTimeout> | null = null;
 +    const save = () => {
 +      timer = null;
@@ -75,7 +79,58 @@ index 6910a93..6513c5b 100644
 +    };
 +    collab.ytext.observe(onChange);
 +    return () => { collab.ytext.unobserve(onChange); if (timer) clearTimeout(timer); };
-+  }, [collab.ytext]);
++  }, [collab.ytext, isReadOnly]);
    return (
      <MarkdownEditor
        initialText=""
++      readOnly={isReadOnly}
+       fileName={`${room}.${kind === 'text' ? 'txt' : 'md'}`}
+       kind={kind}
+       collab={collab}
+diff --git a/docx-editor/examples/vite/src/markdown/MarkdownEditor.tsx b/docx-editor/examples/vite/src/markdown/MarkdownEditor.tsx
+index 8ac699a9..1bdd9b47 100644
+--- a/docx-editor/examples/vite/src/markdown/MarkdownEditor.tsx
++++ b/docx-editor/examples/vite/src/markdown/MarkdownEditor.tsx
+@@ -30,6 +30,7 @@ export interface MarkdownEditorProps {
+   kind: 'markdown' | 'text';
+   /** Present when a share session is live — binds CodeMirror to the Y.Text. */
+   collab?: MarkdownCollab | null;
++  readOnly?: boolean;
+   onRenameFile?: (name: string) => void;
+   onBack?: () => void;
+   renderLogo?: () => React.ReactNode;
+@@ -439,6 +440,7 @@ export function MarkdownEditor({
+   fileName,
+   kind,
+   collab,
++  readOnly = false,
+   onRenameFile,
+   onBack,
+   renderLogo,
+@@ -487,6 +489,8 @@ export function MarkdownEditor({
+         doc: startDoc,
+         extensions: [
+           basicSetup,
++          EditorState.readOnly.of(readOnly),
++          EditorView.editable.of(!readOnly),
+           // Explicit highlight style so language tokens (YAML keys, markdown
+           // syntax, TOML, config keys) are actually colored — basicSetup's
+           // fallback doesn't reliably paint tokens on its own here.
+@@ -521,7 +525,7 @@ export function MarkdownEditor({
+       viewRef.current = null;
+     };
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [collab, kind]);
++  }, [collab, kind, readOnly]);
+ 
+   // Toggle the notebook (live-preview) decorations when the view mode changes,
+   // without tearing down the editor (preserves cursor, selection, undo).
+@@ -775,7 +779,7 @@ export function MarkdownEditor({
+       </header>
+ 
+       {/* ── Formatting toolbar (markdown only, hidden in preview-only mode) ── */}
+-      {kind === 'markdown' && mode !== 'preview' && (
++      {kind === 'markdown' && !readOnly && mode !== 'preview' && (
+         <div style={styles.toolbar} role="toolbar" aria-label="Formatting">
+           {/* Group 1: text formatting */}
+           {TOOLBAR_ITEMS.slice(0, 4).map((item) => (
