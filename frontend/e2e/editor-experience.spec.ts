@@ -185,6 +185,21 @@ test.describe('编辑器体验回归', () => {
 
 });
 
+test.describe('OIDC 登录回归', () => {
+  test.skip(process.env.E2E_EXPECT_OIDC !== 'true', 'OIDC provider is not enabled for this run');
+
+  test('OIDC 授权回调建立受保护的 HTTPS 会话', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('button', { name: '使用 OIDC 登录', exact: true }).click();
+    await page.waitForURL('**/documents', { timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '我的文档', exact: true })).toBeVisible();
+
+    await page.goto('/profile');
+    await expect(page.getByText('OIDC', { exact: true })).toBeVisible();
+    await expect(page.getByText('OIDC 登录账户的密码由身份提供方管理。', { exact: true })).toBeVisible();
+  });
+});
+
 async function register(page: Page, user: Account): Promise<void> {
   await page.goto('/register');
   await page.getByLabel('显示名').fill(user.displayName);

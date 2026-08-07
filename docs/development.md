@@ -65,6 +65,8 @@ E2E_BASE_URL=https://docs.localhost:3443 PLAYWRIGHT_IGNORE_HTTPS_ERRORS=true \
   pnpm exec playwright test e2e/editor-experience.spec.ts
 ```
 
+OIDC 浏览器回归还需要启动开发用 mock IdP，并仅在该验证进程设置 `E2E_EXPECT_OIDC=true`。该 mock 只用于测试 state、nonce、回调和会话链路，不能进入生产部署。
+
 ## 使用宿主机 Vite
 
 前端样式或组件开发可以改用宿主机 Vite。先启动 backend、依赖服务和 Office 网关，再运行 Vite：
