@@ -61,6 +61,16 @@ type VersionDownload struct {
 	Reader   io.ReadCloser
 }
 
+type AdminDocument struct {
+	Document Document `json:"document"`
+	OwnerID  string   `json:"ownerId"`
+}
+
+type adminRepository interface {
+	ListAdmin(ctx context.Context, limit int) ([]Document, error)
+	SoftDeleteAdmin(ctx context.Context, id string, deletedAt time.Time) error
+}
+
 type MarkdownDocument struct {
 	Document Document
 	Content  string
@@ -153,6 +163,28 @@ func (s *Service) List(ctx context.Context, ownerID string) ([]Document, error) 
 		return s.repo.ListByOwner(ctx, ownerID)
 	}
 	return s.repo.ListAccessible(ctx, ownerID)
+}
+
+func (s *Service) ListAdmin(ctx context.Context, limit int) ([]Document, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	repo, ok := s.repo.(adminRepository)
+	if !ok {
+		return nil, ErrForbidden
+	}
+	return repo.ListAdmin(ctx, limit)
+}
+
+func (s *Service) DeleteAdmin(ctx context.Context, id string) error {
+	if id == "" {
+		return ErrForbidden
+	}
+	repo, ok := s.repo.(adminRepository)
+	if !ok {
+		return ErrForbidden
+	}
+	return repo.SoftDeleteAdmin(ctx, id, s.now().UTC())
 }
 
 func (s *Service) Get(ctx context.Context, userID string, id string) (Document, error) {

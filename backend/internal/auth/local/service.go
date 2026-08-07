@@ -88,6 +88,15 @@ type AdminResetPasswordInput struct {
 	NewPassword  string
 }
 
+type AdminUpdateUserInput struct {
+	Actor        user.User
+	TargetUserID string
+	DisplayName  *string
+	Email        *string
+	IsAdmin      *bool
+	Disabled     *bool
+}
+
 type AuthSession struct {
 	User      user.User
 	Token     string
@@ -252,6 +261,39 @@ func (s *Service) AdminResetPassword(ctx context.Context, input AdminResetPasswo
 		return err
 	}
 	return s.users.UpdatePasswordHash(ctx, target.ID, hash)
+}
+
+func (s *Service) AdminUpdateUser(ctx context.Context, input AdminUpdateUserInput) (user.User, error) {
+	if !input.Actor.IsAdmin || input.TargetUserID == "" {
+		return user.User{}, ErrInvalidInput
+	}
+	if input.TargetUserID == input.Actor.ID && ((input.IsAdmin != nil && !*input.IsAdmin) || (input.Disabled != nil && *input.Disabled)) {
+		return user.User{}, ErrInvalidInput
+	}
+	target, err := s.users.FindByID(ctx, input.TargetUserID)
+	if err != nil {
+		return user.User{}, err
+	}
+	if input.DisplayName != nil || input.Email != nil {
+		if target.AuthSource != "local" {
+			return user.User{}, ErrPasswordUnsupported
+		}
+	}
+	if input.DisplayName != nil {
+		name := strings.TrimSpace(*input.DisplayName)
+		if name == "" || len(name) > 120 {
+			return user.User{}, ErrInvalidInput
+		}
+		input.DisplayName = &name
+	}
+	if input.Email != nil {
+		email := normalizeEmail(*input.Email)
+		if !validEmail(email) {
+			return user.User{}, ErrInvalidInput
+		}
+		input.Email = &email
+	}
+	return s.users.AdminUpdateUser(ctx, target.ID, input.DisplayName, input.Email, input.IsAdmin, input.Disabled)
 }
 
 func (s *Service) ListSessions(ctx context.Context, userID string, currentToken string) ([]PublicSession, error) {

@@ -15,6 +15,7 @@ test.describe('编辑器体验回归', () => {
     await register(viewerPage, viewer);
     await page.goto(`/documents/${documentId}/permissions`);
     await grant(page, viewer.email, 'viewer');
+    await expect(page.getByText(viewer.displayName, { exact: true })).toBeVisible();
 
     await Promise.all([
       page.goto(`/documents/${documentId}/markdown`),
@@ -45,13 +46,14 @@ test.describe('编辑器体验回归', () => {
     test.setTimeout(120_000);
     const owner = account('docx-owner');
     await register(page, owner);
-    const documentId = await upload(page, docxFile());
+    const documentId = await upload(page, validDocxFile());
     const viewer = account('docx-viewer');
     const viewerContext = await browser.newContext();
     const viewerPage = await viewerContext.newPage();
     await register(viewerPage, viewer);
     await page.goto(`/documents/${documentId}/permissions`);
     await grant(page, viewer.email, 'viewer');
+    await expect(page.getByText(viewer.displayName, { exact: true })).toBeVisible();
 
     await Promise.all([
       page.goto(`/documents/${documentId}/edit`),
@@ -59,21 +61,23 @@ test.describe('编辑器体验回归', () => {
     ]);
     const ownerEditor = page.locator('[contenteditable="true"]').first();
     await expect(ownerEditor).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('文件', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(viewerPage.locator('[contenteditable="true"]')).toHaveCount(0);
-    await expect(page.getByText(viewer.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
 
     const marker = `docx-sync-${Date.now()}`;
     await ownerEditor.focus();
     await page.keyboard.press('Control+End');
     await page.keyboard.type(` ${marker}`);
-    await expect(viewerPage.getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
-    await expect(viewerPage.locator('.ProseMirror-yjs-cursor')).toBeVisible({ timeout: 20_000 });
-    await expect(viewerPage.getByText(owner.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(viewerPage.getByLabel('Document content').getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
+    const remoteCursor = viewerPage.locator('.ProseMirror-yjs-cursor').first();
+    await expect(remoteCursor).toBeVisible({ timeout: 20_000 });
+    await remoteCursor.hover({ force: true });
+    await expect(remoteCursor.getByText(owner.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
 
     await page.reload();
     const reconnectedEditor = page.locator('[contenteditable="true"]').first();
     await expect(reconnectedEditor).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByLabel('Document content').getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
 
     await expect(wopiWriteStatus(page)).resolves.toBe(200);
     await expect(wopiWriteStatus(viewerPage)).resolves.toBe(403);
@@ -196,7 +200,7 @@ async function waitForSheet(page: Page): Promise<void> {
   if (await namePrompt.isVisible().catch(() => false)) {
     await namePrompt.getByRole('button').last().click();
   }
-  await expect(page.getByText('File', { exact: true })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByText('文件', { exact: true })).toBeVisible({ timeout: 45_000 });
   await expect
     .poll(() => page.locator('canvas').evaluateAll((canvases) => canvases.some((canvas) => {
       const rect = canvas.getBoundingClientRect();
@@ -232,11 +236,32 @@ async function hasHorizontalOverflow(page: Page): Promise<boolean> {
 
 function account(prefix: string): Account {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return { displayName: `${prefix}-${suffix}`, email: `${prefix}-${suffix}@example.test`, password: 'BrowserCheck123!' };
+  const chineseName = {
+    'markdown-owner': '陈墨',
+    'markdown-viewer': '李阅',
+    'docx-owner': '王文',
+    'docx-viewer': '赵读',
+    'sheet-owner': '周表',
+    'sheet-editor': '吴编辑',
+    'sheet-viewer': '郑查看',
+    'sheet-owner-readonly': '孙所有者',
+    'sheet-viewer-readonly': '钱只读',
+  }[prefix] ?? '测试用户';
+  return { displayName: `${chineseName}-${suffix}`, email: `${prefix}-${suffix}@example.test`, password: 'BrowserCheck123!' };
 }
 
 function markdownFile() {
   return { name: 'editor-experience.md', mimeType: 'text/markdown', buffer: Buffer.from('# 编辑器体验\n\n初始内容。\n') };
+}
+
+function validDocxFile() {
+  // A valid, minimal Open XML package. Casual parses the archive before it can
+  // establish a collaboration session, so a corrupt fixture hides UI failures.
+  return {
+    name: 'editor-experience.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from('UEsDBBQAAAAIAH2vB12dxYoq8gAAALkBAAATABwAW0NvbnRlbnRfVHlwZXNdLnhtbFVUCQAD3uR1at7kdWp1eAsAAQToAwAABOgDAAB9kM1OwzAQhO95CstXlDhwQAgl6YGfI3AoD7CyN4lVe2153dK+PU4LRUKUozXzzaynW+29EztMbAP18rpppUDSwViaevm+fq7vpOAMZMAFwl4ekOVqqLr1ISKLAhP3cs453ivFekYP3ISIVJQxJA+5PNOkIugNTKhu2vZW6UAZKdd5yZBDJUT3iCNsXRZP+6KcbknoWIqHk3ep6yXE6KyGXHS1I/OrqP4qaQp59PBsI18Vg1SXShbxcscP+lomStageIOUX8AXo/oIySgT9NYXuPk/6Y9rwzhajWd+SYspaGQu23vXnBUPlr5/0anj8EP1CVBLAwQKAAAAAAB9rwddAAAAAAAAAAAAAAAABgAcAF9yZWxzL1VUCQAD3uR1auLkdWp1eAsAAQToAwAABOgDAABQSwMEFAAAAAgAfa8HXUCgUwmyAAAALwEAAAsAHABfcmVscy8ucmVsc1VUCQAD3uR1at7kdWp1eAsAAQToAwAABOgDAACNz7sOgjAUBuCdp2jOLgUHYwyFxZiwGnyApj2URnpJWy+8vR0cxDg4ntt38jfd08zkjiFqZxnUZQUErXBSW8XgMpw2eyAxcSv57CwyWDBC1xbNGWee8k2ctI8kIzYymFLyB0qjmNDwWDqPNk9GFwxPuQyKei6uXCHdVtWOhk8D2oKQFUt6ySD0sgYyLB7/4d04aoFHJ24Gbfrx5WsjyzwoTAweLkgq3+0ys0BzSrqK2RYvUEsDBAoAAAAAAH2vB10AAAAAAAAAAAAAAAAFABwAd29yZC9VVAkAA97kdWri5HVqdXgLAAEE6AMAAAToAwAAUEsDBBQAAAAIAH2vB13jhl7GJgEAALIBAAARABwAd29yZC9kb2N1bWVudC54bWxVVAkAA97kdWre5HVqdXgLAAEE6AMAAAToAwAAVZDNSsNAFIX3eYph9nbaULWEJt25EwT1AabJ5Acyc8PMrbGuRFAE3YgguHCtuOheUF9Gg/oWziTY1s3hfJzLmTt3PDmWJTkS2hSgQjro9SkRKoakUFlIDw92NkaUGOQq4SUoEdK5MHQSeeM6SCCeSaGQ2AZlgjqkOWIVMGbiXEhuelAJZbMUtORoUWesBp1UGmJhjH1Alszv97eY5IWikUeIbZ1CMne2hSqyop1g9PV69/1+09w/fb7d/jxfN5cPzeNVc3HeLF4+Ts/GzM041a1Wyw4jYtzTHXal2f4Jqd2+A98f2v/WQW795sh69m9ul2sbIlQ2HnaTushyXOEUEEGuuBTpWpoLnggd0m2/xRQA1zCbYYvLV93eq20ddcdw7u/YkfcLUEsBAh4DFAAAAAgAfa8HXZ3FiiryAAAAuQEAABMAGAAAAAAAAQAAAKSBAAAAAFtDb250ZW50X1R5cGVzXS54bWxVVAUAA97kdWp1eAsAAQToAwAABOgDAABQSwECHgMKAAAAAAB9rwddAAAAAAAAAAAAAAAABgAYAAAAAAAAABAA7UE/AQAAX3JlbHMvVVQFAAPe5HVqdXgLAAEE6AMAAAToAwAAUEsBAh4DFAAAAAgAfa8HXUCgUwmyAAAALwEAAAsAGAAAAAAAAQAAAKSBfwEAAF9yZWxzLy5yZWxzVVQFAAPe5HVqdXgLAAEE6AMAAAToAwAAUEsBAh4DCgAAAAAAfa8HXQAAAAAAAAAAAAAAAAUAGAAAAAAAAAAQAO1BdgIAAHdvcmQvVVQFAAPe5HVqdXgLAAEE6AMAAAToAwAAUEsBAh4DFAAAAAgAfa8HXeOGXsYmAQAAsgEAABEAGAAAAAAAAQAAAKSBtQIAAHdvcmQvZG9jdW1lbnQueG1sVVQFAAPe5HVqdXgLAAEE6AMAAAToAwAAUEsFBgAAAAAFAAUAmAEAACYEAAAAAA==', 'base64'),
+  };
 }
 
 function docxFile() {

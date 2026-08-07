@@ -28,6 +28,10 @@ export function App() {
       {shareAccessMatch ? <ShareAccessPage token={shareAccessMatch[1]} /> : null}
       {path === '/admin/audit-logs' ? <AuditLogPage /> : null}
       {path === '/admin' ? <AdminPage /> : null}
+      {path === '/admin/users' ? <AdminPage section="users" /> : null}
+      {path === '/admin/documents' ? <AdminPage section="documents" /> : null}
+      {path === '/admin/storage' ? <AdminPage section="storage" /> : null}
+      {path === '/admin/identity' ? <AdminPage section="identity" /> : null}
       {path === '/login' ? <LoginPage /> : null}
       {path === '/register' ? <RegisterPage /> : null}
       {path === '/profile' ? <ProfilePage /> : null}
@@ -52,6 +56,10 @@ export function App() {
       path !== '/' &&
       path !== '/admin/audit-logs' &&
       path !== '/admin' &&
+      path !== '/admin/users' &&
+      path !== '/admin/documents' &&
+      path !== '/admin/storage' &&
+      path !== '/admin/identity' &&
       !shareAccessMatch &&
       !documentDetailMatch &&
       !permissionMatch &&

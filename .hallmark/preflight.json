@@ -1,0 +1,8 @@
+{
+  "scannedAt": "2026-08-07",
+  "fontStack": "Inter, ui-sans-serif, system-ui (frontend/src/app/App.css)",
+  "palette": "existing CSS custom properties in frontend/src/app/App.css :root",
+  "motion": "motion-cut; no dedicated motion dependency in frontend/package.json",
+  "spacing": "existing CSS uses a 4px/8px-oriented layout rhythm",
+  "framework": "React 18 + TypeScript + Vite"
+}

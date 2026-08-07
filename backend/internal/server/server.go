@@ -104,6 +104,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		userHandler := appuser.NewHandler(userService, logger)
 		mux.Handle("GET /api/users", requireAuth(userHandler.Search))
 		mux.Handle("GET /api/admin/users", requireAdmin(userHandler.ListAdmin))
+		mux.Handle("PATCH /api/admin/users/{id}", requireAdmin(authHandler.AdminUpdateUser))
 		mux.Handle("PUT /api/admin/users/{id}/password", requireAdmin(authHandler.AdminResetPassword))
 		mux.Handle("GET /api/admin/audit-logs", requireAuth(auditHandler.List))
 
@@ -117,9 +118,11 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		if err != nil {
 			logger.Error("storage setup failed", "error", err)
 		} else {
-			adminHandler := admin.NewHandler(objectStorage, objectStorage, auditService, logger)
+			adminHandler := admin.NewHandler(objectStorage, objectStorage, auditService, logger, cfg)
 			mux.Handle("GET /api/admin/storage", requireAdmin(adminHandler.Storage))
+			mux.Handle("GET /api/admin/storage/object", requireAdmin(adminHandler.DownloadObject))
 			mux.Handle("DELETE /api/admin/storage/object", requireAdmin(adminHandler.DeleteObject))
+			mux.Handle("GET /api/admin/oidc", requireAdmin(adminHandler.OIDC))
 			authHandler = authHandler.WithAvatarStorage(objectStorage)
 			mux.Handle("PUT /api/auth/avatar", requireAuth(authHandler.UpdateAvatar))
 			mux.Handle("GET /api/users/{id}/avatar", requireAuth(authHandler.Avatar))
@@ -129,6 +132,8 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 			documentRepo := document.NewPostgresRepository(db)
 			documentService := document.NewService(documentRepo, objectStorage, permissionService, cfg.DocumentMaxUploadBytes)
 			documentHandler := document.NewHandler(documentService, logger).WithAudit(auditService)
+			mux.Handle("GET /api/admin/documents", requireAdmin(documentHandler.AdminList))
+			mux.Handle("DELETE /api/admin/documents/{id}", requireAdmin(documentHandler.AdminDelete))
 			shareService := share.NewService(
 				share.NewPostgresRepository(db),
 				documentRepo,

@@ -16,6 +16,10 @@ Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服
 - Markdown editor: 项目内置 ProseMirror + WebSocket 协同（`.md`；不将 Markdown 转换为 DOCX）
 - Markdown collab: 后续里程碑使用 Yjs / WebSocket
 
+Casual Docs 和 Casual Sheets 通过各自网关注入简体中文界面层；该层只翻译编辑器控件，不会改动文档正文内容。
+
+开发、启动和编辑器的常见问题见[开发与编辑器排障手册](docs/development-troubleshooting.md)。
+
 ## 本地启动
 
 启动基础服务：
@@ -207,3 +211,4 @@ M12 Docker 部署与安全加固：
 - [Deployment](docs/deployment.md)
 - [Permission](docs/permission.md)
 - [Markdown Collaboration](docs/markdown-collab.md)
+- [管理控制台](docs/admin-console.md)

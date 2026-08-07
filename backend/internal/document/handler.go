@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"strconv"
 
 	"online-colab-document/backend/internal/api"
 	"online-colab-document/backend/internal/audit"
@@ -70,6 +71,40 @@ func (h Handler) List(w http.ResponseWriter, r *http.Request) {
 		items = append(items, ToPublic(doc, canManage, canEdit))
 	}
 	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h Handler) AdminList(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+	docs, err := h.service.ListAdmin(r.Context(), limit)
+	if err != nil {
+		h.writeError(w, "list admin documents failed", err)
+		return
+	}
+	items := make([]map[string]any, 0, len(docs))
+	for _, doc := range docs {
+		items = append(items, map[string]any{"id": doc.ID, "ownerId": doc.OwnerID, "title": doc.Title, "originalFilename": doc.OriginalFilename, "fileExt": doc.FileExt, "sizeBytes": doc.SizeBytes, "updatedAt": doc.UpdatedAt})
+	}
+	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h Handler) AdminDelete(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+	if err := h.service.DeleteAdmin(r.Context(), r.PathValue("id")); err != nil {
+		h.writeError(w, "admin delete document failed", err)
+		return
+	}
+	actorID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{ActorUserID: &actorID, Action: "admin.document_delete", TargetType: "document", TargetID: r.PathValue("id")})
+	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h Handler) Upload(w http.ResponseWriter, r *http.Request) {

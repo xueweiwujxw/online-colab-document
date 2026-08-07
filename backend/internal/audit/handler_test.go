@@ -44,13 +44,38 @@ func TestAdminCanAccessAuditAPI(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	var body struct {
-		Items []PublicLog `json:"items"`
+		Items   []PublicLog `json:"items"`
+		HasMore bool        `json:"hasMore"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	if len(body.Items) != 1 || body.Items[0].Action != ActionLogin {
 		t.Fatalf("unexpected audit response: %#v", body.Items)
+	}
+}
+
+func TestAdminAuditListPaginatesAndAcceptsIPFilter(t *testing.T) {
+	repo := &memoryRepo{logs: []Log{{ID: "log-1", Action: ActionLogin, TargetType: "user", TargetID: "user-1"}, {ID: "log-2", Action: ActionLogout, TargetType: "user", TargetID: "user-1"}}}
+	handler := NewHandler(NewService(repo), slog.Default())
+	rec := httptest.NewRecorder()
+	req := authenticatedAuditRequest(user.User{ID: "admin-1", IsAdmin: true})
+	req.URL.RawQuery = "limit=1&ipAddr=127.0.0.1"
+
+	handler.List(rec, req)
+
+	var body struct {
+		Items   []PublicLog `json:"items"`
+		HasMore bool        `json:"hasMore"`
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(body.Items) != 1 || !body.HasMore {
+		t.Fatalf("unexpected paginated audit response: %#v", body)
 	}
 }
 
@@ -84,6 +109,14 @@ func TestAuditMetadataRemovesSensitiveFields(t *testing.T) {
 	}
 	if metadata["safe"] != "kept" {
 		t.Fatalf("expected safe metadata kept, got %#v", metadata)
+	}
+}
+
+func TestToPublicIncludesActorIdentity(t *testing.T) {
+	name, email := "王文", "wangwen@example.test"
+	public := ToPublic(Log{ActorDisplayName: &name, ActorEmail: &email})
+	if public.ActorDisplayName == nil || *public.ActorDisplayName != name || public.ActorEmail == nil || *public.ActorEmail != email {
+		t.Fatalf("unexpected actor identity: %#v", public)
 	}
 }
 

@@ -3,6 +3,8 @@ import { getJSON } from './client';
 export type AuditLog = {
   id: string;
   actorUserId: string | null;
+  actorDisplayName: string | null;
+  actorEmail: string | null;
   action: string;
   targetType: string;
   targetId: string;
@@ -17,13 +19,16 @@ export type AuditLogFilter = {
   action?: string;
   targetType?: string;
   targetId?: string;
+  ipAddr?: string;
   from?: string;
   to?: string;
   limit?: number;
   offset?: number;
 };
 
-export async function listAuditLogs(filter: AuditLogFilter = {}): Promise<AuditLog[]> {
+export type AuditLogPage = { items: AuditLog[]; hasMore: boolean };
+
+export async function listAuditLogs(filter: AuditLogFilter = {}): Promise<AuditLogPage> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filter)) {
     if (value !== undefined && value !== '') {
@@ -31,8 +36,7 @@ export async function listAuditLogs(filter: AuditLogFilter = {}): Promise<AuditL
     }
   }
   const query = params.toString();
-  const response = await getJSON<{ items: AuditLog[] }>(
+  return getJSON<AuditLogPage>(
     `/api/admin/audit-logs${query ? `?${query}` : ''}`,
   );
-  return response.items;
 }

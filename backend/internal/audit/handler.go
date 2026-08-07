@@ -35,17 +35,26 @@ func (h Handler) List(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, http.StatusBadRequest, "invalid audit log filter")
 		return
 	}
+	requestedLimit := filter.Limit
+	if requestedLimit <= 0 || requestedLimit > 100 {
+		requestedLimit = 50
+	}
+	filter.Limit = requestedLimit + 1
 	logs, err := h.service.List(r.Context(), filter)
 	if err != nil {
 		h.logger.Error("list audit logs failed", "error", err)
 		api.WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
+	hasMore := len(logs) > requestedLimit
+	if hasMore {
+		logs = logs[:requestedLimit]
+	}
 	items := make([]PublicLog, 0, len(logs))
 	for _, log := range logs {
 		items = append(items, ToPublic(log))
 	}
-	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+	api.WriteJSON(w, http.StatusOK, map[string]any{"items": items, "hasMore": hasMore})
 }
 
 func parseListFilter(r *http.Request) (ListFilter, error) {
@@ -54,6 +63,7 @@ func parseListFilter(r *http.Request) (ListFilter, error) {
 		Action:     query.Get("action"),
 		TargetType: query.Get("targetType"),
 		TargetID:   query.Get("targetId"),
+		IPAddr:     query.Get("ipAddr"),
 	}
 	if actorUserID := query.Get("actorUserId"); actorUserID != "" {
 		filter.ActorUserID = &actorUserID

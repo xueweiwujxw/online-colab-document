@@ -33,7 +33,7 @@ index 4b544b6..7882609 100644
 +    }
 +  }, [collabWs]);
  
-@@ -585,24 +597,41 @@ export function App() {
+@@ -585,24 +597,43 @@ export function App() {
 -  // Local-user identity for awareness. M2 will prompt for a name +
 -  // colour; M1 ships an anonymous fallback so co-edit works
 -  // immediately. Stored in sessionStorage so the same browser tab
@@ -47,7 +47,9 @@ index 4b544b6..7882609 100644
 +      const payload = token?.split('.')[1];
 +      if (!payload) return null;
 +      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-+      const claims = JSON.parse(atob(normalized + '='.repeat((4 - (normalized.length % 4)) % 4)));
++      const encoded = atob(normalized + '='.repeat((4 - (normalized.length % 4)) % 4));
++      const bytes = Uint8Array.from(encoded, (char) => char.charCodeAt(0));
++      const claims = JSON.parse(new TextDecoder().decode(bytes));
 +      return typeof claims.display_name === 'string' && claims.display_name.trim()
 +        ? claims.display_name.trim()
 +        : null;
@@ -83,7 +85,7 @@ index 4b544b6..7882609 100644
  
    const [shareOpen, setShareOpen] = useState(false);
  
-@@ -1698,6 +1727,12 @@ function CollabApp({
+@@ -1698,6 +1729,12 @@ function CollabApp({
    onFontsLoaded,
  }: CollabAppProps) {
    const { plugins, status, peers, metaMap } = useCollab({ room, backend, user });

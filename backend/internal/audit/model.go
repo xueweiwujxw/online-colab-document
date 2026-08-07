@@ -25,27 +25,31 @@ const (
 )
 
 type Log struct {
-	ID          string
-	ActorUserID *string
-	Action      string
-	TargetType  string
-	TargetID    string
-	IPAddr      *string
-	UserAgent   *string
-	Metadata    map[string]any
-	CreatedAt   time.Time
+	ID               string
+	ActorUserID      *string
+	ActorDisplayName *string
+	ActorEmail       *string
+	Action           string
+	TargetType       string
+	TargetID         string
+	IPAddr           *string
+	UserAgent        *string
+	Metadata         map[string]any
+	CreatedAt        time.Time
 }
 
 type PublicLog struct {
-	ID          string         `json:"id"`
-	ActorUserID *string        `json:"actorUserId"`
-	Action      string         `json:"action"`
-	TargetType  string         `json:"targetType"`
-	TargetID    string         `json:"targetId"`
-	IPAddr      *string        `json:"ipAddr"`
-	UserAgent   *string        `json:"userAgent"`
-	Metadata    map[string]any `json:"metadata"`
-	CreatedAt   time.Time      `json:"createdAt"`
+	ID               string         `json:"id"`
+	ActorUserID      *string        `json:"actorUserId"`
+	ActorDisplayName *string        `json:"actorDisplayName"`
+	ActorEmail       *string        `json:"actorEmail"`
+	Action           string         `json:"action"`
+	TargetType       string         `json:"targetType"`
+	TargetID         string         `json:"targetId"`
+	IPAddr           *string        `json:"ipAddr"`
+	UserAgent        *string        `json:"userAgent"`
+	Metadata         map[string]any `json:"metadata"`
+	CreatedAt        time.Time      `json:"createdAt"`
 }
 
 type RecordInput struct {
@@ -63,6 +67,7 @@ type ListFilter struct {
 	Action      string
 	TargetType  string
 	TargetID    string
+	IPAddr      string
 	From        *time.Time
 	To          *time.Time
 	Limit       int
@@ -75,14 +80,16 @@ func ToPublic(log Log) PublicLog {
 		metadata = map[string]any{}
 	}
 	return PublicLog{
-		ID:          log.ID,
-		ActorUserID: log.ActorUserID,
-		Action:      log.Action,
-		TargetType:  log.TargetType,
-		TargetID:    log.TargetID,
-		IPAddr:      log.IPAddr,
-		UserAgent:   log.UserAgent,
-		Metadata:    metadata,
-		CreatedAt:   log.CreatedAt,
+		ID:               log.ID,
+		ActorUserID:      log.ActorUserID,
+		ActorDisplayName: log.ActorDisplayName,
+		ActorEmail:       log.ActorEmail,
+		Action:           log.Action,
+		TargetType:       log.TargetType,
+		TargetID:         log.TargetID,
+		IPAddr:           log.IPAddr,
+		UserAgent:        log.UserAgent,
+		Metadata:         metadata,
+		CreatedAt:        log.CreatedAt,
 	}
 }

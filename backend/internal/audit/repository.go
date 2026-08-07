@@ -68,29 +68,33 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]Log
 		where = append(where, fmt.Sprintf(condition, len(args)))
 	}
 	if filter.ActorUserID != nil && *filter.ActorUserID != "" {
-		add("actor_user_id = $%d", *filter.ActorUserID)
+		add("l.actor_user_id = $%d", *filter.ActorUserID)
 	}
 	if filter.Action != "" {
-		add("action = $%d", filter.Action)
+		add("l.action = $%d", filter.Action)
 	}
 	if filter.TargetType != "" {
-		add("target_type = $%d", filter.TargetType)
+		add("l.target_type = $%d", filter.TargetType)
 	}
 	if filter.TargetID != "" {
-		add("target_id = $%d", filter.TargetID)
+		add("l.target_id = $%d", filter.TargetID)
+	}
+	if filter.IPAddr != "" {
+		add("l.ip_addr = $%d", filter.IPAddr)
 	}
 	if filter.From != nil {
-		add("created_at >= $%d", *filter.From)
+		add("l.created_at >= $%d", *filter.From)
 	}
 	if filter.To != nil {
-		add("created_at <= $%d", *filter.To)
+		add("l.created_at <= $%d", *filter.To)
 	}
 	args = append(args, limit, offset)
 	query := fmt.Sprintf(
-		`SELECT id, actor_user_id, action, target_type, target_id, ip_addr, user_agent, metadata, created_at
-		FROM audit_logs
+		`SELECT l.id, l.actor_user_id, u.display_name, u.email, l.action, l.target_type, l.target_id, l.ip_addr, l.user_agent, l.metadata, l.created_at
+		FROM audit_logs l
+		LEFT JOIN users u ON u.id = l.actor_user_id
 		WHERE %s
-		ORDER BY created_at DESC
+		ORDER BY l.created_at DESC
 		LIMIT $%d OFFSET $%d`,
 		strings.Join(where, " AND "),
 		len(args)-1,
@@ -109,6 +113,8 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]Log
 		if err := rows.Scan(
 			&log.ID,
 			&log.ActorUserID,
+			&log.ActorDisplayName,
+			&log.ActorEmail,
 			&log.Action,
 			&log.TargetType,
 			&log.TargetID,

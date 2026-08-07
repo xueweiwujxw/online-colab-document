@@ -85,6 +85,8 @@ services:
       - "1234:80"
     volumes:
       - ./casual-gateway/sheets.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      # 这份资源由两个网关共同读取；使用共享 SELinux 标签，不能用私有 Z 标签。
+      - ./casual-gateway/zh-CN.js:/etc/nginx/casual-zh-CN.js:ro,z
     depends_on:
       - backend
       - office-collab
@@ -95,6 +97,8 @@ services:
       - "1235:80"
     volumes:
       - ./casual-gateway/docs.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      # 这份资源由两个网关共同读取；使用共享 SELinux 标签，不能用私有 Z 标签。
+      - ./casual-gateway/zh-CN.js:/etc/nginx/casual-zh-CN.js:ro,z
     depends_on:
       - backend
       - casual-docs

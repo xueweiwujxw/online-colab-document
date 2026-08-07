@@ -142,6 +142,41 @@ func (r *PostgresRepository) ListAccessible(ctx context.Context, userID string) 
 	return docs, nil
 }
 
+func (r *PostgresRepository) ListAdmin(ctx context.Context, limit int) ([]Document, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, owner_id, title, original_filename, file_ext, mime_type, storage_key, current_version_id, size_bytes, deleted_at, created_at, updated_at FROM documents WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list admin documents: %w", err)
+	}
+	defer rows.Close()
+	items := []Document{}
+	for rows.Next() {
+		doc, err := scanDocument(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, doc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admin documents: %w", err)
+	}
+	return items, nil
+}
+
+func (r *PostgresRepository) SoftDeleteAdmin(ctx context.Context, id string, deletedAt time.Time) error {
+	result, err := r.db.ExecContext(ctx, `UPDATE documents SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND deleted_at IS NULL`, deletedAt, id)
+	if err != nil {
+		return fmt.Errorf("admin soft delete document: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("admin soft delete rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) FindByID(ctx context.Context, id string) (Document, error) {
 	row := r.db.QueryRowContext(
 		ctx,

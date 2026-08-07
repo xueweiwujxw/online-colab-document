@@ -1,195 +1,30 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { listAuditLogs, type AuditLog, type AuditLogFilter } from '../../api/audit';
+import { listAdminUsers, type AdminUser } from '../../api/admin';
 import { errorMessage } from '../../api/client';
-import { useAuth } from '../../auth/AuthContext';
+import { AdminShell } from '../../components/admin/AdminShell';
 
-type AuditState =
-  | { status: 'loading'; items: AuditLog[]; error: null }
-  | { status: 'success'; items: AuditLog[]; error: null }
-  | { status: 'error'; items: AuditLog[]; error: string };
-
-const defaultFilter: AuditLogFilter = { limit: 50 };
+const pageSize = 50;
+const initialFilter: AuditLogFilter = { limit: pageSize, offset: 0 };
+const actionOptions = [
+  ['', '全部操作'], ['auth.login', '登录'], ['auth.logout', '登出'], ['document.upload', '文档上传'], ['document.download', '文档下载'], ['document.delete', '文档删除'], ['office.save', 'Office 保存'], ['permission.grant', '授权'], ['share.create', '创建分享'], ['admin.user_update', '后台用户更新'], ['admin.storage_delete', '后台对象删除'], ['admin.storage_download', '后台对象下载'], ['admin.document_delete', '后台文档删除'],
+] as const;
+const targetOptions = [['', '全部对象'], ['user', '用户'], ['document', '文档'], ['storage_object', '存储对象'], ['permission', '权限'], ['share', '分享'], ['version', '版本']] as const;
 
 export function AuditLogPage() {
-  const auth = useAuth();
-  const [filter, setFilter] = useState<AuditLogFilter>(defaultFilter);
-  const [state, setState] = useState<AuditState>({
-    status: 'loading',
-    items: [],
-    error: null,
-  });
-
-  async function refresh(nextFilter = filter) {
-    setState((current) => ({ status: 'loading', items: current.items, error: null }));
-    try {
-      const items = await listAuditLogs(nextFilter);
-      setState({ status: 'success', items, error: null });
-    } catch (error) {
-      setState({
-        status: 'error',
-        items: [],
-        error: errorMessage(error, '加载审计日志失败'),
-      });
-    }
-  }
-
-  useEffect(() => {
-    if (auth.status === 'authenticated' && auth.user.isAdmin) {
-      void refresh(defaultFilter);
-    }
-  }, [auth.status, auth.user?.isAdmin]);
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void refresh(filter);
-  }
-
-  if (auth.status === 'loading') {
-    return (
-      <main className="app-shell">
-        <section className="empty-state">加载中</section>
-      </main>
-    );
-  }
-
-  if (auth.status === 'anonymous') {
-    window.location.replace('/login');
-    return null;
-  }
-
-  if (!auth.user.isAdmin) {
-    return (
-      <main className="app-shell">
-        <a className="back-link" href="/documents">
-          返回文档
-        </a>
-        <section className="empty-state">无权限访问</section>
-      </main>
-    );
-  }
-
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">管理</p>
-          <h1>审计日志</h1>
-        </div>
-        <div className="user-actions">
-          <a className="secondary-button" href="/profile">
-            用户中心
-          </a>
-          <a className="secondary-button" href="/documents">
-            文档
-          </a>
-          <button className="secondary-button" onClick={() => void auth.logout()} type="button">
-            退出登录
-          </button>
-        </div>
-      </header>
-      <form className="audit-filters" onSubmit={onSubmit}>
-        <label className="field">
-          操作
-          <input
-            onChange={(event) => setFilter({ ...filter, action: event.target.value })}
-            placeholder="document.upload"
-            value={filter.action ?? ''}
-          />
-        </label>
-        <label className="field">
-          目标类型
-          <input
-            onChange={(event) => setFilter({ ...filter, targetType: event.target.value })}
-            placeholder="document"
-            value={filter.targetType ?? ''}
-          />
-        </label>
-        <label className="field">
-          操作者用户 ID
-          <input
-            onChange={(event) => setFilter({ ...filter, actorUserId: event.target.value })}
-            value={filter.actorUserId ?? ''}
-          />
-        </label>
-        <label className="field">
-          数量
-          <input
-            min="1"
-            onChange={(event) => setFilter({ ...filter, limit: Number(event.target.value) })}
-            type="number"
-            value={filter.limit ?? 50}
-          />
-        </label>
-        <button className="secondary-button audit-filter-button" type="submit">
-          筛选
-        </button>
-      </form>
-      {state.status === 'loading' ? <section className="empty-state">加载中</section> : null}
-      {state.status === 'error' ? <section className="empty-state">{state.error}</section> : null}
-      {state.status === 'success' && state.items.length === 0 ? (
-        <section className="empty-state">暂无审计日志。</section>
-      ) : null}
-      {state.status === 'success' && state.items.length > 0 ? (
-        <section className="audit-list">
-          {state.items.map((item) => (
-            <article className="audit-row" key={item.id}>
-              <span className="document-meta">{formatDate(item.createdAt)}</span>
-              <span className="document-meta">{item.actorUserId ?? '匿名'}</span>
-              <strong>{actionLabel(item.action)}</strong>
-              <span className="document-meta">
-                {targetTypeLabel(item.targetType)}:{item.targetId}
-              </span>
-              <span className="document-meta">{item.ipAddr ?? '-'}</span>
-              <span className="document-meta audit-user-agent">{item.userAgent ?? '-'}</span>
-              <code>{JSON.stringify(item.metadata)}</code>
-            </article>
-          ))}
-        </section>
-      ) : null}
-    </main>
-  );
+  const [draft, setDraft] = useState<AuditLogFilter>(initialFilter); const [applied, setApplied] = useState<AuditLogFilter>(initialFilter); const [items, setItems] = useState<AuditLog[]>([]); const [hasMore, setHasMore] = useState(false); const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading'); const [error, setError] = useState<string | null>(null);
+  const activeFilterCount = useMemo(() => ['actorUserId', 'action', 'targetType', 'targetId', 'ipAddr', 'from', 'to'].filter((key) => Boolean(applied[key as keyof AuditLogFilter])).length, [applied]);
+  async function refresh(next = applied, append = false) { setStatus('loading'); setError(null); try { const result = await listAuditLogs({ ...next, limit: pageSize }); setItems((current) => append ? [...current, ...result.items] : result.items); setHasMore(result.hasMore); setStatus('success'); } catch (caught) { setStatus('error'); setError(errorMessage(caught, '加载审计日志失败')); } }
+  useEffect(() => { void refresh(initialFilter); }, []);
+  function apply(event: FormEvent) { event.preventDefault(); const next = { ...draft, offset: 0, limit: pageSize }; setApplied(next); void refresh(next); }
+  function reset() { setDraft(initialFilter); setApplied(initialFilter); void refresh(initialFilter); }
+  function loadMore() { const next = { ...applied, offset: items.length, limit: pageSize }; void refresh(next, true); }
+  return <AdminShell section="audit" title="审计日志" description="以最小必要条件检索可追溯的后台与业务事件。"><section className="audit-command"><div><p className="section-kicker">事件检索</p><h2>筛选、复核、追溯</h2><p>筛选条件在点击“应用筛选”后统一提交，避免每次输入都触发查询。</p></div><div className="audit-command-stats"><strong>{items.length}</strong><span>当前结果</span><strong>{activeFilterCount}</strong><span>已应用筛选</span></div></section><section className="admin-panel"><form className="audit-filter-grid" onSubmit={apply}><label>操作<select onChange={(event) => setDraft({ ...draft, action: event.target.value })} value={draft.action ?? ''}>{actionOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>对象类型<select onChange={(event) => setDraft({ ...draft, targetType: event.target.value })} value={draft.targetType ?? ''}>{targetOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><ActorPicker actorUserID={draft.actorUserId} onChange={(actorUserId) => setDraft({ ...draft, actorUserId })}/><label>对象 ID<input onChange={(event) => setDraft({ ...draft, targetId: event.target.value })} placeholder="文档、用户或对象 ID" value={draft.targetId ?? ''}/></label><label>来源 IP<input onChange={(event) => setDraft({ ...draft, ipAddr: event.target.value })} placeholder="127.0.0.1" value={draft.ipAddr ?? ''}/></label><label>开始时间<input onChange={(event) => setDraft({ ...draft, from: toRFC3339(event.target.value) })} type="datetime-local" value={toLocalDateTime(draft.from)}/></label><label>结束时间<input onChange={(event) => setDraft({ ...draft, to: toRFC3339(event.target.value) })} type="datetime-local" value={toLocalDateTime(draft.to)}/></label><div className="audit-filter-actions"><button className="primary-button" type="submit">应用筛选{activeFilterCount ? `（${activeFilterCount}）` : ''}</button><button className="secondary-button" onClick={reset} type="button">清除全部</button></div></form></section>{status === 'error' ? <section className="empty-state">{error}</section> : null}<section className="admin-panel audit-results"><div className="admin-toolbar"><div><h2>事件结果</h2><p>按发生时间倒序，展开行可查看原始元数据。</p></div>{status === 'loading' ? <span className="document-meta">查询中…</span> : null}</div>{status === 'success' && items.length === 0 ? <p className="empty-inline">没有匹配的审计事件。</p> : null}<div className="audit-table" role="table"><div className="audit-table-head" role="row"><span>时间</span><span>操作</span><span>对象</span><span>操作者</span><span>来源</span></div>{items.map((item) => <details className="audit-table-row" key={item.id}><summary><time>{formatDate(item.createdAt)}</time><strong>{actionLabel(item.action)}</strong><span>{targetTypeLabel(item.targetType)}<small>{item.targetId}</small></span><span className="audit-actor"><strong>{item.actorDisplayName ?? '匿名操作'}</strong><small>{item.actorEmail ?? item.actorUserId ?? '无登录身份'}</small></span><span>{item.ipAddr ?? '—'}</span></summary><div className="audit-detail"><span><b>操作者 ID</b><code>{item.actorUserId ?? '—'}</code></span><span><b>用户代理</b>{item.userAgent ?? '—'}</span><span><b>原始操作</b>{item.action}</span><pre>{JSON.stringify(item.metadata, null, 2)}</pre></div></details>)}</div>{hasMore ? <div className="audit-load-more"><button className="secondary-button" disabled={status === 'loading'} onClick={loadMore} type="button">加载更多事件</button></div> : null}</section></AdminShell>;
 }
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
-function actionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    'auth.login': '登录',
-    'auth.logout': '登出',
-    'auth.password_change': '修改密码',
-    'auth.profile_update': '修改资料',
-    'auth.session_revoke': '撤销会话',
-    'document.upload': '上传文档',
-    'document.download': '下载文档',
-    'document.delete': '删除文档',
-    'document.markdown_save': '保存 Markdown',
-    'office.save': 'Office 保存',
-    'document.version_restore': '恢复版本',
-    'permission.grant': '授权',
-    'permission.delete': '删除权限',
-    'share.create': '创建分享',
-    'share.disable': '禁用分享',
-    'share.access': '访问分享',
-    'share.download': '下载分享',
-    'share.markdown_save': '保存分享 Markdown',
-  };
-  return labels[action] ?? action;
-}
-
-function targetTypeLabel(targetType: string): string {
-  const labels: Record<string, string> = {
-    document: '文档',
-    user: '用户',
-    share: '分享',
-    permission: '权限',
-    version: '版本',
-    session: '会话',
-  };
-  return labels[targetType] ?? targetType;
-}
+function ActorPicker({ actorUserID, onChange }: { actorUserID?: string; onChange: (id?: string) => void }) { const [query, setQuery] = useState(''); const [items, setItems] = useState<AdminUser[]>([]); const [selected, setSelected] = useState<AdminUser | null>(null); useEffect(() => { if (!actorUserID) setSelected(null); }, [actorUserID]); useEffect(() => { const term = query.trim(); if (term.length < 2) { setItems([]); return; } const timer = window.setTimeout(() => { void listAdminUsers(term).then(setItems).catch(() => setItems([])); }, 200); return () => window.clearTimeout(timer); }, [query]); return <div className="actor-picker"><label>操作者<input aria-label="搜索操作者" onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名或邮箱" value={query}/></label>{selected ? <div className="actor-picker-selected"><span><strong>{selected.displayName}</strong><small>{selected.email}</small></span><button onClick={() => { setQuery(''); onChange(undefined); }} type="button">清除</button></div> : null}{items.length > 0 && !selected ? <div className="actor-picker-results">{items.map((user) => <button key={user.id} onClick={() => { setSelected(user); setQuery(''); setItems([]); onChange(user.id); }} type="button"><strong>{user.displayName}</strong><small>{user.email}</small></button>)}</div> : null}</div> }
+function toRFC3339(value: string) { return value ? new Date(value).toISOString() : undefined; }
+function toLocalDateTime(value?: string) { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
+function formatDate(value: string) { return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value)); }
+function actionLabel(action: string) { return actionOptions.find(([value]) => value === action)?.[1] ?? action; }
+function targetTypeLabel(target: string) { return targetOptions.find(([value]) => value === target)?.[1] ?? target; }

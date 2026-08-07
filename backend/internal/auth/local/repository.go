@@ -27,6 +27,7 @@ type UserRepository interface {
 	UpdatePasswordHash(ctx context.Context, id string, passwordHash string) error
 	UpdateDisplayName(ctx context.Context, id string, displayName string) (user.User, error)
 	UpdateAvatarKey(ctx context.Context, id string, avatarKey *string) (user.User, error)
+	AdminUpdateUser(ctx context.Context, id string, displayName *string, email *string, isAdmin *bool, disabled *bool) (user.User, error)
 }
 
 type PostgresRepository struct {
@@ -142,6 +143,23 @@ func (r *PostgresRepository) UpdateAvatarKey(ctx context.Context, id string, ava
 	}
 	if rows == 0 {
 		return user.User{}, ErrUserNotFound
+	}
+	return r.FindByID(ctx, id)
+}
+
+func (r *PostgresRepository) AdminUpdateUser(ctx context.Context, id string, displayName *string, email *string, isAdmin *bool, disabled *bool) (user.User, error) {
+	_, err := r.db.ExecContext(ctx, `UPDATE users
+		SET display_name = COALESCE($1, display_name),
+			email = COALESCE($2, email),
+			is_admin = COALESCE($3, is_admin),
+			disabled = COALESCE($4, disabled),
+			updated_at = NOW()
+		WHERE id = $5`, displayName, email, isAdmin, disabled, id)
+	if isUniqueViolation(err) {
+		return user.User{}, ErrEmailAlreadyUsed
+	}
+	if err != nil {
+		return user.User{}, fmt.Errorf("admin update user: %w", err)
 	}
 	return r.FindByID(ctx, id)
 }

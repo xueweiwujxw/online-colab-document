@@ -318,6 +318,30 @@ func TestAdminResetPasswordOnlySupportsLocalAccounts(t *testing.T) {
 	}
 }
 
+func TestAdminUpdateUserOnlyEditsLocalProfileAndProtectsCurrentAdmin(t *testing.T) {
+	repo := newMemoryRepo()
+	service := NewService(repo, repo, "", time.Hour)
+	now := time.Now()
+	admin := user.User{ID: "admin-1", IsAdmin: true, AuthSource: "local", CreatedAt: now, UpdatedAt: now}
+	localUser := user.User{ID: "local-1", Email: "old@example.com", DisplayName: "旧名称", AuthSource: "local", CreatedAt: now, UpdatedAt: now}
+	oidcUser := user.User{ID: "oidc-1", Email: "oidc@example.com", AuthSource: "oidc", CreatedAt: now, UpdatedAt: now}
+	repo.usersByID[admin.ID] = admin
+	repo.usersByID[localUser.ID] = localUser
+	repo.usersByID[oidcUser.ID] = oidcUser
+	name, email := "新名称", "new@example.com"
+	updated, err := service.AdminUpdateUser(context.Background(), AdminUpdateUserInput{Actor: admin, TargetUserID: localUser.ID, DisplayName: &name, Email: &email})
+	if err != nil || updated.DisplayName != name || updated.Email != email {
+		t.Fatalf("unexpected local update: %#v, %v", updated, err)
+	}
+	if _, err := service.AdminUpdateUser(context.Background(), AdminUpdateUserInput{Actor: admin, TargetUserID: oidcUser.ID, DisplayName: &name}); !errors.Is(err, ErrPasswordUnsupported) {
+		t.Fatalf("expected oidc profile rejection, got %v", err)
+	}
+	no := false
+	if _, err := service.AdminUpdateUser(context.Background(), AdminUpdateUserInput{Actor: admin, TargetUserID: admin.ID, IsAdmin: &no}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected self-demotion rejection, got %v", err)
+	}
+}
+
 func TestUpdateProfileSuccess(t *testing.T) {
 	handler, _ := newTestHandler()
 	registerUser(t, handler, "user@example.com")
@@ -627,6 +651,30 @@ func (r *memoryRepo) UpdateAvatarKey(_ context.Context, id string, avatarKey *st
 		return user.User{}, ErrUserNotFound
 	}
 	u.AvatarKey = avatarKey
+	u.UpdatedAt = time.Now()
+	r.usersByID[id] = u
+	return u, nil
+}
+
+func (r *memoryRepo) AdminUpdateUser(_ context.Context, id string, displayName *string, email *string, isAdmin *bool, disabled *bool) (user.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.usersByID[id]
+	if !ok {
+		return user.User{}, ErrUserNotFound
+	}
+	if displayName != nil {
+		u.DisplayName = *displayName
+	}
+	if email != nil {
+		u.Email = *email
+	}
+	if isAdmin != nil {
+		u.IsAdmin = *isAdmin
+	}
+	if disabled != nil {
+		u.Disabled = *disabled
+	}
 	u.UpdatedAt = time.Now()
 	r.usersByID[id] = u
 	return u, nil

@@ -321,6 +321,44 @@ func (h Handler) AdminResetPassword(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (h Handler) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := middleware.CurrentUser(r.Context())
+	if !ok || !currentUser.IsAdmin {
+		api.WriteError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	var req struct {
+		DisplayName *string `json:"displayName"`
+		Email       *string `json:"email"`
+		IsAdmin     *bool   `json:"isAdmin"`
+		Disabled    *bool   `json:"disabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.WriteError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	updated, err := h.service.AdminUpdateUser(r.Context(), AdminUpdateUserInput{Actor: currentUser, TargetUserID: r.PathValue("id"), DisplayName: req.DisplayName, Email: req.Email, IsAdmin: req.IsAdmin, Disabled: req.Disabled})
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUserNotFound):
+			api.WriteError(w, http.StatusNotFound, "user not found")
+		case errors.Is(err, ErrEmailAlreadyUsed):
+			api.WriteError(w, http.StatusConflict, "email already used")
+		case errors.Is(err, ErrPasswordUnsupported):
+			api.WriteError(w, http.StatusBadRequest, "profile managed by identity provider")
+		case errors.Is(err, ErrInvalidInput):
+			api.WriteError(w, http.StatusBadRequest, "invalid user input")
+		default:
+			h.logger.Error("admin update user failed", "error", err)
+			api.WriteError(w, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+	actorID := currentUser.ID
+	h.recordAudit(r, audit.RecordInput{ActorUserID: &actorID, Action: "admin.user_update", TargetType: "user", TargetID: updated.ID, Metadata: map[string]any{"isAdmin": updated.IsAdmin, "disabled": updated.Disabled}})
+	api.WriteJSON(w, http.StatusOK, user.ToAdmin(updated))
+}
+
 func (h Handler) Avatar(w http.ResponseWriter, r *http.Request) {
 	if _, ok := middleware.CurrentUser(r.Context()); !ok {
 		api.WriteError(w, http.StatusUnauthorized, "unauthenticated")

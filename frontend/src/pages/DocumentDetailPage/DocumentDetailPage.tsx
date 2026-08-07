@@ -118,8 +118,22 @@ export function DocumentDetailPage({ id }: { id: string }) {
           <p className="eyebrow">{state.document.fileExt}</p>
           <h1>{state.document.title}</h1>
           <p className="document-meta">{state.document.originalFilename}</p>
+          <dl className="document-summary" aria-label="文档信息">
+            <div>
+              <dt>文件大小</dt>
+              <dd>{formatSize(state.document.sizeBytes)}</dd>
+            </div>
+            <div>
+              <dt>最近更新</dt>
+              <dd>{formatDate(state.document.updatedAt)}</dd>
+            </div>
+            <div>
+              <dt>我的权限</dt>
+              <dd>{state.document.canManage ? '可管理' : state.document.canEdit ? '可编辑' : '只读'}</dd>
+            </div>
+          </dl>
         </div>
-        <div className="detail-actions">
+        <div className="detail-actions" aria-label="文档操作">
           {state.document.canManage ? (
             <a className="secondary-button" href={`/documents/${state.document.id}/permissions`}>
               权限
@@ -144,8 +158,16 @@ export function DocumentDetailPage({ id }: { id: string }) {
         </div>
       </header>
       {actionError ? <p className="form-error">{actionError}</p> : null}
-      <section className="version-list">
-        <h2>版本</h2>
+      <section className="version-list" aria-labelledby="version-heading">
+        <div className="version-list-heading">
+          <div>
+            <p className="section-kicker">VERSION HISTORY</p>
+            <h2 id="version-heading">版本历史</h2>
+          </div>
+          <a className="secondary-button" href={`/documents/${state.document.id}/versions`}>
+            查看全部版本
+          </a>
+        </div>
         {state.versions.length === 0 ? (
           <p className="empty-inline">暂无版本。</p>
         ) : (
