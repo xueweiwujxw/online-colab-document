@@ -35,8 +35,10 @@ test.describe('编辑器体验回归', () => {
     await page.keyboard.press('Control+End');
     await page.keyboard.type(` ${marker}`);
     await expect(viewerPage.getByTestId('markdown-source').getByText(marker, { exact: false })).toBeVisible({ timeout: 20_000 });
-    await expect(viewerPage.locator('.ProseMirror-yjs-cursor')).toBeVisible({ timeout: 20_000 });
-    await expect(viewerPage.getByText(owner.displayName, { exact: true })).toBeVisible({ timeout: 20_000 });
+    const remoteCursor = viewerPage.locator('.cm-ySelectionCaret').first();
+    await expect(remoteCursor).toBeVisible({ timeout: 20_000 });
+    await remoteCursor.hover({ force: true });
+    await expect(remoteCursor.locator('.cm-ySelectionInfo')).toHaveText(owner.displayName, { timeout: 20_000 });
 
     await page.reload();
     await expect(page.locator('[contenteditable="true"]').first()).toBeVisible({ timeout: 30_000 });
