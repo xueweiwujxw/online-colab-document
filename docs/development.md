@@ -28,6 +28,43 @@ podman compose -f deploy/docker-compose.yml up --build -d
 
 使用 `http://localhost:3000` 访问应用。不要把 backend、编辑器网关或协作服务端口当作浏览器入口。
 
+## 本地 HTTPS 验证
+
+HTTPS 验证使用 `docs.localhost`，不修改 `/etc/hosts`。`localhost` 及其子域名是保留的本机名称，会解析到回环地址；同一主机名配合不同端口，能让登录会话在应用与 Office 网关间安全共享。
+
+首次使用时生成仅供本地开发的自签名证书（目录已被 Git 忽略，禁止提交私钥）：
+
+```bash
+mkdir -p deploy/certs/local
+openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 30 \
+  -keyout deploy/certs/local/local.key \
+  -out deploy/certs/local/local.crt \
+  -subj '/CN=docs.localhost' \
+  -addext 'subjectAltName=DNS:docs.localhost'
+chmod 600 deploy/certs/local/local.key
+```
+
+启动 HTTPS 入口（本地验证密钥请换成自己的随机值）：
+
+```bash
+CASUAL_JWT_SECRET='replace-with-a-local-random-value' \
+  podman compose -f deploy/docker-compose.yml -f deploy/docker-compose.local-https.yml up -d
+```
+
+访问 `https://docs.localhost:3443`。浏览器会警告自签名证书；仅在本机确认指纹后继续。命令行可显式以此证书作为信任根验证链路：
+
+```bash
+curl --fail --cacert deploy/certs/local/local.crt https://docs.localhost:3443/readyz
+```
+
+端到端测试可仅对本次进程接受该本地自签名证书：
+
+```bash
+cd frontend
+E2E_BASE_URL=https://docs.localhost:3443 PLAYWRIGHT_IGNORE_HTTPS_ERRORS=true \
+  pnpm exec playwright test e2e/editor-experience.spec.ts
+```
+
 ## 使用宿主机 Vite
 
 前端样式或组件开发可以改用宿主机 Vite。先启动 backend、依赖服务和 Office 网关，再运行 Vite：
