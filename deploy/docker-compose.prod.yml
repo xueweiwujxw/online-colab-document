@@ -22,6 +22,11 @@ services:
       OFFICE_COLLAB_PUBLIC_URL: ${OFFICE_COLLAB_PUBLIC_URL:-ws://localhost:8088/office-collab}
       PASSWORD_HASH_PEPPER: ${SESSION_SECRET:-change-me}
       DOCUMENT_MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-52428800}
+      CASUAL_JWT_SECRET: ${CASUAL_JWT_SECRET:?set CASUAL_JWT_SECRET in the production env file}
+      CASUAL_DOCS_EDITOR_URL: ${CASUAL_DOCS_EDITOR_URL:?set CASUAL_DOCS_EDITOR_URL in the production env file}
+      CASUAL_SHEETS_EDITOR_URL: ${CASUAL_SHEETS_EDITOR_URL:?set CASUAL_SHEETS_EDITOR_URL in the production env file}
+      CASUAL_DOCS_INTERNAL_WS_URL: ${CASUAL_DOCS_INTERNAL_WS_URL:-ws://casual-docs:3000/yjs}
+      CASUAL_SHEETS_INTERNAL_WS_URL: ${CASUAL_SHEETS_INTERNAL_WS_URL:-ws://office-collab:3000/yjs}
     depends_on:
       postgres:
         condition: service_started
@@ -43,7 +48,9 @@ services:
     restart: unless-stopped
 
   office-collab:
-    image: docker.io/casualoffice/sheets:0.3.4
+    build:
+      context: ./casual-sheets
+    image: local/casualoffice-sheets:0.3.4-patched
     environment:
       PORT: "3000"
       REDIS_URL: redis://redis:6379
@@ -52,12 +59,49 @@ services:
       - redis
     restart: unless-stopped
 
+  casual-docs:
+    build:
+      context: ./casual-docs
+    image: local/casualoffice-docs-wopi:0.0.5-patched
+    environment:
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+      CASUAL_REDIS_PREFIX: "online-colab-document:docs:"
+      CASUAL_FILE_EXT: ".docx"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  casual-sheets-gateway:
+    image: docker.io/library/nginx:1.27-alpine
+    ports:
+      - "${CASUAL_SHEETS_HTTP_PORT:-1234}:80"
+    volumes:
+      - ./casual-gateway/sheets.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      - ./casual-gateway/zh-CN.js:/etc/nginx/casual-zh-CN.js:ro,z
+    depends_on:
+      - backend
+      - office-collab
+    restart: unless-stopped
+
+  casual-docs-gateway:
+    image: docker.io/library/nginx:1.27-alpine
+    ports:
+      - "${CASUAL_DOCS_HTTP_PORT:-1235}:80"
+    volumes:
+      - ./casual-gateway/docs.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      - ./casual-gateway/zh-CN.js:/etc/nginx/casual-zh-CN.js:ro,z
+    depends_on:
+      - backend
+      - casual-docs
+    restart: unless-stopped
+
   nginx:
     image: docker.io/library/nginx:1.27-alpine
     ports:
       - "${NGINX_HTTP_PORT:-8088}:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro,Z
     depends_on:
       - frontend
       - backend

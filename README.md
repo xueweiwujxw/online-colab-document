@@ -50,4 +50,4 @@ make lint
 
 - Markdown 实时协作只支持单个 backend 实例。多实例部署需要 Redis pub/sub 或其他跨实例消息总线
 - 全局审计日志仅向管理员开放。文档 owner 的范围审计视图尚未提供
-- 生产 compose 是基础部署配置。Office 编辑器必须完成外部地址、网关和保存链路验证后才能对外启用，详见[部署限制](docs/deployment.md#生产环境中的-office-编辑器)
+- 生产 Office 部署需要为 Casual Docs 与 Casual Sheets gateway 配置 HTTPS 公开地址，并完成保存与权限回归，详见[生产环境中的 Office 编辑器](docs/deployment.md#生产环境中的-office-编辑器)

@@ -1,6 +1,6 @@
 # 部署在线协作文档服务
 
-本指南说明如何校验 Compose 配置、准备生产环境变量、启动基础服务和备份数据。生产环境的 Office 编辑器需要单独完成端到端验证。
+本指南说明如何校验 Compose 配置、准备生产环境变量、启动基础服务和备份数据。生产 compose 包含 Casual Docs、Casual Sheets 和两个编辑器网关。
 
 ## 准备生产环境变量
 
@@ -22,6 +22,10 @@ cp deploy/env/app.env.example deploy/env/production.env
 | `OIDC_REDIRECT_URL` | 身份提供方登记的 callback 地址 |
 | `NGINX_HTTP_PORT` | Nginx 映射到宿主机的端口 |
 | `DOCUMENT_MAX_UPLOAD_BYTES` | backend 上传限制，默认 50 MB |
+| `CASUAL_DOCS_EDITOR_URL` | 浏览器访问 Casual Docs gateway 的完整地址 |
+| `CASUAL_SHEETS_EDITOR_URL` | 浏览器访问 Casual Sheets gateway 的完整地址 |
+| `CASUAL_DOCS_HTTP_PORT` | Casual Docs gateway 的宿主机端口 |
+| `CASUAL_SHEETS_HTTP_PORT` | Casual Sheets gateway 的宿主机端口 |
 
 生产 compose 将 `SESSION_SECRET` 传给 backend 的 `PASSWORD_HASH_PEPPER`，并将 `MAX_UPLOAD_BYTES` 传给 `DOCUMENT_MAX_UPLOAD_BYTES`。模板只保留这两个部署入口，避免同时维护别名。
 
@@ -47,25 +51,25 @@ Nginx 默认映射到 `8088`。生产通常应设置 `NGINX_HTTP_PORT=80` 或由
 
 ```bash
 podman compose --env-file deploy/env/production.env -f deploy/docker-compose.prod.yml ps
-curl -fsS http://localhost:8088/api/healthz
-curl -fsS http://localhost:8088/api/readyz
+curl -fsS http://localhost:8088/healthz
+curl -fsS http://localhost:8088/readyz
 ```
 
 `readyz` 只有在 PostgreSQL、Redis 和对象存储都可用时才会返回成功。通过 HTTPS 对外提供服务时，使用实际域名替换本地地址。
 
 ## 生产环境中的 Office 编辑器
 
-当前 `deploy/docker-compose.prod.yml` 只包含 Casual Sheets 协作服务，未创建开发 compose 中的 Casual Docs、Sheets gateway 或 Docs gateway。因此它不是 docx/xlsx Office 编辑器的完整生产编排。
+生产 compose 公开三个入口：主站 Nginx、Casual Sheets gateway 和 Casual Docs gateway。backend 生成编辑会话时使用 `CASUAL_DOCS_EDITOR_URL` 或 `CASUAL_SHEETS_EDITOR_URL`，编辑器通过 gateway 回调 backend 的 `/wopi`、`/yjs` 和房间接口。
 
-在向外启用 Office 编辑前，你必须提供并验证以下内容：
+示例中使用本地端口。生产环境应为两个 gateway 提供独立的 HTTPS 域名或由外部 TLS 终止代理转发，例如 `https://docs-editor.example.com` 与 `https://sheets-editor.example.com`。将这两个公开地址写入对应的 `CASUAL_*_EDITOR_URL`。不要把容器内部服务名或未加密的生产地址写入这些变量。
 
-1. 可从浏览器访问的 Casual Docs 和 Casual Sheets 地址
-2. backend 使用的对应内部 WebSocket 地址
-3. `CASUAL_JWT_SECRET`、`CASUAL_DOCS_EDITOR_URL`、`CASUAL_SHEETS_EDITOR_URL`、`CASUAL_DOCS_INTERNAL_WS_URL` 和 `CASUAL_SHEETS_INTERNAL_WS_URL`
-4. Nginx 或其他反向代理中的 WebSocket upgrade、长连接 timeout 和编辑器回调路由
-5. docx 与 xlsx 的打开、编辑、保存、权限和版本回归
+上线前执行以下回归：
 
-在这些验证完成前，不要把生产 compose 视为 Office 编辑器可用的部署方案。Markdown 编辑、账户、文档存储、分享、版本与后台能力不依赖这组 Office 网关。
+1. owner 上传 `.docx` 与 `.xlsx`，确认可打开和保存
+2. editor 打开相同文档，确认可编辑并产生新版本
+3. viewer 打开相同文档，确认只读且保存请求被拒绝
+4. 通过 gateway 检查 `/wopi`、`/yjs` 和房间接口不绕过 backend 权限
+5. 重启编辑器服务后，确认已保存内容仍能从 MinIO/S3 和版本历史恢复
 
 ## 数据持久化和备份
 
