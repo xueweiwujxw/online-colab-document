@@ -29,6 +29,26 @@ cp deploy/env/app.env.example deploy/env/production.env
 
 生产 compose 将 `SESSION_SECRET` 传给 backend 的 `PASSWORD_HASH_PEPPER`，并将 `MAX_UPLOAD_BYTES` 传给 `DOCUMENT_MAX_UPLOAD_BYTES`。模板只保留这两个部署入口，避免同时维护别名。
 
+## 构建并发布镜像
+
+生产 Compose **不包含 `build`**，部署主机只拉取经过 CI 或发布流程构建的不可变镜像。前端镜像在构建阶段执行 Vite 打包，最终层仅使用 Nginx 提供静态文件；backend 同样由其 Docker 镜像运行。
+
+在 CI 或受控构建机中，为同一个版本号构建并推送四个应用镜像：
+
+```bash
+podman build -t registry.example.com/online-colab-document/backend:VERSION backend
+podman build --build-arg VITE_API_BASE_URL='' \
+  -t registry.example.com/online-colab-document/frontend:VERSION frontend
+podman build -t registry.example.com/online-colab-document/casual-sheets:VERSION deploy/casual-sheets
+podman build -t registry.example.com/online-colab-document/casual-docs:VERSION deploy/casual-docs
+podman push registry.example.com/online-colab-document/backend:VERSION
+podman push registry.example.com/online-colab-document/frontend:VERSION
+podman push registry.example.com/online-colab-document/casual-sheets:VERSION
+podman push registry.example.com/online-colab-document/casual-docs:VERSION
+```
+
+将这四个镜像的完整、固定版本标签填入 `production.env` 的 `*_IMAGE` 变量。不要使用浮动的 `latest` 标签；私有镜像仓库先在部署主机执行 `podman login`。
+
 ## 校验并启动基础服务
 
 生产 compose 使用 Nginx 作为统一入口，并创建 PostgreSQL、Redis 和 MinIO named volumes。先渲染配置：
@@ -37,10 +57,11 @@ cp deploy/env/app.env.example deploy/env/production.env
 podman compose --env-file deploy/env/production.env -f deploy/docker-compose.prod.yml config
 ```
 
-确认输出不含模板占位值后启动：
+确认输出不含模板占位值与 `build:` 后启动。此命令只拉取并运行镜像，绝不会在部署主机编译源码：
 
 ```bash
-podman compose --env-file deploy/env/production.env -f deploy/docker-compose.prod.yml up --build -d
+podman compose --env-file deploy/env/production.env -f deploy/docker-compose.prod.yml pull
+podman compose --env-file deploy/env/production.env -f deploy/docker-compose.prod.yml up -d
 ```
 
 Nginx 默认映射到 `8088`。生产通常应设置 `NGINX_HTTP_PORT=80` 或由外部 TLS 终止代理转发到该端口。

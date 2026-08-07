@@ -1,9 +1,6 @@
 services:
   backend:
-    build:
-      context: ../backend
-    env_file:
-      - ./env/app.env.example
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE in the production env file}
     environment:
       APP_ENV: production
       HTTP_ADDR: :8080
@@ -27,6 +24,16 @@ services:
       CASUAL_SHEETS_EDITOR_URL: ${CASUAL_SHEETS_EDITOR_URL:?set CASUAL_SHEETS_EDITOR_URL in the production env file}
       CASUAL_DOCS_INTERNAL_WS_URL: ${CASUAL_DOCS_INTERNAL_WS_URL:-ws://casual-docs:3000/yjs}
       CASUAL_SHEETS_INTERNAL_WS_URL: ${CASUAL_SHEETS_INTERNAL_WS_URL:-ws://office-collab:3000/yjs}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-docs_session}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid,email,profile}
+      OIDC_AUTO_MERGE_BY_EMAIL: ${OIDC_AUTO_MERGE_BY_EMAIL:-false}
+      MARKDOWN_SNAPSHOT_UPDATE_INTERVAL: ${MARKDOWN_SNAPSHOT_UPDATE_INTERVAL:-100}
     depends_on:
       postgres:
         condition: service_started
@@ -37,20 +44,13 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ../frontend
-      args:
-        VITE_API_BASE_URL: ${PUBLIC_API_URL:-http://localhost:8088}
-    environment:
-      PORT: "3000"
+    image: ${FRONTEND_IMAGE:?set FRONTEND_IMAGE in the production env file}
     depends_on:
       - backend
     restart: unless-stopped
 
   office-collab:
-    build:
-      context: ./casual-sheets
-    image: local/casualoffice-sheets:0.3.4-patched
+    image: ${CASUAL_SHEETS_IMAGE:?set CASUAL_SHEETS_IMAGE in the production env file}
     environment:
       PORT: "3000"
       REDIS_URL: redis://redis:6379
@@ -60,9 +60,7 @@ services:
     restart: unless-stopped
 
   casual-docs:
-    build:
-      context: ./casual-docs
-    image: local/casualoffice-docs-wopi:0.0.5-patched
+    image: ${CASUAL_DOCS_IMAGE:?set CASUAL_DOCS_IMAGE in the production env file}
     environment:
       PORT: "3000"
       REDIS_URL: redis://redis:6379

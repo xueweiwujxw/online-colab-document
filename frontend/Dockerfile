@@ -18,10 +18,8 @@ ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN pnpm --config.verify-deps-before-run=false run build
 
-FROM docker.io/library/node:24-alpine
+FROM docker.io/library/nginx:1.27-alpine
 
-WORKDIR /app
-COPY --from=build /app/dist /app/dist
-COPY server.mjs /app/server.mjs
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 3000
-CMD ["node", "/app/server.mjs"]
