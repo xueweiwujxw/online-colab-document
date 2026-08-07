@@ -4,6 +4,12 @@ import ExcelJS from 'exceljs';
 type Account = { displayName: string; email: string; password: string };
 
 test.describe('编辑器体验回归', () => {
+  test('本地注册后文档工作台完成渲染', async ({ page }) => {
+    await register(page, account('document-library-render'));
+    await expect(page.getByRole('heading', { name: '我的文档', exact: true })).toBeVisible();
+    await expect(page.getByText('还没有文档。', { exact: false })).toBeVisible();
+  });
+
   test('Markdown 原生协同：同步、只读、重连与保存版本', async ({ browser, page }) => {
     test.setTimeout(120_000);
     const owner = account('markdown-owner');
