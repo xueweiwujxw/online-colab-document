@@ -247,7 +247,11 @@ function account(prefix: string): Account {
     'sheet-owner-readonly': '孙所有者',
     'sheet-viewer-readonly': '钱只读',
   }[prefix] ?? '测试用户';
-  return { displayName: `${chineseName}-${suffix}`, email: `${prefix}-${suffix}@example.test`, password: 'BrowserCheck123!' };
+  return {
+    displayName: `${chineseName}-${suffix}`,
+    email: `${prefix}-${suffix}@example.test`,
+    password: `${prefix}-${suffix}-A1`,
+  };
 }
 
 function markdownFile() {
