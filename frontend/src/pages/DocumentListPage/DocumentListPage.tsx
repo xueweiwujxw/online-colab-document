@@ -101,19 +101,6 @@ export function DocumentListPage() {
     }
   }
 
-  if (auth.status === 'loading') {
-    return (
-      <main className="app-shell">
-        <section className="empty-state">加载中</section>
-      </main>
-    );
-  }
-
-  if (auth.status === 'anonymous') {
-    window.location.replace('/login');
-    return null;
-  }
-
   const filteredDocuments = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     return documents.items
@@ -141,6 +128,19 @@ export function DocumentListPage() {
   }, [access, documents.items, fileType, query, sortOrder]);
 
   const hasActiveFilters = query !== '' || fileType !== 'all' || access !== 'all' || sortOrder !== 'updated';
+
+  if (auth.status === 'loading') {
+    return (
+      <main className="app-shell">
+        <section className="empty-state">加载中</section>
+      </main>
+    );
+  }
+
+  if (auth.status === 'anonymous') {
+    window.location.replace('/login');
+    return null;
+  }
 
   return (
     <main className="app-shell">
