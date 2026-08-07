@@ -81,6 +81,7 @@ services:
 
   casual-sheets-gateway:
     image: docker.io/library/nginx:1.27-alpine
+    command: /bin/sh -c 'nginx -g "daemon off;" & pid=$$!; sleep 2; nginx -s reload; wait "$$pid"'
     ports:
       - "1234:80"
     volumes:
@@ -93,6 +94,7 @@ services:
 
   casual-docs-gateway:
     image: docker.io/library/nginx:1.27-alpine
+    command: /bin/sh -c 'nginx -g "daemon off;" & pid=$$!; sleep 2; nginx -s reload; wait "$$pid"'
     ports:
       - "1235:80"
     volumes:

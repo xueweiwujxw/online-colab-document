@@ -2395,7 +2395,7 @@ xlsx 可输入单元格、应用常用格式、撤销/重做、保存并生成�
 
 ## Plan 17：Casual Office 原生协同与用户发现修复
 
-状态：阶段性完成，待继续验收。
+状态：已完成（2026-08-08）。
 
 > 本计划替换当前仅使用 SDK / iframe 的 Office 编辑器集成。实施前必须完成每个 POC 验收项；不得恢复 ONLYOFFICE。
 
@@ -2426,10 +2426,10 @@ POC 记录（2026-08-06）：
 - Sheets WOPI 启动路径已修复为官方根路由；浏览器现会加载宿主上传的 xlsx 工作表，而不会进入 `/sheet/:id` 的空白工作簿路由。此前基于该错误路由的双用户同步记录作废，须在真实宿主文件链路上重新验证内容同步、viewer、远程选区、断线重连和保存/版本/审计。
 - Sheets 已改为从固定上游提交及递归子模块构建，镜像内补丁会保留宿主身份、脱敏上游请求日志，并将 WOPI 会话令牌传至经 Go 权限代理的协作 WebSocket。实际三用户浏览器验证已确认宿主 xlsx 工作表加载、真实显示名、持续 WebSocket 连接、远程名称、远程选区，以及 owner 公式栏写入后 editor/viewer 在同一单元格读到相同值；viewer 公式栏不可编辑。editor 重载后会重新建立 WebSocket 且保留同步内容。owner 以浏览器快捷键保存时，WOPI `POST /wopi/files/{id}/contents` 返回 `200`，前端版本页显示 v2/v1，数据库中同一文档的 `office.save` 审计记录计数为 1。
 - Sheets 正式 Playwright 回归已覆盖原生三用户同步、远程选区/名称、重载重连、viewer 只读、WOPI 保存和 v2 版本页，并在本地运行通过。
-- Docs Markdown 已做独立浏览器上下文双用户验证：editor 修改会实时到达另一 editor，WOPI 保存仍保留 `.md`；Docs Yjs 建连通过 Go 代理授权。Markdown viewer、远程光标和审计/版本仍需纳入正式回归。
-- Docs docx 已补充 room seed 和 WOPI save host adapter。已修复官方 Docs 将带查询参数的 `collab` WebSocket URL 错误拼接到 room seed REST 地址的问题；使用最小有效 `.docx` 的实际浏览器验证已确认受保护 seed 返回 `200`。独立 owner/viewer 均可建立 Docs WebSocket；owner 修改会实时同步到 viewer，viewer 可渲染远程光标及已签发会话中的真实用户显示名；viewer 页面无可编辑区域，WOPI 写回被服务端拒绝为 `403`。owner WOPI 保存返回 `200`、生成第 2 个版本并写入 `office.save` 审计。正式 Playwright 回归与断线重连验收仍未完成，POC 尚未标记通过。
+- Docs Markdown 的正式双用户回归已通过：owner 内容会实时同步到 viewer；viewer 使用 CodeMirror 只读模式，格式工具栏与自动 WOPI 写回均被禁用；远程光标悬浮标签显示 Go 签发会话中的真实中文显示名。owner WOPI 保存返回 `200` 并生成版本，viewer 写回返回 `403`。
+- Docs docx 已补充 room seed 和 WOPI save host adapter。已修复官方 Docs 将带查询参数的 `collab` WebSocket URL 错误拼接到 room seed REST 地址的问题；受保护 seed、双用户同步、中文显示名、远程光标、viewer 只读、重载重连、owner 保存/版本和 viewer `403` 写回均已通过正式 Playwright 回归。
 - Casual Sheets 官方 SDK 的 `attachCollab` 是所需的单元格 mutation bridge，但当前 npm 发布的 `@casualoffice/sheets@0.20.0` 在直挂页面时动态依赖 `@univerjs/docs-mention-ui`；该包在 npm registry 不存在，导致画布不挂载。因此不能以这个不完整 SDK 发行物作为正式集成。
-- Docs docx/Markdown 的正式 Playwright 回归已补充原生协同、viewer 只读、远程光标/名称、重载重连和 WOPI 保存/版本断言，仍需在可启动 Chromium 的环境中运行。后续必须完成该运行验收及 compose 健康检查；前端生产构建和后端测试已通过。以上全部完成前，Plan 17 不得标记完成。
+- Docs docx/Markdown、Sheets xlsx 的正式 Playwright 回归已在 Chromium 环境通过；覆盖协同同步、viewer 只读、中文显示名与远程光标、重载重连、WOPI 保存与版本。开发与生产 Compose 均已通过配置校验，后端测试和前端生产构建通过。编辑器 gateway 会在启动后自动 reload 一次，避免 Podman Compose 网络别名刚创建时的旧 DNS 映射导致 WOPI/Yjs `502`。
 
 ### 17.4 端到端与部署验收
 
