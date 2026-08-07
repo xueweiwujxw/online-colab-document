@@ -1,4 +1,6 @@
-# Markdown Collaboration
+# 配置 Markdown 协作
+
+本页说明 Markdown 协作连接、权限和持久化边界。
 
 Markdown 协同通过 WebSocket 和 Yjs 文本模型实现。backend 当前使用单实例内存 hub 广播 update 和 presence，并将 update/snapshot 持久化到 PostgreSQL。
 

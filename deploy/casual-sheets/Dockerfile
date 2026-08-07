@@ -55,6 +55,11 @@ COPY --from=build-web /repo/apps/server/src apps/server/src
 COPY --from=build-web /repo/apps/server/tsconfig.json apps/server/
 COPY --from=build-web /repo/apps/web/dist apps/web/dist
 COPY --from=build-web /repo/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=source /repo/LICENSE /licenses/CasualOffice-sheets-LICENSE
+COPY NOTICE /licenses/Online-Colab-Document-NOTICE
+COPY wopi-presence.patch /licenses/wopi-presence.patch
+COPY wopi-readonly.patch /licenses/wopi-readonly.patch
+COPY server-log-redaction.patch /licenses/server-log-redaction.patch
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
     mkdir -p /data && chown -R node:node /data
 EXPOSE 3000

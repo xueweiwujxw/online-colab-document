@@ -1,0 +1,19 @@
+Online Colab Document
+Copyright 2026 Online Colab Document contributors
+
+This product includes modified build inputs from the following projects:
+
+- Casual Docs, Apache License 2.0
+  Source: https://github.com/CasualOffice/docs
+  Pinned revision: d11605185698cfc4b16a83a975cfecc8056ac348
+  Local modifications: deploy/casual-docs/wopi-markdown.patch and
+  deploy/casual-docs/wopi-docx.patch
+
+- Casual Sheets, Apache License 2.0
+  Source: https://github.com/CasualOffice/sheets
+  Pinned revision: 11182a2f486a5134fa9d1672530df1dc27025ce4
+  Local modifications: deploy/casual-sheets/wopi-presence.patch,
+  deploy/casual-sheets/wopi-readonly.patch and
+  deploy/casual-sheets/server-log-redaction.patch
+
+See THIRD_PARTY_NOTICES.md for dependency inventory and redistribution notes.

@@ -1,214 +1,53 @@
-# Docs Collab Service
+# 在线协作文档服务
 
-Docs Collab Service 是一个面向私有化部署的在线文档共享编辑服务。当前完成到 M12 Docker 部署与安全加固。
+这是一个可私有化部署的文档协作服务。你可以管理本地与 OIDC 账户、上传文档、分配权限、通过链接分享内容，并审计后台操作。
 
-## 技术栈
+## 开始使用
 
-- Backend: Go HTTP server
-- Frontend: React + TypeScript + Vite
-- Frontend package manager: pnpm
-- Runtime for frontend tooling: Node.js 24
-- Database: PostgreSQL
-- Cache: Redis
-- Storage: MinIO / S3
-- Deploy: Podman Compose / Docker Compose compatible compose file
-- Office editor: Casual Office（Casual Docs 处理 docx、Casual Sheets 处理 xlsx；不部署或使用 ONLYOFFICE）
-- Markdown editor: 项目内置 ProseMirror + WebSocket 协同（`.md`；不将 Markdown 转换为 DOCX）
-- Markdown collab: 后续里程碑使用 Yjs / WebSocket
+本地运行需要 Podman Compose 或 Docker Compose、Go、Node.js 24 和 pnpm：
 
-Casual Docs 和 Casual Sheets 通过各自网关注入简体中文界面层；该层只翻译编辑器控件，不会改动文档正文内容。
+1. 复制 `deploy/env/app.env.example` 到仓库根目录的 `.env`
+2. 在 `.env` 中为 `CASUAL_JWT_SECRET` 设置至少 16 个随机字符，并替换所有生产占位值
+3. 运行 `make dev`
+4. 打开 `http://localhost:3000` 并注册本地账户
 
-开发、启动和编辑器的常见问题见[开发与编辑器排障手册](docs/development-troubleshooting.md)。
+开发服务、端口和常见故障见[开发指南](docs/development.md)。生产部署前请阅读[部署指南](docs/deployment.md)。
 
-## 本地启动
+## 支持范围
 
-启动基础服务：
+- `.docx`：通过自托管 Casual Docs 打开、编辑和保存
+- `.xlsx`：通过自托管 Casual Sheets 打开、编辑和保存
+- `.md`：内置编辑器和实时协作
+- `.doc`、`.xls`：不支持上传或打开
 
-```bash
-make dev
-```
+项目不部署、配置或调用 ONLYOFFICE，也不自研 Word 或 Excel 编辑器。
 
-开发调试前端时，也可以只用 compose 启动后端依赖，然后在宿主机启动 Vite：
+## 文档导航
 
-```bash
-podman compose -f deploy/docker-compose.yml up --build -d backend office-collab
-cd frontend && corepack pnpm run dev -- --host 0.0.0.0 --port 3000
-```
-
-前端 dev server 已配置代理：
-
-- `/api` -> `http://localhost:8080`
-- `/office-collab` -> `ws://localhost:1234`，转发时会去掉 `/office-collab` 前缀，匹配 Hocuspocus 的根路径 WebSocket 服务。
-
-compose 前端容器也提供同源代理：
-
-- `/api` -> `http://backend:8080`
-- `/office-collab` -> `ws://office-collab:1234`，转发时会去掉 `/office-collab` 前缀。
-
-开发时优先访问 `http://localhost:3000` 或 `http://127.0.0.1:3000` 的前端入口，不要直接让浏览器访问 `8080` 或 `1234`。Office 编辑器会把本地 backend / collab 绝对地址改写为同源代理地址，避免 `localhost` 和 `127.0.0.1` 混用导致 cookie 不发送，从而出现登录成功但 Office 下载 `401`、`Failed to fetch`、协作 WebSocket 认证失败或只读不可编辑的问题。
-
-### 本地前端端口约束
-
-`FRONTEND_ORIGIN` 默认固定为 `http://localhost:3000`，Markdown 协作 WebSocket 会校验该 Origin。因此 Vite 已启用 `strictPort: true`：`3000` 被占用时启动会直接失败，**不会自动改用 3001、3002 或其他端口**。这是安全约束，不应绕过。
-
-出现端口占用时：
-
-1. 停止占用 `3000` 的旧前端进程或容器；
-2. 重新执行 `cd frontend && corepack pnpm run dev`；
-3. 仅通过 `http://localhost:3000` 打开页面；
-4. 修改 `frontend/vite.config.ts` 后必须重启 Vite，特别是 xlsx 解析依赖的 `optimizeDeps.exclude` 配置。
-
-不要把自动回退端口的开发服务器地址提供给用户。它会绕过既定 Origin，导致协作连接被后端以 `403` 拒绝；同时容易加载与 Compose 容器不同版本的前端资源，使 xlsx 解析问题难以复现。
-
-Casual Sheets 的 xlsx 解析依赖包内 `parser.worker.js`。Vite dev server 必须在 `frontend/vite.config.ts` 里把 `@casualoffice/sheets/xlsx` 加入 `optimizeDeps.exclude`，否则浏览器会请求不存在的 `node_modules/.vite/deps/parser.worker.js?worker_file&type=module`，页面表现为表格编辑器一直加载、协作状态异常，或报 `xlsx parser worker ran out of memory parsing this file`。修改 `vite.config.ts` 后必须重启 Vite。
-
-服务地址：
-
-- Frontend: http://localhost:3000
-- Backend health: http://localhost:8080/healthz
-- Backend ready: http://localhost:8080/readyz
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
-- MinIO API: http://localhost:9000
-- MinIO Console: http://localhost:9001
-- Office collab WebSocket: ws://localhost:1234
-
-可选 nginx 统一入口：
-
-```bash
-podman compose -f deploy/docker-compose.yml --profile proxy up --build
-```
-
-- Nginx unified entry: http://localhost:8088
-
-生产 compose 配置校验：
-
-```bash
-podman compose -f deploy/docker-compose.prod.yml config
-```
-
-## 环境变量
-
-后端：
-
-```text
-APP_ENV=development
-HTTP_ADDR=:8080
-DATABASE_URL=postgres://docs:docs@postgres:5432/docs?sslmode=disable
-REDIS_ADDR=redis:6379
-S3_ENDPOINT=http://minio:9000
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
-S3_BUCKET=docs
-S3_USE_SSL=false
-FRONTEND_ORIGIN=http://localhost:3000
-SESSION_COOKIE_NAME=docs_session
-SESSION_TTL_HOURS=168
-PASSWORD_HASH_PEPPER=
-OIDC_ENABLED=false
-OIDC_ISSUER_URL=http://mock-oidc:8080/realms/docs-collab
-OIDC_CLIENT_ID=docs-collab
-OIDC_CLIENT_SECRET=docs-collab-secret
-OIDC_REDIRECT_URL=http://localhost:8080/api/auth/oidc/callback
-OIDC_SCOPES=openid,email,profile
-OIDC_AUTO_MERGE_BY_EMAIL=false
-DOCUMENT_MAX_UPLOAD_BYTES=52428800
-OFFICE_COLLAB_ENABLED=true
-OFFICE_COLLAB_PUBLIC_URL=ws://localhost:1234
-PUBLIC_APP_URL=http://localhost:3000
-PUBLIC_API_URL=http://localhost:8080
-BACKEND_INTERNAL_URL=http://backend:8080
-MARKDOWN_SNAPSHOT_UPDATE_INTERVAL=100
-```
-
-前端：
-
-```text
-VITE_API_BASE_URL=http://localhost:8080
-```
+- [开发指南](docs/development.md)：本地启动、测试、端口与排障入口
+- [部署指南](docs/deployment.md)：生产配置、数据持久化、备份与已知限制
+- [使用指南](docs/usage.md)：账户、文档、协作、分享与管理后台
+- [系统架构](docs/architecture.md)：服务边界与数据流
+- [权限模型](docs/permission.md)：角色、分享链接与服务端授权边界
+- [Markdown 协作](docs/markdown-collab.md)：连接、权限、持久化与扩展限制
+- [管理控制台](docs/admin-console.md)：后台能力与审计范围
+- [开发与编辑器排障](docs/development-troubleshooting.md)：已知问题与验证顺序
+- [许可证与第三方声明](THIRD_PARTY_NOTICES.md)：开源许可证、补丁和分发义务
 
 ## 常用命令
 
 ```bash
 make dev
-make up
 make down
 make logs
-make backend-test
-make frontend-build
 make test
 make lint
 ```
 
-## 当前里程碑
-
-M12 Docker 部署与安全加固：
-
-- users / sessions 数据库 migration
-- 本地用户注册、登录、登出、当前用户接口
-- HttpOnly session cookie，服务端仅保存 token hash
-- OIDC 登录跳转、callback、id_token 校验和 userinfo 获取
-- OIDC 用户自动创建，默认不按 email 合并本地用户
-- documents / document_versions 数据库 migration
-- 文档上传、列表、详情、下载、软删除和版本列表
-- MinIO / S3 storage 抽象与对象存储实现
-- 前端 `/documents` 和 `/documents/:id` 页面
-- document_permissions 数据库 migration
-- owner / editor / viewer 权限矩阵
-- 文档接口统一接入 PermissionService
-- 前端 `/documents/:id/permissions` 权限管理页面
-- Casual Office 支持 docx / xlsx 编辑器；viewer 只读、editor/owner 可编辑
-- `.doc` / `.xls` 当前不支持上传，待后续完成替代方案 POC 后再评估
-- Markdown 文档读取接口 `GET /api/documents/:id/markdown`
-- Markdown 文档保存接口 `PUT /api/documents/:id/markdown`
-- Markdown 保存生成新版本并更新当前下载内容
-- 前端 `/documents/:id/markdown` 源码编辑和预览页面
-- viewer 只读打开 Markdown，editor/owner 可以保存
-- Markdown 协同 snapshot 接口 `GET /api/documents/:id/markdown/snapshot`
-- Markdown 协同 WebSocket `WS /api/documents/:id/markdown/ws`
-- editor/owner 修改内容实时广播到同一文档其他客户端
-- viewer 可以连接和接收更新，但不能提交编辑
-- Markdown update 和周期 snapshot 持久化到 PostgreSQL
-- presence 显示当前在线用户和只读/可编辑状态
-- share_links 数据库 migration
-- owner 可以创建、查看、禁用分享链接
-- 分享 token 只明文返回一次，数据库只保存 hash
-- 未登录用户可以通过 `/share/:token` 访问有效链接
-- 过期或禁用链接不可访问
-- viewer 分享链接只读，editor 分享链接可以保存 Markdown
-- 前端 `/documents/:id/share` 分享管理页
-- 前端 `/share/:token` 分享访问页
-- 版本列表显示版本号、创建人、创建时间和文件大小
-- 支持历史版本下载 `GET /api/documents/:id/versions/:versionId/download`
-- 支持恢复历史版本 `POST /api/documents/:id/versions/:versionId/restore`
-- 恢复历史版本会生成新版本，不覆盖旧版本
-- viewer 不能恢复，editor/owner 可以恢复
-- audit_logs 数据库 migration
-- 关键操作审计记录：登录、登出、OIDC 登录、文档上传/下载/删除、Markdown 保存、Office 保存、权限授予/删除、分享链接创建/禁用/访问/下载/Markdown 保存、历史版本恢复
-- 审计写入失败只记录 error log，不影响主流程
-- 审计 metadata 过滤 password/token/secret/cookie 等敏感字段
-- 管理员审计查询接口 `GET /api/admin/audit-logs`
-- 管理员前端页面 `/admin/audit-logs`
-- 前端 API 错误统一携带 HTTP status，403 显示无权限访问
-- 前端新增 `/documents/:id/versions` 独立版本管理页
-- 文档删除、权限删除、分享链接禁用、版本恢复等 destructive action 增加确认
-- 主要页面补齐 loading / error / empty / forbidden 处理
-- 用户中心 `/profile` 支持查看账户信息、修改本地账号密码、修改显示名和撤销其他登录会话
-- backend 启动时自动执行 `backend/migrations`
-- 生产 compose `deploy/docker-compose.prod.yml`
-- nginx 配置 `deploy/nginx/nginx.conf`，支持 `/api/`、WebSocket upgrade、上传大小限制和 gzip
-- 开发 compose 增加可选 nginx proxy profile 和 mock OIDC dev profile
-- 完整环境变量样例 `deploy/env/app.env.example`
-- 部署、权限、Markdown 协同文档
+`make dev` 在前台运行 Compose。需要后台运行时，执行 `podman compose -f deploy/docker-compose.yml up --build -d`。
 
 ## 当前限制
 
-- Markdown 协同第一版只支持单 backend 实例内实时广播；多实例部署需要 Redis pub/sub 或其他跨实例消息总线。
-- M10 只实现管理员全局审计查询；owner 查看自己文档相关审计日志仍未开放。
-
-## 部署文档
-
-- [Deployment](docs/deployment.md)
-- [Permission](docs/permission.md)
-- [Markdown Collaboration](docs/markdown-collab.md)
-- [管理控制台](docs/admin-console.md)
+- Markdown 实时协作只支持单个 backend 实例。多实例部署需要 Redis pub/sub 或其他跨实例消息总线
+- 全局审计日志仅向管理员开放。文档 owner 的范围审计视图尚未提供
+- 生产 compose 是基础部署配置。Office 编辑器必须完成外部地址、网关和保存链路验证后才能对外启用，详见[部署限制](docs/deployment.md#生产环境中的-office-编辑器)

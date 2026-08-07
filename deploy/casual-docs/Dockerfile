@@ -24,6 +24,10 @@ RUN npm install --omit=dev
 COPY --from=web /src/collab/ ./
 RUN sed -i "s/logger: true,/logger: { redact: ['req.url'] },/" /app/collab/src/index.ts
 COPY --from=web /src/docx-editor/examples/vite/dist /app/web/dist
+COPY --from=web /src/LICENSE /licenses/CasualOffice-docs-LICENSE
+COPY NOTICE /licenses/Online-Colab-Document-NOTICE
+COPY wopi-markdown.patch /licenses/wopi-markdown.patch
+COPY wopi-docx.patch /licenses/wopi-docx.patch
 ENV PORT=3000 HOST=0.0.0.0 CASUAL_FILE_EXT=.docx
 USER casual
 EXPOSE 3000

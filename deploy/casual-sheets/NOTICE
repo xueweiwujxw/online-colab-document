@@ -1,0 +1,8 @@
+This image includes modified build inputs from Casual Sheets.
+
+Upstream source: https://github.com/CasualOffice/sheets
+Pinned revision: 11182a2f486a5134fa9d1672530df1dc27025ce4
+Upstream license: Apache License 2.0
+
+Local modifications are applied from wopi-presence.patch, wopi-readonly.patch and server-log-redaction.patch.
+The complete repository notice is available in the source distribution root as NOTICE.

@@ -1,0 +1,8 @@
+This image includes modified build inputs from Casual Docs.
+
+Upstream source: https://github.com/CasualOffice/docs
+Pinned revision: d11605185698cfc4b16a83a975cfecc8056ac348
+Upstream license: Apache License 2.0
+
+Local modifications are applied from wopi-markdown.patch and wopi-docx.patch.
+The complete repository notice is available in the source distribution root as NOTICE.

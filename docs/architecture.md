@@ -1,54 +1,44 @@
-# Architecture
+# 系统架构
 
-## 总体架构
+服务将身份、权限、文档元数据、对象存储和编辑器集成分开处理。浏览器只通过 frontend 或 Nginx 入口访问 API 和协作连接。
+
+## 服务边界
 
 ```text
 Browser
   |
-  | HTTP
   v
-React + TypeScript frontend
+React frontend / Nginx
   |
-  | JSON API
   v
 Go backend
-  |-- PostgreSQL: users, documents, permissions, versions, audit logs
-  |-- Redis: sessions, cache, realtime coordination
-  |-- MinIO / S3: uploaded document objects
-  |-- Casual Office: docx / xlsx editing
-  |-- Share links: token-hash based public access
-  `-- Markdown collaboration service: Yjs / WebSocket snapshots
+  |-- PostgreSQL: users, sessions, documents, permissions, versions, audit logs
+  |-- Redis: session and collaboration support
+  |-- MinIO / S3: document objects
+  |-- Casual Office: docx and xlsx editor integration
+  `-- Markdown collaboration: WebSocket, Yjs updates and snapshots
 ```
 
-## 模块说明
+backend 按 `handler -> service -> repository/storage` 分层。handler 处理 HTTP 参数和登录态，service 执行业务规则，repository 与 storage 负责数据库和对象存储访问。
 
-- `backend/cmd/server`: 后端进程入口。
-- `backend/internal/config`: 从环境变量加载配置。
-- `backend/internal/db`: 启动时执行数据库 migrations。
-- `backend/internal/health`: health check 与 ready check。
-- `backend/internal/server`: HTTP server、路由、中间件、优雅退出。
-- `frontend/src/api`: 集中管理前端 API 调用。
-- `frontend/src/app`: 当前 M0 首页应用。
-- `deploy`: Docker Compose、环境变量样例和部署配置。
+## 授权边界
 
-## 里程碑
+backend 在返回文档详情、下载地址、Office 会话、Markdown snapshot 或建立 Markdown WebSocket 前验证权限。编辑、保存、恢复版本、权限管理、分享管理和删除使用更高的权限等级。
 
-M0 到 M12 已覆盖项目骨架、本地/OIDC 登录、文档上传下载、权限、Casual Office、Markdown 编辑、Markdown 协同、分享链接、版本管理、审计日志、前端完善和 Docker 部署。
+前端只根据权限隐藏不适用的操作。服务端权限检查仍是唯一授权边界，完整矩阵见[权限模型](permission.md)。
 
-## Office 编辑器范围
+## 文档与版本
 
-项目不自研 Office 编辑器。当前通过 Casual Office 支持 docx / xlsx 编辑和保存；`.doc` / `.xls` 暂不支持，且项目不部署或使用 ONLYOFFICE。
+上传、Markdown 保存、Office 保存和版本恢复都会创建 `document_versions` 记录。恢复操作会创建新版本并更新当前版本，不会覆盖历史对象。
 
-## Markdown 为什么单独实现
+对象内容保存在 MinIO 或 S3，数据库保存元数据、版本和权限。分享链接和会话只保存哈希，不保存明文令牌。
 
-Markdown 是文本格式，服务端保存和前端编辑成本较低。普通编辑阶段实现源码编辑、预览、保存和下载；协同阶段基于 Yjs、WebSocket 和 PostgreSQL snapshot/update 持久化实现多人协同、presence 和断线重连。
+## 编辑器集成
 
-当前 Markdown 协同第一版只支持单 backend 实例内的实时广播。多 backend 实例部署时，需要增加 Redis pub/sub 或其他跨实例消息总线来同步 update 与 presence。
+Office 文档由自托管 Casual Office 处理：Casual Docs 用于 `.docx`，Casual Sheets 用于 `.xlsx`。项目不包含 Office 编辑内核，也不使用 ONLYOFFICE。旧格式 `.doc` 和 `.xls` 不受支持。
 
-## 分享链接
+Markdown 使用内置编辑器。协同更新通过 WebSocket 广播，并周期性写入 PostgreSQL snapshot。单实例 backend 可以提供实时协作，多实例需要 Redis pub/sub 或其他跨实例消息总线。
 
-分享链接由 owner 创建，数据库只保存 token hash。创建响应会返回一次明文 token 和完整 URL；后续列表只显示链接元数据。公开分享访问不要求登录，viewer 链接只读，editor 链接可以保存 Markdown。
+## 运维接口
 
-## 版本管理
-
-每次上传、Markdown 保存、Office 保存和历史版本恢复都会写入 `document_versions`。恢复历史版本会读取旧版本对象，写入新的对象存储 key，再创建一个新版本并更新 `documents.current_version_id`，不会覆盖旧版本。
+`/healthz` 用于进程存活检查，`/readyz` 验证 PostgreSQL、Redis 和对象存储。管理员可在 `/admin` 查看用户、文档、对象存储、OIDC 状态和审计日志。
