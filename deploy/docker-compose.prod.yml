@@ -6,9 +6,9 @@ services:
       HTTP_ADDR: :8080
       DATABASE_URL: postgres://${POSTGRES_USER:-docs}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-docs}?sslmode=disable
       REDIS_ADDR: redis:6379
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-change-me}
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in the production env file}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in the production env file}
       S3_BUCKET: ${S3_BUCKET:-docs}
       S3_USE_SSL: "false"
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?set FRONTEND_ORIGIN in the production env file}
@@ -39,8 +39,8 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      minio:
-        condition: service_started
+      rustfs:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -132,17 +132,24 @@ services:
       - redis-data:/data
     restart: unless-stopped
 
-  minio:
-    image: quay.io/minio/minio:latest
-    command: server /data --console-address ":9001"
+  rustfs:
+    image: ${RUSTFS_IMAGE:-docker.io/rustfs/rustfs:1.0.0}
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-change-me}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in the production env file}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in the production env file}
     volumes:
-      - minio-data:/data
+      - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
     restart: unless-stopped
 
 volumes:
   postgres-data:
   redis-data:
-  minio-data:
+  rustfs-data:

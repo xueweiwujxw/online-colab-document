@@ -21,6 +21,7 @@ Apache-2.0 不授予第三方商标使用权。不要把 Casual Office、React�
 | --- | --- | --- | --- |
 | Casual Docs | `.docx` 编辑器构建输入 | Apache-2.0 | 保留上游 LICENSE/NOTICE，声明本仓库补丁 |
 | Casual Sheets | `.xlsx` 编辑器构建输入与 SDK | Apache-2.0 | 保留上游 LICENSE/NOTICE，声明本仓库补丁 |
+| RustFS 1.0.0 | S3 对象存储服务 | Apache-2.0 | 保留上游 LICENSE/NOTICE |
 | React | 前端 UI | MIT | 在分发包中保留 MIT 声明 |
 | Yjs | Markdown 协作数据模型 | MIT | 在分发包中保留 MIT 声明 |
 | Hocuspocus | Office 与 Markdown 协作服务 | MIT | 在分发包中保留 MIT 声明 |

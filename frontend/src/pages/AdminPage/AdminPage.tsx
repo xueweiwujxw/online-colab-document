@@ -8,7 +8,7 @@ const sectionCopy: Record<Exclude<AdminSection, 'audit'>, { title: string; descr
   overview: { title: '运营概览', description: '用明确的入口处理账号、文件、身份连接与存储风险。' },
   users: { title: '用户与访问', description: '管理本地账号资料、角色和账户可用性。' },
   documents: { title: '文件治理', description: '查看全局文档，并以可审计的方式执行软删除。' },
-  storage: { title: '对象存储', description: '按路径浏览、筛选、下载或确认删除 MinIO 对象。' },
+  storage: { title: '对象存储', description: '按路径浏览、筛选、下载或确认删除 RustFS 对象。' },
   identity: { title: '身份连接', description: '查看 OIDC 运行配置；敏感密钥始终留在部署环境。' },
 };
 

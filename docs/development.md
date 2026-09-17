@@ -20,7 +20,7 @@ cp deploy/env/app.env.example .env
 make dev
 ```
 
-该命令在前台构建并启动 backend、frontend、PostgreSQL、Redis、MinIO、Casual Docs、Casual Sheets 和两个编辑器网关。需要后台运行时，执行：
+该命令在前台构建并启动 backend、frontend、PostgreSQL、Redis、RustFS、Casual Docs、Casual Sheets 和两个编辑器网关。需要后台运行时，执行：
 
 ```bash
 podman compose -f deploy/docker-compose.yml up --build -d
@@ -104,11 +104,23 @@ pnpm exec playwright test
 | 前端 | `http://localhost:3000` | 浏览器入口 |
 | Backend 健康检查 | `http://localhost:8080/healthz` | 进程存活检查 |
 | Backend 就绪检查 | `http://localhost:8080/readyz` | 数据库、Redis、对象存储检查 |
-| MinIO API | `http://localhost:9000` | S3 兼容 API |
-| MinIO Console | `http://localhost:9001` | 本地对象存储管理 |
+| RustFS API | `http://localhost:9000` | S3 兼容 API |
+| RustFS Console | `http://localhost:9001` | 本地对象存储管理 |
 | Casual Sheets 网关 | `http://localhost:1234` | 编辑器内部服务 |
 | Casual Docs 网关 | `http://localhost:1235` | 编辑器内部服务 |
 
 ## 排查问题
 
 编辑器中文界面、中文用户名和远程光标、Vite worker、端口和容器版本不一致等问题见[开发与编辑器排障](development-troubleshooting.md)。
+
+## RustFS 回归
+
+独立测试（Go、curl、openssl、RustFS 1.0.0 二进制）：
+
+```bash
+RUSTFS_BINARY=/absolute/path/to/rustfs scripts/test-rustfs.sh
+```
+
+脚本创建临时数据目录和随机凭据，启动真实 RustFS，执行完整 Go race 测试并清理。默认端口 19000，可用 `RUSTFS_TEST_PORT` 修改。集成测试每次使用独立临时 bucket；普通 `go test ./...` 未配置 `RUSTFS_TEST_ENDPOINT` 时跳过真实存储测试。
+
+`.github/workflows/rustfs.yml` 在隔离 Compose 项目中启动 PostgreSQL、Redis、RustFS 与 backend，运行相同 Go 测试、`scripts/smoke-rustfs.py` 的 API/重启持久化回归及前端 lint/build。smoke 脚本仅用于一次性测试环境，会创建账号、提升测试账号管理员权限、重启服务和删除测试对象。CI 最后删除测试卷，不能指向生产 Compose 项目。

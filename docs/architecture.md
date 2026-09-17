@@ -14,7 +14,7 @@ React frontend / Nginx
 Go backend
   |-- PostgreSQL: users, sessions, documents, permissions, versions, audit logs
   |-- Redis: session and collaboration support
-  |-- MinIO / S3: document objects
+  |-- RustFS / S3: document objects
   |-- Casual Office: docx and xlsx editor integration
   `-- Markdown collaboration: WebSocket, Yjs updates and snapshots
 ```
@@ -31,7 +31,7 @@ backend 在返回文档详情、下载地址、Office 会话、Markdown snapshot
 
 上传、Markdown 保存、Office 保存和版本恢复都会创建 `document_versions` 记录。恢复操作会创建新版本并更新当前版本，不会覆盖历史对象。
 
-对象内容保存在 MinIO 或 S3，数据库保存元数据、版本和权限。分享链接和会话只保存哈希，不保存明文令牌。
+对象内容保存在 RustFS 或 S3，数据库保存元数据、版本和权限。分享链接和会话只保存哈希，不保存明文令牌。
 
 ## 编辑器集成
 

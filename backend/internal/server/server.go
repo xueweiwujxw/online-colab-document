@@ -108,7 +108,7 @@ func New(cfg config.Config, logger *slog.Logger, db *sql.DB) *Server {
 		mux.Handle("PUT /api/admin/users/{id}/password", requireAdmin(authHandler.AdminResetPassword))
 		mux.Handle("GET /api/admin/audit-logs", requireAuth(auditHandler.List))
 
-		objectStorage, err := storage.NewMinIOStorage(storage.MinIOConfig{
+		objectStorage, err := storage.NewS3Storage(storage.S3Config{
 			Endpoint:  cfg.S3Endpoint,
 			AccessKey: cfg.S3AccessKey,
 			SecretKey: cfg.S3SecretKey,

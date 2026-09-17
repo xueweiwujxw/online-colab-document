@@ -13,7 +13,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-type MinIOConfig struct {
+type S3Config struct {
 	Endpoint  string
 	AccessKey string
 	SecretKey string
@@ -21,29 +21,30 @@ type MinIOConfig struct {
 	UseSSL    bool
 }
 
-type MinIOStorage struct {
-	client     *minio.Client
-	bucket     string
-	ensureOnce sync.Once
-	ensureErr  error
+type S3Storage struct {
+	client      *minio.Client
+	bucket      string
+	ensureMu    sync.Mutex
+	bucketReady bool
 }
 
-func NewMinIOStorage(cfg MinIOConfig) (*MinIOStorage, error) {
+func NewS3Storage(cfg S3Config) (*S3Storage, error) {
 	endpoint, useSSL, err := parseEndpoint(cfg.Endpoint, cfg.UseSSL)
 	if err != nil {
 		return nil, err
 	}
 	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: useSSL,
+		Creds:        credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+		Secure:       useSSL,
+		BucketLookup: minio.BucketLookupPath,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create minio client: %w", err)
+		return nil, fmt.Errorf("create S3 client: %w", err)
 	}
-	return &MinIOStorage{client: client, bucket: cfg.Bucket}, nil
+	return &S3Storage{client: client, bucket: cfg.Bucket}, nil
 }
 
-func (s *MinIOStorage) PutObject(ctx context.Context, key string, reader io.Reader, size int64, contentType string) error {
+func (s *S3Storage) PutObject(ctx context.Context, key string, reader io.Reader, size int64, contentType string) error {
 	if err := s.ensureBucket(ctx); err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func (s *MinIOStorage) PutObject(ctx context.Context, key string, reader io.Read
 	return nil
 }
 
-func (s *MinIOStorage) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
+func (s *S3Storage) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
 	object, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("get object: %w", err)
@@ -62,14 +63,14 @@ func (s *MinIOStorage) GetObject(ctx context.Context, key string) (io.ReadCloser
 	return object, nil
 }
 
-func (s *MinIOStorage) DeleteObject(ctx context.Context, key string) error {
+func (s *S3Storage) DeleteObject(ctx context.Context, key string) error {
 	if err := s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{}); err != nil {
 		return fmt.Errorf("delete object: %w", err)
 	}
 	return nil
 }
 
-func (s *MinIOStorage) PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+func (s *S3Storage) PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	u, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, nil)
 	if err != nil {
 		return "", fmt.Errorf("presign object: %w", err)
@@ -77,7 +78,7 @@ func (s *MinIOStorage) PresignedGetURL(ctx context.Context, key string, ttl time
 	return u.String(), nil
 }
 
-func (s *MinIOStorage) Usage(ctx context.Context) (Usage, error) {
+func (s *S3Storage) Usage(ctx context.Context) (Usage, error) {
 	if err := s.ensureBucket(ctx); err != nil {
 		return Usage{}, err
 	}
@@ -92,13 +93,15 @@ func (s *MinIOStorage) Usage(ctx context.Context) (Usage, error) {
 	return usage, nil
 }
 
-func (s *MinIOStorage) ListObjects(ctx context.Context, prefix string, limit int) ([]ObjectInfo, error) {
+func (s *S3Storage) ListObjects(ctx context.Context, prefix string, limit int) ([]ObjectInfo, error) {
 	if err := s.ensureBucket(ctx); err != nil {
 		return nil, err
 	}
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	items := make([]ObjectInfo, 0, limit)
 	for object := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: strings.TrimPrefix(prefix, "/"), Recursive: true}) {
 		if object.Err != nil {
@@ -112,21 +115,27 @@ func (s *MinIOStorage) ListObjects(ctx context.Context, prefix string, limit int
 	return items, nil
 }
 
-func (s *MinIOStorage) ensureBucket(ctx context.Context) error {
-	s.ensureOnce.Do(func() {
-		exists, err := s.client.BucketExists(ctx, s.bucket)
-		if err != nil {
-			s.ensureErr = fmt.Errorf("check storage bucket: %w", err)
-			return
-		}
-		if exists {
-			return
-		}
+func (s *S3Storage) ensureBucket(ctx context.Context) error {
+	s.ensureMu.Lock()
+	defer s.ensureMu.Unlock()
+	if s.bucketReady {
+		return nil
+	}
+	exists, err := s.client.BucketExists(ctx, s.bucket)
+	if err != nil {
+		return fmt.Errorf("check storage bucket: %w", err)
+	}
+	if !exists {
 		if err := s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
-			s.ensureErr = fmt.Errorf("create storage bucket: %w", err)
+			// Another backend may have created the bucket concurrently. Do not
+			// cache failures: startup races and outages must be retryable.
+			if minio.ToErrorResponse(err).Code != "BucketAlreadyOwnedByYou" {
+				return fmt.Errorf("create storage bucket: %w", err)
+			}
 		}
-	})
-	return s.ensureErr
+	}
+	s.bucketReady = true
+	return nil
 }
 
 func parseEndpoint(raw string, fallbackUseSSL bool) (string, bool, error) {

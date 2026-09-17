@@ -33,7 +33,7 @@
 - Frontend package manager: pnpm
 - Database: PostgreSQL
 - Cache: Redis
-- Storage: MinIO / S3
+- Storage: RustFS / S3
 - Office editor: pluggable self-hosted open-source provider
 - Markdown collab: Yjs / WebSocket
 - Deploy: Docker Compose / Nginx

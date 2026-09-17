@@ -53,7 +53,7 @@ podman push registry.example.com/online-colab-document/casual-docs:VERSION
 
 ## 校验并启动基础服务
 
-生产 compose 使用 Nginx 作为统一入口，并创建 PostgreSQL、Redis 和 MinIO named volumes。先渲染配置：
+生产 compose 使用 Nginx 作为统一入口，并创建 PostgreSQL、Redis 和 RustFS named volumes。先渲染配置：
 
 ```bash
 podman compose --env-file deploy/env/production.env -f deploy/docker-compose.prod.yml config
@@ -102,7 +102,7 @@ curl -fsS https://docs.example.com/readyz
 2. editor 打开相同文档，确认可编辑并产生新版本
 3. viewer 打开相同文档，确认只读且保存请求被拒绝
 4. 通过 gateway 检查 `/wopi`、`/yjs` 和房间接口不绕过 backend 权限
-5. 重启编辑器服务后，确认已保存内容仍能从 MinIO/S3 和版本历史恢复
+5. 重启编辑器服务后，确认已保存内容仍能从 RustFS/S3 和版本历史恢复
 
 ## 数据持久化和备份
 
@@ -110,12 +110,12 @@ curl -fsS https://docs.example.com/readyz
 
 - **`postgres-data`**: 用户、文档元数据、权限、版本和审计日志
 - **`redis-data`**: Redis append-only 数据
-- **`minio-data`**: 文档对象内容
+- **`rustfs-data`**: 文档对象内容
 
 备份应同时覆盖数据库、对象存储和受控环境变量：
 
 1. 定期执行 `pg_dump` 并验证可恢复
-2. 备份 MinIO bucket 或其底层 volume
+2. 备份 RustFS bucket 或其底层 volume
 3. 将生产环境变量保存在受控 secret manager
 4. 在隔离环境中恢复数据库和对象存储，再验证文档下载与版本恢复
 
@@ -128,5 +128,9 @@ curl -fsS https://docs.example.com/readyz
 - **登录后没有会话**: 检查 HTTPS、`PUBLIC_APP_URL`、`FRONTEND_ORIGIN` 和 cookie 域名
 - **上传失败**: 使 Nginx `client_max_body_size` 与 `DOCUMENT_MAX_UPLOAD_BYTES` 保持一致
 - **Markdown WebSocket 断开**: 确认 `/api/` 保留 Upgrade 与 Connection 请求头
-- **重启后文件缺失**: 确认未删除 PostgreSQL 或 MinIO volume
+- **重启后文件缺失**: 确认未删除 PostgreSQL 或 RustFS volume
 - **Office 无法打开**: 按“生产环境中的 Office 编辑器”逐项验证地址、JWT、网关和保存回调
+
+## 从 MinIO 升级
+
+不能直接把旧 `minio-data` 卷挂给 RustFS。先按[迁移指南](rustfs-migration.md)停写、备份、经 S3 API 复制并逐对象校验，再切换后端。新部署使用独立的 `rustfs-data` 卷。保留旧卷，禁止升级过程中执行 `down -v`。

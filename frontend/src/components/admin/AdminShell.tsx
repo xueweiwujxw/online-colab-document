@@ -8,7 +8,7 @@ const navigation: Array<{ id: AdminSection; href: string; label: string; note: s
   { id: 'overview', href: '/admin', label: '概览', note: '系统状态' },
   { id: 'users', href: '/admin/users', label: '用户与访问', note: '账号和角色' },
   { id: 'documents', href: '/admin/documents', label: '文件治理', note: '全局文档' },
-  { id: 'storage', href: '/admin/storage', label: '对象存储', note: 'MinIO 浏览器' },
+  { id: 'storage', href: '/admin/storage', label: '对象存储', note: 'RustFS 浏览器' },
   { id: 'identity', href: '/admin/identity', label: '身份连接', note: 'OIDC 状态' },
   { id: 'audit', href: '/admin/audit-logs', label: '审计日志', note: '事件检索' },
 ];

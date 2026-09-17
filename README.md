@@ -13,6 +13,8 @@
 
 开发服务、端口和常见故障见[开发指南](docs/development.md)。生产部署前请阅读[部署指南](docs/deployment.md)。
 
+默认对象存储为 RustFS 1.0.0，继续使用 `S3_*` 配置。已有 MinIO 部署升级前必须按[存储迁移指南](docs/rustfs-migration.md)复制并校验对象。
+
 ## 支持范围
 
 - `.docx`：通过自托管 Casual Docs 打开、编辑和保存

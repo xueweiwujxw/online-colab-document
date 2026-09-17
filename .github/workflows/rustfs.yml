@@ -1,0 +1,59 @@
+name: RustFS regression
+on:
+  push:
+    branches: [master, feat-rustfs-storage]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  storage-and-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: rustfs-regression
+      CASUAL_JWT_SECRET: rustfs-ci-disposable-signing-secret
+      RUSTFS_TEST_ENDPOINT: http://127.0.0.1:9000
+      RUSTFS_TEST_ACCESS_KEY: rustfsadmin
+      RUSTFS_TEST_SECRET_KEY: rustfsadmin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache-dependency-path: backend/go.sum
+      - name: Validate Compose configurations
+        run: |
+          docker compose -f deploy/docker-compose.yml config --quiet
+          docker compose --env-file deploy/env/production.env.example -f deploy/docker-compose.prod.yml config --quiet
+      - name: Start isolated test environment
+        run: docker compose -f deploy/docker-compose.yml up -d --build postgres redis rustfs backend
+      - name: Wait for RustFS readiness
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9000/health/ready >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Backend and real RustFS tests (race detector)
+        working-directory: backend
+        run: go test -race -count=1 -v ./...
+      - name: API and restart persistence regression
+        run: python3 scripts/smoke-rustfs.py
+      - name: Cleanup disposable test environment
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down -v
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: corepack prepare pnpm@11.9.0 --activate
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm run lint && pnpm run build
+        working-directory: frontend
