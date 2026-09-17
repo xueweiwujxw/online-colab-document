@@ -122,5 +122,7 @@ owner.call('DELETE', '/api/admin/storage/object' + query)
 assert all(item['key'] != obj['key'] for item in owner.call('GET', '/api/admin/storage')['items'])
 for path, _ in persisted:
     owner.call('DELETE', path)
-    owner.call('GET', path + '/download', expected=404)
+    # Permission lookup excludes soft-deleted documents, so access is denied.
+    owner.call('GET', path + '/download', expected=403)
+    assert all(item['id'] != path.rsplit('/', 1)[1] for item in owner.call('GET', '/api/documents')['items'])
 print('PASS admin object deletion and document soft deletion')
