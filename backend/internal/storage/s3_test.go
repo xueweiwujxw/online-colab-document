@@ -64,3 +64,25 @@ func TestBucketInitializationConcurrentCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGetObjectSurfacesMissingObjectBeforeStreaming(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		if r.URL.RawQuery == "location=" {
+			_, _ = w.Write([]byte(`<LocationConstraint>us-east-1</LocationConstraint>`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`<Error><Code>NoSuchKey</Code></Error>`))
+	}))
+	defer server.Close()
+	s, err := NewS3Storage(S3Config{Endpoint: server.URL, AccessKey: "test", SecretKey: "test-secret", Bucket: "test-bucket"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := s.GetObject(context.Background(), "missing.md")
+	if err == nil {
+		reader.Close()
+		t.Fatal("lazy read error must be returned before handler writes headers")
+	}
+}

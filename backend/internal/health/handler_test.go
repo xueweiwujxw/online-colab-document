@@ -56,3 +56,18 @@ func TestReadyzSkipsUnconfiguredDependencies(t *testing.T) {
 		}
 	}
 }
+
+func TestReadyzRejectsStorageWithOpenPortButInvalidCredentials(t *testing.T) {
+	storage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`<Error><Code>AccessDenied</Code></Error>`))
+	}))
+	defer storage.Close()
+	handler := NewHandler(NewChecker(config.Config{S3Endpoint: storage.URL, S3AccessKey: "test", S3SecretKey: "test-secret", S3Bucket: "docs"}))
+	rec := httptest.NewRecorder()
+	handler.Readyz(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("open port must not imply ready: %d", rec.Code)
+	}
+}

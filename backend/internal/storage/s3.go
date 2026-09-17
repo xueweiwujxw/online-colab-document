@@ -44,6 +44,19 @@ func NewS3Storage(cfg S3Config) (*S3Storage, error) {
 	return &S3Storage{client: client, bucket: cfg.Bucket}, nil
 }
 
+// Check verifies authenticated S3 access, not merely an open TCP listener.
+// A fresh deployment also needs its application bucket initialized.
+func (s *S3Storage) Check(ctx context.Context) error {
+	exists, err := s.client.BucketExists(ctx, s.bucket)
+	if err != nil {
+		return fmt.Errorf("check storage access: %w", err)
+	}
+	if !exists {
+		return s.ensureBucket(ctx)
+	}
+	return nil
+}
+
 func (s *S3Storage) PutObject(ctx context.Context, key string, reader io.Reader, size int64, contentType string) error {
 	if err := s.ensureBucket(ctx); err != nil {
 		return err
@@ -59,6 +72,12 @@ func (s *S3Storage) GetObject(ctx context.Context, key string) (io.ReadCloser, e
 	object, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("get object: %w", err)
+	}
+	// GetObject is lazy: surface missing objects/startup/auth failures before
+	// handlers send a successful response with a non-zero Content-Length.
+	if _, err := object.Stat(); err != nil {
+		_ = object.Close()
+		return nil, fmt.Errorf("stat object: %w", err)
 	}
 	return object, nil
 }

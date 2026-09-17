@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"online-colab-document/backend/internal/config"
+	"online-colab-document/backend/internal/storage"
 )
 
 type Checker struct {
@@ -44,12 +45,19 @@ func (c Checker) checkStorage(ctx context.Context) string {
 		return "skipped"
 	}
 
-	parsed, err := url.Parse(c.cfg.S3Endpoint)
-	if err != nil || parsed.Host == "" {
+	client, err := storage.NewS3Storage(storage.S3Config{
+		Endpoint: c.cfg.S3Endpoint, AccessKey: c.cfg.S3AccessKey,
+		SecretKey: c.cfg.S3SecretKey, Bucket: c.cfg.S3Bucket, UseSSL: c.cfg.S3UseSSL,
+	})
+	if err != nil {
 		return "error"
 	}
-
-	return c.checkTCP(ctx, parsed.Host)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	if err := client.Check(ctx); err != nil {
+		return "error"
+	}
+	return "ok"
 }
 
 func (c Checker) checkTCP(ctx context.Context, addr string) string {
